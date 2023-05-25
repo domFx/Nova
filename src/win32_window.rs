@@ -60,6 +60,8 @@ type XInputSetStateDef = unsafe extern "system" fn(DWORD, *mut XINPUT_VIBRATION)
 static mut XINPUT_GET_STATE: Option<XInputGetStateDef> = None;
 static mut XINPUT_SET_STATE: Option<XInputSetStateDef> = None;
 
+// Maybe remove this, seems like it's unnecessary to support old versions
+// most people will likely be on newer windows version so a fallback is redundant
 fn load_xinput() {
     let dll_paths = vec!["xinput1_4.dll", "xinput1_3.dll"];
 
@@ -261,16 +263,26 @@ fn resize_dib_section(offscreen_buffer: &mut OffscreenBuffer, width: i32, height
         offscreen_buffer.info = Some(bitmap_info);
     }
 
-    let bitmap_memory_size: usize = (offscreen_buffer.width * offscreen_buffer.height * offscreen_buffer.bytes_per_pixel).try_into().unwrap();
+    let bitmap_memory_size: usize = 
+        (offscreen_buffer.width * offscreen_buffer.height * offscreen_buffer.bytes_per_pixel).try_into().unwrap();
 
     unsafe {
-        offscreen_buffer.memory = Some(VirtualAlloc(None, bitmap_memory_size, MEM_COMMIT, PAGE_READWRITE));
+        offscreen_buffer.memory = 
+            Some(VirtualAlloc(None, bitmap_memory_size, MEM_COMMIT, PAGE_READWRITE));
     }
 
     offscreen_buffer.pitch = (offscreen_buffer.width * offscreen_buffer.bytes_per_pixel) as usize;
 } 
 
-fn display_buffer_in_window(device_context: HDC, window_width: i32, window_height: i32, offscreen_buffer: &OffscreenBuffer, x: i32, y: i32, width: i32, height: i32) {
+fn display_buffer_in_window(
+    device_context: HDC, 
+    window_width: i32, 
+    window_height: i32, 
+    offscreen_buffer: &OffscreenBuffer, 
+    x: i32,
+    y: i32, 
+    width: i32, 
+    height: i32) {
     unsafe {
         let bit_memory = offscreen_buffer.memory.map(|p| p as *const core::ffi::c_void);
         StretchDIBits(
