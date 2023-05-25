@@ -13,7 +13,7 @@ use windows::{
             CreateWindowExA, DefWindowProcA, RegisterClassA, PeekMessageA,
             TranslateMessage, DispatchMessageA, GetClientRect,
             WM_CLOSE, WM_SIZE, WM_DESTROY, WM_ACTIVATEAPP, WS_OVERLAPPEDWINDOW, WS_VISIBLE,
-            CS_HREDRAW, CS_VREDRAW, CW_USEDEFAULT, WM_PAINT, PM_REMOVE, WM_QUIT
+            CS_HREDRAW, CS_VREDRAW, CW_USEDEFAULT, WM_PAINT, PM_REMOVE, WM_QUIT, WM_KEYDOWN, WM_KEYUP, WM_SYSKEYDOWN, WM_SYSKEYUP,
         }, 
         Graphics::Gdi::{ 
             PAINTSTRUCT, HDC, BITMAPINFO, BITMAPINFOHEADER,
@@ -25,9 +25,12 @@ use windows::{
 };
 
 use winapi::um::xinput::{
-    XUSER_MAX_COUNT, XINPUT_GAMEPAD_DPAD_UP, 
-    XINPUT_STATE, XINPUT_VIBRATION
+    XUSER_MAX_COUNT, XINPUT_GAMEPAD_DPAD_UP, XINPUT_GAMEPAD_DPAD_DOWN, XINPUT_GAMEPAD_DPAD_LEFT, XINPUT_GAMEPAD_DPAD_RIGHT,
+    XINPUT_GAMEPAD_START, XINPUT_GAMEPAD_BACK,
+    XINPUT_STATE, XINPUT_VIBRATION, XInputSetState, XInputGetState
 };
+// Keyboard constants
+use winapi::um::winuser::{VK_SPACE};
 use winapi::shared::minwindef::DWORD;
 
 struct OffscreenBuffer {
@@ -57,16 +60,18 @@ static mut BACKBUFFER: OffscreenBuffer = OffscreenBuffer {
 type XInputGetStateDef = unsafe extern "system" fn(u32, *mut XINPUT_STATE) -> DWORD;
 type XInputSetStateDef = unsafe extern "system" fn(DWORD, *mut XINPUT_VIBRATION) -> DWORD;
 
-static mut XINPUT_GET_STATE: Option<XInputGetStateDef> = None;
-static mut XINPUT_SET_STATE: Option<XInputSetStateDef> = None;
+static mut XINPUT_GET_STATE: Option<XInputGetStateDef> = Some(XInputGetState);
+static mut XINPUT_SET_STATE: Option<XInputSetStateDef> = Some(XInputSetState);
 
 // Maybe remove this, seems like it's unnecessary to support old versions
 // most people will likely be on newer windows version so a fallback is redundant
+// 
+// Not working currently anyway
 fn load_xinput() {
-    let dll_paths = vec!["xinput1_4.dll", "xinput1_3.dll"];
-
+    let dll_paths = vec![s!("xinput1_4.dll"), s!("xinput1_3.dll")];
+    
     for dll_path in dll_paths {
-        let hmodule = unsafe { LoadLibraryA(windows::core::PCSTR(dll_path.as_ptr())) };
+        let hmodule = unsafe { LoadLibraryA(dll_path) };
         match hmodule {
             Ok(value) => {
                 unsafe { 
@@ -134,13 +139,32 @@ pub fn open_win32_window() {
                             // Retrieved controller state
                             // Check if dwPacketNumber increases too rapidly
                             let dpad_up = controller_state.Gamepad.wButtons & XINPUT_GAMEPAD_DPAD_UP;
-                        
+                            let dpad_down = controller_state.Gamepad.wButtons & XINPUT_GAMEPAD_DPAD_DOWN;
+                            let dpad_left = controller_state.Gamepad.wButtons & XINPUT_GAMEPAD_DPAD_LEFT;
+                            let dpad_right = controller_state.Gamepad.wButtons & XINPUT_GAMEPAD_DPAD_RIGHT;
+                            let dpad_start = controller_state.Gamepad.wButtons & XINPUT_GAMEPAD_START;
+                            let dpad_back = controller_state.Gamepad.wButtons & XINPUT_GAMEPAD_BACK;
+
+                            let stick_x = controller_state.Gamepad.sThumbLX;
+                            let stick_y = controller_state.Gamepad.sThumbLY;
+
+                            if dpad_up == 1 {
+                                y_offset += 2;
+                            }
                         } else {
                             // Controller not available
-                            println!("Error retrieving controller state");
                         }
+
                     }
                 }
+
+                // let mut vibration = XINPUT_VIBRATION {
+                //     wLeftMotorSpeed: 60000,
+                //     wRightMotorSpeed: 60000
+                // };
+                // unsafe {
+                //     XINPUT_SET_STATE.unwrap()(0, &mut vibration);
+                // }
 
                 render(&mut BACKBUFFER, x_offset, y_offset);
 
@@ -187,6 +211,22 @@ unsafe extern "system" fn main_window_callback(
         },
         WM_ACTIVATEAPP => { 
             println!("WM_ACTIVATEAPP");
+        },
+        WM_KEYDOWN | WM_KEYUP | WM_SYSKEYDOWN | WM_SYSKEYUP => {
+            let virtual_key_code = wparam.0 as u32;
+            let was_key_pressed = (lparam.0 as u32) & (1 << 30) != 0;
+            let is_key_down = (lparam.0 as u32) & (1 << 31) == 0;
+
+            if was_key_pressed != is_key_down {
+                if virtual_key_code == 'W' as u32 {
+                    println!("W was pressed");
+                } 
+                if virtual_key_code == VK_SPACE as u32 {
+                    println!("Space was pressed");
+                }
+                println!("Was it pressed: {}", was_key_pressed);
+                println!("Is down?: {}", is_key_down);    
+            }
         },
         WM_PAINT => {
             let mut paint_struct = PAINTSTRUCT::default();
