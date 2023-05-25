@@ -65,8 +65,6 @@ static mut XINPUT_SET_STATE: Option<XInputSetStateDef> = Some(XInputSetState);
 
 // Maybe remove this, seems like it's unnecessary to support old versions
 // most people will likely be on newer windows version so a fallback is redundant
-// 
-// Not working currently anyway
 fn load_xinput() {
     let dll_paths = vec![s!("xinput1_4.dll"), s!("xinput1_3.dll")];
     
