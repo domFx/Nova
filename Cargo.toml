@@ -3,15 +3,10 @@ name = "nova"
 version = "0.1.0"
 edition = "2021"
 
-[target.'cfg(target_os = "macos")'.dependencies]
-winit = "0.28.6"
-
-# [dependencies]
 [target.'cfg(windows)'.dependencies]
 winapi = { version = "0.3", features = ["xinput"] }
 
 [target.'cfg(windows)'.dependencies.windows]
-# [dependencies.windows]
 version = "0.48.0"
 features = [
     "Foundation_Collections",
@@ -27,3 +22,6 @@ features = [
     "Win32_System_WinRT_Composition",
     "Win32_UI_WindowsAndMessaging",
 ]
+
+[target.'cfg(not(any(windows)))'.dependencies]
+winit = "0.28.6"

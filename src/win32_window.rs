@@ -78,7 +78,7 @@ fn load_xinput() {
     }
 }
 
-fn main() {
+pub fn open_win32_window() {
     load_xinput();
 
     unsafe {

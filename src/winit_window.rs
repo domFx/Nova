@@ -4,7 +4,7 @@ use winit::{
     window::WindowBuilder
 };
 
-pub fn winit_window_run() {
+pub fn open_winit_window() {
     let event_loop = EventLoop::new();
     let window = WindowBuilder::new().build(&event_loop).unwrap();
 
