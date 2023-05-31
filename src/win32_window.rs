@@ -1,4 +1,5 @@
 use std::mem::size_of;
+use std::ptr;
 
 use windows::{
     Win32::{
@@ -24,14 +25,20 @@ use windows::{
     s
 };
 
-use winapi::um::xinput::{
+use winapi::um::{xinput::{
     XUSER_MAX_COUNT, XINPUT_GAMEPAD_DPAD_UP, XINPUT_GAMEPAD_DPAD_DOWN, XINPUT_GAMEPAD_DPAD_LEFT, XINPUT_GAMEPAD_DPAD_RIGHT,
     XINPUT_GAMEPAD_START, XINPUT_GAMEPAD_BACK,
     XINPUT_STATE, XINPUT_VIBRATION, XInputSetState, XInputGetState
-};
+}, dsound::{DSSCL_PRIORITY, DSBCAPS_PRIMARYBUFFER}};
 // Keyboard constants
 use winapi::um::winuser::{VK_SPACE};
+
+use winapi::um::dsound::{DSBUFFERDESC, IDirectSoundBuffer, LPDIRECTSOUND, IDirectSound};
+use winapi::shared::mmreg::{WAVEFORMATEX, WAVE_FORMAT_PCM};
 use winapi::shared::minwindef::DWORD;
+use winapi::shared::guiddef::{GUID, IID_NULL};
+use winapi::ctypes::{c_void};
+use winapi::shared::winerror::SUCCEEDED;
 
 struct OffscreenBuffer {
     info: Option<BITMAPINFO>,
@@ -59,6 +66,11 @@ static mut BACKBUFFER: OffscreenBuffer = OffscreenBuffer {
 
 type XInputGetStateDef = unsafe extern "system" fn(u32, *mut XINPUT_STATE) -> DWORD;
 type XInputSetStateDef = unsafe extern "system" fn(DWORD, *mut XINPUT_VIBRATION) -> DWORD;
+type DirectSoundCreateDef = unsafe extern "system" fn(
+    *const GUID,
+    *mut LPDIRECTSOUND,
+    *mut c_void
+) -> DWORD;
 
 static mut XINPUT_GET_STATE: Option<XInputGetStateDef> = Some(XInputGetState);
 static mut XINPUT_SET_STATE: Option<XInputSetStateDef> = Some(XInputSetState);
@@ -118,6 +130,11 @@ pub fn open_win32_window() {
 
             let mut x_offset = 0;   
             let mut y_offset = 0;
+
+            let samples_per_second: i32 = 48000;
+            let buffer_size: i32 = samples_per_second * 2 * std::mem::size_of::<i16>() as i32;
+            
+            win32_init_direct_sound(window_handle, 48000, buffer_size);
                     
             while IS_RUNNING {
                 let mut message: MSG = MSG::default();
@@ -211,6 +228,9 @@ unsafe extern "system" fn main_window_callback(
             println!("WM_ACTIVATEAPP");
         },
         WM_KEYDOWN | WM_KEYUP | WM_SYSKEYDOWN | WM_SYSKEYUP => {
+            // SYSKEYUP/DOWN is for function/alt/ctrl
+            // need to manually handle alt+f4
+
             let virtual_key_code = wparam.0 as u32;
             let was_key_pressed = (lparam.0 as u32) & (1 << 30) != 0;
             let is_key_down = (lparam.0 as u32) & (1 << 31) == 0;
@@ -344,4 +364,77 @@ fn get_window_dimension(window: HWND) -> WindowDimension {
         width,
         height
     }
+}
+
+fn win32_init_direct_sound(window: HWND, samples_per_second: i32, buffer_size: i32) {
+    let hmodule = unsafe { LoadLibraryA(s!("dsound.dll")) };
+
+    match hmodule {
+        Ok(value) => {
+            unsafe { 
+                let direct_sound_create: DirectSoundCreateDef 
+                    = std::mem::transmute(GetProcAddress(value, s!("DirectSoundCreate")));
+
+                let mut direct_sound: *mut IDirectSound = ptr::null_mut();
+
+                if SUCCEEDED(direct_sound_create(ptr::null_mut(), &mut direct_sound, ptr::null_mut()) as winapi::shared::winerror::HRESULT) {
+                    if SUCCEEDED((*direct_sound).SetCooperativeLevel(window.0 as winapi::shared::windef::HWND, DSSCL_PRIORITY)) {
+                        // Specify the wave format
+                        let mut wave_format: WAVEFORMATEX = WAVEFORMATEX {
+                            wFormatTag: WAVE_FORMAT_PCM,
+                            nChannels: 2,
+                            nSamplesPerSec: samples_per_second as u32,
+                            wBitsPerSample: 16,
+                            nBlockAlign: 2 * 2,
+                            nAvgBytesPerSec: samples_per_second as u32 * 2 * 2,
+                            cbSize: 0,
+                        };
+
+                        let primary_buffer_desc: DSBUFFERDESC = DSBUFFERDESC {
+                            dwSize: std::mem::size_of::<DSBUFFERDESC>() as u32,
+                            dwFlags: DSBCAPS_PRIMARYBUFFER,
+                            dwBufferBytes: 0, 
+                            dwReserved: 0,
+                            lpwfxFormat: ptr::null_mut(),
+                            guid3DAlgorithm: IID_NULL
+                        };
+
+                        // Create primary buffer
+                        let mut primary_buffer: *mut IDirectSoundBuffer = ptr::null_mut();
+
+                        if SUCCEEDED((*direct_sound).CreateSoundBuffer(&primary_buffer_desc, &mut primary_buffer, ptr::null_mut())) {
+                            if SUCCEEDED((*primary_buffer).SetFormat(&mut wave_format)) {
+                                println!("Format set");
+                            } else {
+
+                            }
+                        } else {
+                            
+                        }
+
+                        let secondary_buffer_desc: DSBUFFERDESC = DSBUFFERDESC {
+                            dwSize: std::mem::size_of::<DSBUFFERDESC>() as DWORD,
+                            dwFlags: 0,
+                            dwBufferBytes: buffer_size as u32, 
+                            dwReserved: 0,
+                            lpwfxFormat: &mut wave_format,
+                            guid3DAlgorithm: IID_NULL
+                        };
+                        
+                        // Create secondary buffer
+                        let mut secondary_buffer: *mut IDirectSoundBuffer = ptr::null_mut();
+
+                        if SUCCEEDED((*direct_sound).CreateSoundBuffer(&secondary_buffer_desc, &mut secondary_buffer, ptr::null_mut())) {
+                            println!("Secondary Buffer Set");
+                        } else {
+                            
+                        }
+                    }   
+                } else {
+
+                }
+            }
+        }
+        _ => return
+    };
 }

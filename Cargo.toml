@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2021"
 
 [target.'cfg(windows)'.dependencies]
-winapi = { version = "0.3", features = ["xinput", "winuser"] }
+winapi = { version = "0.3", features = ["xinput", "winuser", "dsound"] }
 
 [target.'cfg(windows)'.dependencies.windows]
 version = "0.48.0"
