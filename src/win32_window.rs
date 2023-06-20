@@ -26,18 +26,18 @@ use windows::{
 };
 
 use winapi::um::{xinput::{
-    XUSER_MAX_COUNT, XINPUT_GAMEPAD_DPAD_UP, XINPUT_GAMEPAD_DPAD_DOWN, XINPUT_GAMEPAD_DPAD_LEFT, XINPUT_GAMEPAD_DPAD_RIGHT,
-    XINPUT_GAMEPAD_START, XINPUT_GAMEPAD_BACK,
+    XUSER_MAX_COUNT, XINPUT_GAMEPAD_DPAD_UP, XINPUT_GAMEPAD_DPAD_DOWN, XINPUT_GAMEPAD_DPAD_LEFT, 
+    XINPUT_GAMEPAD_DPAD_RIGHT, XINPUT_GAMEPAD_START, XINPUT_GAMEPAD_BACK,
     XINPUT_STATE, XINPUT_VIBRATION, XInputSetState, XInputGetState
 }, dsound::{DSSCL_PRIORITY, DSBCAPS_PRIMARYBUFFER}};
 // Keyboard constants
-use winapi::um::winuser::{VK_SPACE};
+use winapi::um::winuser::VK_SPACE;
 
 use winapi::um::dsound::{DSBUFFERDESC, IDirectSoundBuffer, LPDIRECTSOUND, IDirectSound};
 use winapi::shared::mmreg::{WAVEFORMATEX, WAVE_FORMAT_PCM};
 use winapi::shared::minwindef::DWORD;
 use winapi::shared::guiddef::{GUID, IID_NULL};
-use winapi::ctypes::{c_void};
+use winapi::ctypes::c_void;
 use winapi::shared::winerror::SUCCEEDED;
 
 struct OffscreenBuffer {
