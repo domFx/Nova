@@ -1,3 +1,6 @@
+#[path = "./vulkan_app.rs"]
+mod vulkan_app;
+
 use winit::{
     event::{Event, WindowEvent},
     event_loop::{ControlFlow, EventLoop},
