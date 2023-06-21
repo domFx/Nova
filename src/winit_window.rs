@@ -7,9 +7,13 @@ use winit::{
     window::WindowBuilder
 };
 
+use self::vulkan_app::create;
+
 pub fn open_winit_window() {
     let event_loop = EventLoop::new();
     let window = WindowBuilder::new().build(&event_loop).unwrap();
+
+    let vulkan_app = unsafe { create(&window) };
 
     event_loop.run(move |event, _, control_flow| {
         *control_flow = ControlFlow::Wait;
