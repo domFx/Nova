@@ -1,28 +1,34 @@
 #[path = "./vulkan_app.rs"]
 mod vulkan_app;
 
+use vulkan_app::VulkanApp;
+
 use winit::{
     event::{Event, WindowEvent},
     event_loop::{ControlFlow, EventLoop},
     window::WindowBuilder
 };
 
-use self::vulkan_app::create;
-
 pub fn open_winit_window() {
     let event_loop = EventLoop::new();
     let window = WindowBuilder::new().build(&event_loop).unwrap();
 
-    let vulkan_app = unsafe { create(&window) };
+    let vulkan_app = unsafe { VulkanApp::create(&window) };
 
-    event_loop.run(move |event, _, control_flow| {
+    event_loop.run(move |event_loop_event, _, control_flow| {
         *control_flow = ControlFlow::Wait;
 
-        match event {
-            Event::WindowEvent {
-                event: WindowEvent::CloseRequested,
-                window_id,
-            } if window_id == window.id() => *control_flow = ControlFlow::Exit,
+        match event_loop_event {
+            Event::WindowEvent { event, ..} => {
+                match event {
+                    WindowEvent::CloseRequested => *control_flow = ControlFlow::Exit,
+                    _ => () 
+                }
+            }
+            Event::MainEventsCleared => {
+                window.request_redraw();
+            },
+            Event::RedrawRequested(_window_id) => (),
             _ => (),
         }
     });
