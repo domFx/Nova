@@ -1,14 +1,9 @@
-use std::{ffi::CStr, collections::HashSet};
-use std::os::raw::c_char;
+use crate::constants::*;
+use crate::platform::*;
 
-use ash::extensions::ext::DebugUtils;
+use std::{ffi::CStr, ffi::CString};
+
 use ash::{vk, Entry};
-use ash_window;
-
-use raw_window_handle::{HasRawDisplayHandle};
-use winit::window::Window;
-
-const VALIDATION_ENABLED: bool = cfg!(debug_assertions);
 
 pub struct VulkanApp {
     entry: Entry, 
@@ -16,106 +11,102 @@ pub struct VulkanApp {
 }
 
 impl VulkanApp {
-    pub unsafe fn create(window: &Window) {
-        let entry = Entry::load().expect("Unable to load Entry");
-        
-        let app_name = CStr::from_bytes_with_nul_unchecked(b"Game\0");
-        let engine_name = CStr::from_bytes_with_nul_unchecked(b"Nova Engine\0");
-    
-        let available_layers = entry
-            .enumerate_instance_layer_properties()
-            .expect("Unable to enumerate instance layer properties")
-            .iter()
-            .map(|l| {
-                let layer_name = std::ffi::CStr::from_ptr(l.layer_name.as_ptr());
-                layer_name.to_str().unwrap()
-            })
-            .collect::<HashSet<_>>();
-    
-        if VALIDATION_ENABLED && !available_layers.contains("VK_LAYER_KHRONOS_validation") {
-            println!("Validation layer requested but not supported");
-            return;
-        }
-    
-        let layers: Vec<*const c_char> = if VALIDATION_ENABLED {
-            vec![CStr::from_bytes_with_nul_unchecked(b"VK_LAYER_KHRONOS_validation\0")]
-                .iter()
-                .map(|raw_name| raw_name.as_ptr())
-                .collect()
-        } else {
-            Vec::new()
-        };
-    
-        let mut extension_names =
-            ash_window::enumerate_required_extensions(window.raw_display_handle())
-                .unwrap()
-                .to_vec();
-    
-        #[cfg(any(target_os = "macos", target_os = "ios"))]
-        {
-            extension_names.push(vk::KhrPortabilityEnumerationFn::name().as_ptr());
-            extension_names.push(vk::KhrGetPhysicalDeviceProperties2Fn::name().as_ptr());
-        }
-    
-        if VALIDATION_ENABLED {
-            extension_names.push(ash::extensions::ext::DebugUtils::name().as_ptr());
-        }
-    
-        let create_flags = if cfg!(any(target_os = "macos", target_os = "ios")) {
-            vk::InstanceCreateFlags::ENUMERATE_PORTABILITY_KHR
-        } else {
-            vk::InstanceCreateFlags::empty()
-        };
-    
-        let app_info = vk::ApplicationInfo::builder()
-            .application_name(app_name)
-            .application_version(0)
-            .engine_name(engine_name)
-            .engine_version(1)
-            .api_version(vk::make_api_version(0, 1, 0, 0))
-            .build();
-    
-        let create_info = vk::InstanceCreateInfo::builder()
-            .application_info(&app_info)
-            .enabled_layer_names(&layers)
-            .enabled_extension_names(&extension_names)
-            .flags(create_flags)
-            .build();
-    
-        let debug_info = vk::DebugUtilsMessengerCreateInfoEXT::builder()
-            .message_severity(
-                vk::DebugUtilsMessageSeverityFlagsEXT::VERBOSE |
-                vk::DebugUtilsMessageSeverityFlagsEXT::ERROR |
-                vk::DebugUtilsMessageSeverityFlagsEXT::INFO |
-                vk::DebugUtilsMessageSeverityFlagsEXT::WARNING
-            )
-            .message_type(
-                vk::DebugUtilsMessageTypeFlagsEXT::DEVICE_ADDRESS_BINDING |
-                vk::DebugUtilsMessageTypeFlagsEXT::GENERAL | 
-                vk::DebugUtilsMessageTypeFlagsEXT::PERFORMANCE |
-                vk::DebugUtilsMessageTypeFlagsEXT::VALIDATION
-            )
-            .pfn_user_callback(Some(debug_callback))
-            .build();
-    
-        let instance = entry
-            .create_instance(&create_info, None)
-            .expect("Unable to create instance");
-        
-        if VALIDATION_ENABLED {
-            let debug_utils_loader = DebugUtils::new(&entry, &instance);
-            debug_utils_loader
-                .create_debug_utils_messenger(&debug_info, None)
-                .unwrap(); 
+    pub fn new() -> VulkanApp {
+        let entry = unsafe { Entry::load().expect("Unable to load Entry") };
+        let instance = create_instance(&entry);
+
+        VulkanApp {
+            entry,
+            instance
         }
     }
 
-    fn drop(&mut self) {
+    pub fn drop(&mut self) {
         unsafe { self.instance.destroy_instance(None); }
     }
 }
 
-extern "system" fn debug_callback(
+fn create_instance(entry: &Entry) -> ash::Instance {
+    let app_name = CString::new(WINDOW_TITLE).unwrap();
+    let engine_name = CString::new(ENGINE_NAME).unwrap();
+
+    let app_info = vk::ApplicationInfo {
+        p_application_name: app_name.as_ptr(),
+        s_type: vk::StructureType::APPLICATION_INFO,
+        p_next: std::ptr::null(),
+        application_version: APPLICATION_VERSION,
+        p_engine_name: engine_name.as_ptr(),
+        engine_version: ENGINE_VERSION,
+        api_version: API_VERSION
+    };
+
+    let debug_info = create_debug_info();
+
+    let required_extension_names = required_extension_names();
+
+    let required_validation_layer_raw_names: Vec<CString> = ["VK_LAYER_KHRONOS_validation"]
+        .iter()
+        .map(|layer_name| CString::new(*layer_name).unwrap())
+        .collect();
+
+    let layer_names: Vec<*const i8>= required_validation_layer_raw_names
+        .iter()
+        .map(|layer_name| layer_name.as_ptr())
+        .collect();
+
+    let create_info = vk::InstanceCreateInfo {
+        s_type: vk::StructureType::INSTANCE_CREATE_INFO,
+        p_next: if VALIDATION_ENABLED {
+            &debug_info as *const vk::DebugUtilsMessengerCreateInfoEXT as *const std::ffi::c_void
+        } else {
+            std::ptr::null()
+        },
+        flags: vk::InstanceCreateFlags::empty(),
+        p_application_info: &app_info,
+        pp_enabled_layer_names: if VALIDATION_ENABLED {
+            layer_names.as_ptr()
+        } else {
+            std::ptr::null()
+        },
+        enabled_layer_count: if VALIDATION_ENABLED {
+            layer_names.len()
+        } else {
+            0
+        } as u32,
+        pp_enabled_extension_names: required_extension_names.as_ptr(),
+        enabled_extension_count: required_extension_names.len() as u32
+    };
+
+    let instance: ash::Instance = unsafe {
+        entry
+            .create_instance(&create_info, None)
+            .expect("Failed to create Instance")
+    };
+
+    instance
+}
+
+fn create_debug_info() -> vk::DebugUtilsMessengerCreateInfoEXT {
+    vk::DebugUtilsMessengerCreateInfoEXT {
+        s_type: vk::StructureType::DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT,
+        p_next: std::ptr::null(),
+        flags: vk::DebugUtilsMessengerCreateFlagsEXT::empty(),
+        message_severity: 
+            vk::DebugUtilsMessageSeverityFlagsEXT::VERBOSE |
+            vk::DebugUtilsMessageSeverityFlagsEXT::ERROR |
+            vk::DebugUtilsMessageSeverityFlagsEXT::INFO |
+            vk::DebugUtilsMessageSeverityFlagsEXT::WARNING,
+        message_type:
+            vk::DebugUtilsMessageTypeFlagsEXT::DEVICE_ADDRESS_BINDING |
+            vk::DebugUtilsMessageTypeFlagsEXT::GENERAL | 
+            vk::DebugUtilsMessageTypeFlagsEXT::PERFORMANCE |
+            vk::DebugUtilsMessageTypeFlagsEXT::VALIDATION,
+        pfn_user_callback: Some(vulkan_debug_callback),
+        p_user_data: std::ptr::null_mut()
+    }
+}
+
+extern "system" fn vulkan_debug_callback(
     severity: vk::DebugUtilsMessageSeverityFlagsEXT,
     type_: vk::DebugUtilsMessageTypeFlagsEXT,
     data: *const vk::DebugUtilsMessengerCallbackDataEXT,

@@ -13,7 +13,7 @@ pub fn open_winit_window() {
     let event_loop = EventLoop::new();
     let window = WindowBuilder::new().build(&event_loop).unwrap();
 
-    let vulkan_app = unsafe { VulkanApp::create(&window) };
+    let _vulkan_app = VulkanApp::new();
 
     event_loop.run(move |event_loop_event, _, control_flow| {
         *control_flow = ControlFlow::Wait;

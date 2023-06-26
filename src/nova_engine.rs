@@ -16,8 +16,6 @@ impl NovaEngine {
     pub fn new() {
         #[cfg(target_os = "windows")]
         {
-
-
             // win32_window::open_win32_window();
             winit_window::open_winit_window();
         }
