@@ -13,7 +13,7 @@ pub fn open_winit_window() {
     let event_loop = EventLoop::new();
     let window = WindowBuilder::new().build(&event_loop).unwrap();
 
-    let _vulkan_app = VulkanApp::new();
+    let mut vulkan_app = VulkanApp::new();
 
     event_loop.run(move |event_loop_event, _, control_flow| {
         *control_flow = ControlFlow::Wait;
@@ -21,7 +21,10 @@ pub fn open_winit_window() {
         match event_loop_event {
             Event::WindowEvent { event, ..} => {
                 match event {
-                    WindowEvent::CloseRequested => *control_flow = ControlFlow::Exit,
+                    WindowEvent::CloseRequested =>  { 
+                        *control_flow = ControlFlow::Exit;
+                        vulkan_app.drop();
+                    },
                     _ => () 
                 }
             }
