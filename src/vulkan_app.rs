@@ -150,7 +150,7 @@ fn create_instance(entry: &Entry) -> Result<ash::Instance> {
 
     let required_extension_names = required_extension_names();
 
-    let required_validation_layer_raw_names: Vec<CString> = ["VK_LAYER_KHRONOS_validation"]
+    let required_validation_layer_raw_names: Vec<CString> = VALIDATION_LAYERS
         .iter()
         .map(|layer_name| CString::new(*layer_name).unwrap())
         .collect();
