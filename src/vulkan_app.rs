@@ -3,10 +3,13 @@ use crate::platform::*;
 
 use std::{ffi::CStr, ffi::CString};
 
-use ash::{vk, Entry};
 use anyhow::{Result,anyhow};
-use thiserror::Error;
+use ash::{vk, Entry};
+use ash::extensions::khr::{ Win32Surface, Surface };
 use log::*;
+use thiserror::Error;
+use winit::window::Window;
+use winit::platform::windows::WindowExtWindows;
 
 const ENABLE_VALIDATION_LAYERS: bool = true;
 const VALIDATION_LAYERS: &'static [&'static str] = &["VK_LAYER_KHRONOS_validation"];
@@ -16,24 +19,27 @@ pub struct VulkanApp {
     instance: ash::Instance,
     physical_device: vk::PhysicalDevice,
     logical_device: ash::Device,
-    graphics_queue: vk::Queue
+    graphics_queue: vk::Queue,
+    surface: vk::SurfaceKHR
 }
 
 impl VulkanApp {
-    pub fn new() -> Result<Self> {
+    pub fn new(window: &Window) -> Result<Self> {
         let entry = unsafe { Entry::load().expect("Unable to load Entry") };
         let instance = create_instance(&entry)?;
         let physical_device = unsafe { pick_physical_device(&instance)? };
         let indices = unsafe { QueueFamilyIndices::get(&instance, physical_device)? };
         let logical_device = unsafe { create_logical_device(&entry, &instance, physical_device, &indices)? };
         let graphics_queue = unsafe { logical_device.get_device_queue(indices.graphics, 0) };
+        let surface = unsafe { create_surface(window, &entry, &instance)? };
 
         Ok(Self {
             entry,
             instance,
             physical_device,
             logical_device,
-            graphics_queue
+            graphics_queue,
+            surface
         })
     }
 
@@ -41,9 +47,32 @@ impl VulkanApp {
         unsafe { 
             self.logical_device.destroy_device(None);
 
+            // self.surface.destroy_surface_khr --> probably a cleaner way to do this
+            let surface = Surface::new(&self.entry, &self.instance);
+            surface.destroy_surface(self.surface, None);
+
             self.instance.destroy_instance(None);
         }
     }
+}
+
+unsafe fn create_surface(window: &Window, entry: &Entry, instance: &ash::Instance) -> Result<vk::SurfaceKHR> { 
+    let hinstance_pointer: *const std::ffi::c_void = window.hinstance() as *const std::ffi::c_void;
+    let hwnd_pointer: *const std::ffi::c_void = window.hwnd() as *const std::ffi::c_void;
+
+    debug!("{:?}", hinstance_pointer);
+    debug!("{:?}", hwnd_pointer);
+
+    let info = vk::Win32SurfaceCreateInfoKHR::builder()
+        .hinstance(hinstance_pointer)
+        .hwnd(hwnd_pointer)
+        .build();
+
+    let surface = Win32Surface::new(entry, instance);
+
+    let surface = surface.create_win32_surface(&info, None).unwrap();
+
+    Ok(surface)
 }
 
 unsafe fn pick_physical_device(instance: &ash::Instance) -> Result<vk::PhysicalDevice> {
@@ -73,6 +102,7 @@ pub struct SuitablilityError(pub &'static str);
 #[derive(Copy, Clone, Debug)]
 struct QueueFamilyIndices {
     graphics: u32,
+    present: u32
 }
 
 impl QueueFamilyIndices {
@@ -86,9 +116,11 @@ impl QueueFamilyIndices {
             .iter()
             .position(|p| p.queue_flags.contains(vk::QueueFlags::GRAPHICS))
             .map(|i| i as u32);
+        
+        let present = 0;
 
         if let Some(graphics) = graphics {
-            Ok(Self { graphics })
+            Ok(Self { graphics, present })
         } else {
             Err(anyhow!(SuitablilityError("Missing required queue families")))
         }
@@ -106,7 +138,6 @@ unsafe fn create_logical_device(entry: &Entry, instance: &ash::Instance, physica
     // if cfg!(target_os = "macos") && entry.version()? >= PORTABILITY_MACOS_VERSION {
     //     extensions.push(vk::KHR_PORTABILITY_SUBSET_EXTENSION.name.as_ptr());
     // }
-
 
     let layers: Vec<*const i8> = if ENABLE_VALIDATION_LAYERS {
         VALIDATION_LAYERS
