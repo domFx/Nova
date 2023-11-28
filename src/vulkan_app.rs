@@ -4,29 +4,135 @@ use crate::platform::*;
 use std::{ffi::CStr, ffi::CString};
 
 use ash::{vk, Entry};
+use anyhow::{Result,anyhow};
+use thiserror::Error;
+use log::*;
+
+const ENABLE_VALIDATION_LAYERS: bool = true;
+const VALIDATION_LAYERS: &'static [&'static str] = &["VK_LAYER_KHRONOS_validation"];
 
 pub struct VulkanApp {
     entry: Entry, 
-    instance: ash::Instance
+    instance: ash::Instance,
+    physical_device: vk::PhysicalDevice,
+    logical_device: ash::Device,
+    graphics_queue: vk::Queue
 }
 
 impl VulkanApp {
-    pub fn new() -> VulkanApp {
+    pub fn new() -> Result<Self> {
         let entry = unsafe { Entry::load().expect("Unable to load Entry") };
-        let instance = create_instance(&entry);
+        let instance = create_instance(&entry)?;
+        let physical_device = unsafe { pick_physical_device(&instance)? };
+        let indices = unsafe { QueueFamilyIndices::get(&instance, physical_device)? };
+        let logical_device = unsafe { create_logical_device(&entry, &instance, physical_device, &indices)? };
+        let graphics_queue = unsafe { logical_device.get_device_queue(indices.graphics, 0) };
 
-        VulkanApp {
+        Ok(Self {
             entry,
-            instance
-        }
+            instance,
+            physical_device,
+            logical_device,
+            graphics_queue
+        })
     }
 
-    pub fn drop(&mut self) {
-        unsafe { self.instance.destroy_instance(None); }
+    pub fn destroy(&mut self) {
+        unsafe { 
+            self.logical_device.destroy_device(None);
+
+            self.instance.destroy_instance(None);
+        }
     }
 }
 
-fn create_instance(entry: &Entry) -> ash::Instance {
+unsafe fn pick_physical_device(instance: &ash::Instance) -> Result<vk::PhysicalDevice> {
+    for physical_device in instance.enumerate_physical_devices()? {
+        let properties = instance.get_physical_device_properties(physical_device);
+
+        if let Err(error) = check_physical_device(instance, physical_device) {
+            warn!("Skipping physical device (`{:?}`): {}", properties.device_name, error);
+        } else {
+            info!("Selected physical device (`{:?}`).", properties.device_name);
+            return Ok(physical_device)
+        }
+    }
+
+    Err(anyhow!(SuitablilityError("Missing valid physical device.")))
+}
+
+unsafe fn check_physical_device(instance: &ash::Instance, device: vk::PhysicalDevice) -> Result<()> {
+    QueueFamilyIndices::get(instance, device)?;
+    return Ok(())
+}
+
+#[derive(Debug, Error)]
+#[error("{0}.")]
+pub struct SuitablilityError(pub &'static str);
+
+#[derive(Copy, Clone, Debug)]
+struct QueueFamilyIndices {
+    graphics: u32,
+}
+
+impl QueueFamilyIndices {
+    unsafe fn get(
+        instance: &ash::Instance,
+        device: vk::PhysicalDevice
+    ) -> Result<Self> {
+        let properties = instance.get_physical_device_queue_family_properties(device);
+        
+        let graphics = properties
+            .iter()
+            .position(|p| p.queue_flags.contains(vk::QueueFlags::GRAPHICS))
+            .map(|i| i as u32);
+
+        if let Some(graphics) = graphics {
+            Ok(Self { graphics })
+        } else {
+            Err(anyhow!(SuitablilityError("Missing required queue families")))
+        }
+    }
+}
+
+unsafe fn create_logical_device(entry: &Entry, instance: &ash::Instance, physical_device: vk::PhysicalDevice, indices: &QueueFamilyIndices) -> Result<ash::Device> {
+    let queue_priorities = &[1.0];
+    let queue_info = vk::DeviceQueueCreateInfo::builder()
+        .queue_family_index(indices.graphics)
+        .queue_priorities(queue_priorities)
+        .build();
+
+    let mut extensions: Vec<*const i8> = vec![];
+    // if cfg!(target_os = "macos") && entry.version()? >= PORTABILITY_MACOS_VERSION {
+    //     extensions.push(vk::KHR_PORTABILITY_SUBSET_EXTENSION.name.as_ptr());
+    // }
+
+
+    let layers: Vec<*const i8> = if ENABLE_VALIDATION_LAYERS {
+        VALIDATION_LAYERS
+            .iter()
+            .map(|v| CString::new(*v).unwrap())
+            .map(|v| v.as_ptr())
+            .collect()
+    } else  {
+        vec![]
+    };
+
+    let features = vk::PhysicalDeviceFeatures::builder();
+
+    let queue_infos = &[queue_info];
+    let info = vk::DeviceCreateInfo::builder()
+        .queue_create_infos(queue_infos)
+        .enabled_layer_names(&layers)
+        .enabled_extension_names(&extensions)
+        .enabled_features(&features);
+
+    let device = instance.create_device(physical_device, &info, None)?;
+
+    Ok(device)
+}
+
+fn create_instance(entry: &Entry) -> Result<ash::Instance> {
     let app_name = CString::new(WINDOW_TITLE).unwrap();
     let engine_name = CString::new(ENGINE_NAME).unwrap();
 
@@ -83,7 +189,7 @@ fn create_instance(entry: &Entry) -> ash::Instance {
             .expect("Failed to create Instance")
     };
 
-    instance
+    Ok(instance)
 }
 
 fn create_debug_info() -> vk::DebugUtilsMessengerCreateInfoEXT {
@@ -94,13 +200,13 @@ fn create_debug_info() -> vk::DebugUtilsMessengerCreateInfoEXT {
         message_severity: 
             vk::DebugUtilsMessageSeverityFlagsEXT::VERBOSE |
             vk::DebugUtilsMessageSeverityFlagsEXT::ERROR |
-            vk::DebugUtilsMessageSeverityFlagsEXT::INFO |
+            // vk::DebugUtilsMessageSeverityFlagsEXT::INFO |
             vk::DebugUtilsMessageSeverityFlagsEXT::WARNING,
         message_type:
-            vk::DebugUtilsMessageTypeFlagsEXT::DEVICE_ADDRESS_BINDING |
-            vk::DebugUtilsMessageTypeFlagsEXT::GENERAL | 
-            vk::DebugUtilsMessageTypeFlagsEXT::PERFORMANCE |
-            vk::DebugUtilsMessageTypeFlagsEXT::VALIDATION,
+        vk::DebugUtilsMessageTypeFlagsEXT::GENERAL | 
+        vk::DebugUtilsMessageTypeFlagsEXT::VALIDATION |
+        vk::DebugUtilsMessageTypeFlagsEXT::PERFORMANCE,
+        // vk::DebugUtilsMessageTypeFlagsEXT::DEVICE_ADDRESS_BINDING |
         pfn_user_callback: Some(vulkan_debug_callback),
         p_user_data: std::ptr::null_mut()
     }
