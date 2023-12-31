@@ -4,7 +4,11 @@ mod constants;
 #[path = "./platform.rs"]
 mod platform;
 
+#[path = "./utils.rs"]
+mod utils;
+
 mod nova_engine;
+
 use nova_engine::NovaEngine;
 use pretty_env_logger;
 

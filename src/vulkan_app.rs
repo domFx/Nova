@@ -1,5 +1,6 @@
 use crate::constants::*;
 use crate::platform::*;
+use crate::utils::*;
 
 use std::{ffi::CStr, ffi::CString};
 
@@ -79,15 +80,17 @@ unsafe fn pick_physical_device(instance: &ash::Instance) -> Result<vk::PhysicalD
     for physical_device in instance.enumerate_physical_devices()? {
         let properties = instance.get_physical_device_properties(physical_device);
 
+        let device_name = convert_vec_to_string(&properties.device_name.to_vec());
+
         if let Err(error) = check_physical_device(instance, physical_device) {
-            warn!("Skipping physical device (`{:?}`): {}", properties.device_name, error);
+            warn!("Skipping physical device (`{:?}`): {}", device_name, error);
         } else {
-            info!("Selected physical device (`{:?}`).", properties.device_name);
+            info!("Selected physical device (`{:?}`).", device_name);
             return Ok(physical_device)
         }
     }
 
-    Err(anyhow!(SuitablilityError("Missing valid physical device.")))
+    Err(anyhow!(SuitabilityError("Missing valid physical device.")))
 }
 
 unsafe fn check_physical_device(instance: &ash::Instance, device: vk::PhysicalDevice) -> Result<()> {
@@ -97,7 +100,7 @@ unsafe fn check_physical_device(instance: &ash::Instance, device: vk::PhysicalDe
 
 #[derive(Debug, Error)]
 #[error("{0}.")]
-pub struct SuitablilityError(pub &'static str);
+pub struct SuitabilityError(pub &'static str);
 
 #[derive(Copy, Clone, Debug)]
 struct QueueFamilyIndices {
@@ -122,7 +125,7 @@ impl QueueFamilyIndices {
         if let Some(graphics) = graphics {
             Ok(Self { graphics, present })
         } else {
-            Err(anyhow!(SuitablilityError("Missing required queue families")))
+            Err(anyhow!(SuitabilityError("Missing required queue families")))
         }
     }
 }
