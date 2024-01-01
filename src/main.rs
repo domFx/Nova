@@ -7,6 +7,9 @@ mod platform;
 #[path = "./utils.rs"]
 mod utils;
 
+#[path = "./vulkan_app.rs"]
+mod vulkan_app;
+
 mod nova_engine;
 
 use nova_engine::NovaEngine;

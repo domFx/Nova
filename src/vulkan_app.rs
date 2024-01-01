@@ -2,15 +2,15 @@ use crate::constants::*;
 use crate::platform::*;
 use crate::utils::*;
 
-use std::{ffi::CStr, ffi::CString};
+use std::{ffi::{CStr, CString, c_void}};
 
 use anyhow::{Result,anyhow};
 use ash::{vk, Entry};
 use ash::extensions::khr::{ Win32Surface, Surface };
 use log::*;
 use thiserror::Error;
-use winit::window::Window;
-use winit::platform::windows::WindowExtWindows;
+use winit::window::{Window};
+use raw_window_handle::{RawWindowHandle, HasWindowHandle};
 
 const ENABLE_VALIDATION_LAYERS: bool = true;
 const VALIDATION_LAYERS: &'static [&'static str] = &["VK_LAYER_KHRONOS_validation"];
@@ -57,23 +57,35 @@ impl VulkanApp {
     }
 }
 
-unsafe fn create_surface(window: &Window, entry: &Entry, instance: &ash::Instance) -> Result<vk::SurfaceKHR> { 
-    let hinstance_pointer: *const std::ffi::c_void = window.hinstance() as *const std::ffi::c_void;
-    let hwnd_pointer: *const std::ffi::c_void = window.hwnd() as *const std::ffi::c_void;
+unsafe fn create_surface(window: &Window, entry: &Entry, instance: &ash::Instance) -> Result<vk::SurfaceKHR> {
+    let window_handle = window.window_handle()?;
+    let raw_window_handle = window_handle.as_ref();
 
-    debug!("{:?}", hinstance_pointer);
-    debug!("{:?}", hwnd_pointer);
+    match raw_window_handle {
+         RawWindowHandle::Win32(win32_window_handle) => {
+            let hinstance_ptr: *const c_void = match win32_window_handle.hinstance {
+                Some(hinstance) => hinstance.get() as *const c_void,
+                None => std::ptr::null(),
+            };
 
-    let info = vk::Win32SurfaceCreateInfoKHR::builder()
-        .hinstance(hinstance_pointer)
-        .hwnd(hwnd_pointer)
-        .build();
+            let hwnd_ptr: *const c_void = win32_window_handle.hwnd.get() as *const c_void;
 
-    let surface = Win32Surface::new(entry, instance);
+            let info = vk::Win32SurfaceCreateInfoKHR::builder()
+                .hinstance(hinstance_ptr)
+                .hwnd(hwnd_ptr)
+                .build();
 
-    let surface = surface.create_win32_surface(&info, None).unwrap();
+            let win32_surface = Win32Surface::new(entry, instance);
 
-    Ok(surface)
+            let surface = win32_surface.create_win32_surface(&info, None).unwrap();
+
+            Ok(surface)
+        },
+        _ => {
+            error!("Raw window handle not implemented");
+            Err(anyhow!("Missing valid physical device."))
+        }
+    }
 }
 
 unsafe fn pick_physical_device(instance: &ash::Instance) -> Result<vk::PhysicalDevice> {
@@ -197,7 +209,7 @@ fn create_instance(entry: &Entry) -> Result<ash::Instance> {
     let create_info = vk::InstanceCreateInfo {
         s_type: vk::StructureType::INSTANCE_CREATE_INFO,
         p_next: if VALIDATION_ENABLED {
-            &debug_info as *const vk::DebugUtilsMessengerCreateInfoEXT as *const std::ffi::c_void
+            &debug_info as *const vk::DebugUtilsMessengerCreateInfoEXT as *const c_void
         } else {
             std::ptr::null()
         },
@@ -256,13 +268,13 @@ extern "system" fn vulkan_debug_callback(
     let message = unsafe { CStr::from_ptr(data.p_message) }.to_string_lossy();
 
     if severity >= vk::DebugUtilsMessageSeverityFlagsEXT::ERROR {
-        println!("({:?}) {}", type_, message);
+        error!("({:?}) {}", type_, message);
     } else if severity >= vk::DebugUtilsMessageSeverityFlagsEXT::WARNING {
-        println!("({:?}) {}", type_, message);
+        warn!("({:?}) {}", type_, message);
     } else if severity >= vk::DebugUtilsMessageSeverityFlagsEXT::INFO {
-        println!("({:?}) {}", type_, message);
+        info!("({:?}) {}", type_, message);
     } else {
-        println!("({:?}) {}", type_, message);
+        debug!("({:?}) {}", type_, message);
     }
 
     vk::FALSE

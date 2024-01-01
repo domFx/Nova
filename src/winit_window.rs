@@ -1,38 +1,30 @@
-#[path = "./vulkan_app.rs"]
-mod vulkan_app;
-
-use vulkan_app::VulkanApp;
+use crate::vulkan_app::VulkanApp;
 
 use winit::{
     event::{Event, WindowEvent},
-    event_loop::{ControlFlow, EventLoop},
-    window::WindowBuilder
+    event_loop::{EventLoop},
+    window::WindowBuilder,
 };
 
 pub fn open_winit_window() {
-    let event_loop = EventLoop::new();
+    let event_loop = EventLoop::new().unwrap();
+
     let window = WindowBuilder::new().build(&event_loop).unwrap();
 
     let mut vulkan_app = VulkanApp::new(&window).unwrap();
 
-    event_loop.run(move |event_loop_event, _, control_flow| {
-        *control_flow = ControlFlow::Wait;
-
+    event_loop.run(move |event_loop_event, elwt| {
         match event_loop_event {
-            Event::WindowEvent { event, ..} => {
+            Event::WindowEvent { event, .. } => {
                 match event {
-                    WindowEvent::CloseRequested =>  { 
-                        *control_flow = ControlFlow::Exit;
+                    WindowEvent::CloseRequested => {
+                        elwt.exit();
                         vulkan_app.destroy();
-                    },
-                    _ => () 
+                    }
+                    _ => ()
                 }
-            }
-            Event::MainEventsCleared => {
-                window.request_redraw();
             },
-            Event::RedrawRequested(_window_id) => (),
             _ => (),
         }
-    });
+    }).expect("TODO: panic message");
 }
