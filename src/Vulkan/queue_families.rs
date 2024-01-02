@@ -3,13 +3,11 @@ use crate::vulkan::errors::*;
 use anyhow::anyhow;
 use ash::{Instance, vk};
 use ash::vk::PhysicalDevice;
-
 #[derive(Copy, Clone, Debug)]
 pub struct QueueFamilyIndices {
     pub graphics: u32,
     pub present: u32
 }
-
 impl QueueFamilyIndices {
     pub unsafe fn get(
         instance: &Instance,

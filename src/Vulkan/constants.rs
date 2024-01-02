@@ -1,6 +1,5 @@
 use std::ffi::CStr;
 use ash::vk::KhrSwapchainFn;
-
 pub const VALIDATION_ENABLED: bool = cfg!(debug_assertions);
 pub const ENGINE_NAME: &'static str = "Nova Engine";
 pub const WINDOW_TITLE: &'static str = "Dom's Game";
