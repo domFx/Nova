@@ -1,27 +1,21 @@
-use crate::constants::*;
-use crate::platform::*;
 use crate::utils::*;
+use crate::vulkan::constants::*;
+use crate::vulkan::debug::*;
+use crate::vulkan::errors::*;
+use crate::vulkan::platform::*;
+use crate::vulkan::queue_families::*;
+use crate::vulkan::swapchain::*;
 
 use std::ffi::{CStr, CString, c_void};
 use std::collections::HashSet;
 
 use anyhow::{Result,anyhow};
 use ash::{vk, Entry, Instance, Device};
-use ash::extensions::khr::{ Win32Surface, Surface, Swapchain };
-use ash::vk::{KhrSwapchainFn, SwapchainKHR, SurfaceKHR, PhysicalDevice, Queue, KhrPortabilitySubsetFn, ComponentMapping, Image};
+use ash::extensions::khr::{ Win32Surface, Surface };
+use ash::vk::{SurfaceKHR, PhysicalDevice, Queue, KhrPortabilitySubsetFn};
 use log::*;
-use thiserror::Error;
 use winit::window::{Window};
 use raw_window_handle::{RawWindowHandle, HasWindowHandle};
-
-const ENABLE_VALIDATION_LAYERS: bool = true;
-const VALIDATION_LAYERS: &'static [&'static str] = &[
-    "VK_LAYER_KHRONOS_validation"
-];
-
-const DEVICE_EXTENSIONS: &[&CStr] = &[
-    KhrSwapchainFn::name()
-];
 
 pub struct VulkanApp {
     entry: Entry, 
@@ -152,213 +146,6 @@ unsafe fn check_physical_device_extensions(instance: &Instance, physical_device:
     }
 }
 
-#[derive(Debug, Error)]
-#[error("{0}.")]
-pub struct SuitabilityError(pub &'static str);
-
-#[derive(Copy, Clone, Debug)]
-struct QueueFamilyIndices {
-    graphics: u32,
-    present: u32
-}
-
-impl QueueFamilyIndices {
-    unsafe fn get(
-        instance: &Instance,
-        device: PhysicalDevice
-    ) -> Result<Self> {
-        let properties = instance.get_physical_device_queue_family_properties(device);
-
-        let graphics = properties
-            .iter()
-            .position(|p| p.queue_flags.contains(vk::QueueFlags::GRAPHICS))
-            .map(|i| i as u32);
-
-        let present = 0;
-
-        if let Some(graphics) = graphics {
-            Ok(Self { graphics, present })
-        } else {
-            Err(anyhow!(SuitabilityError("Missing required queue families")))
-        }
-    }
-}
-
-// Represents capabilities of GPU
-#[derive(Clone, Debug)]
-struct SwapchainSupport {
-    capabilities: vk::SurfaceCapabilitiesKHR,
-    formats: Vec<vk::SurfaceFormatKHR>,
-    present_modes: Vec<vk::PresentModeKHR>
-}
-
-impl SwapchainSupport {
-    unsafe fn get(
-        surface_loader: &Surface,
-        physical_device: vk::PhysicalDevice,
-        surface: vk::SurfaceKHR
-    ) -> Result<Self> {
-        Ok(Self {
-            capabilities: surface_loader.get_physical_device_surface_capabilities(physical_device, surface)?,
-            formats: surface_loader.get_physical_device_surface_formats(physical_device, surface)?,
-            present_modes: surface_loader.get_physical_device_surface_present_modes(physical_device, surface)?
-        })
-    }
-}
-
-struct VulkanAppSwapchain {
-    swapchain: SwapchainKHR,
-    images: Vec<Image>,
-    loader: Swapchain,
-    format: vk::Format,
-    extent: vk::Extent2D,
-    image_views: Vec<vk::ImageView>
-}
-
-impl VulkanAppSwapchain {
-    pub unsafe fn get(
-        window: &Window,
-        instance: &Instance,
-        logical_device: &Device,
-        physical_device: PhysicalDevice,
-        surface_loader: &Surface,
-        surface: SurfaceKHR) -> Result<Self> {
-
-        let swapchain_loader = Swapchain::new(instance, logical_device);
-
-        let indices = QueueFamilyIndices::get(instance, physical_device)?;
-        let swapchain_support = SwapchainSupport::get(&surface_loader, physical_device, surface)?;
-
-        let surface_format = get_swapchain_surface_format(&swapchain_support.formats);
-        let present_mode = get_swapchain_present_mode(&swapchain_support.present_modes);
-        let extent = get_swapchain_extent(window, swapchain_support.capabilities);
-
-        let mut image_count = swapchain_support.capabilities.min_image_count + 1;
-        if swapchain_support.capabilities.max_image_count != 0 && image_count > swapchain_support.capabilities.max_image_count {
-            image_count = swapchain_support.capabilities.max_image_count;
-        }
-
-        let mut queue_family_indices = vec![];
-        let image_sharing_mode = if indices.graphics != indices.present {
-            queue_family_indices.push(indices.graphics);
-            queue_family_indices.push(indices.present);
-            vk::SharingMode::CONCURRENT
-        } else {
-            vk::SharingMode::EXCLUSIVE
-        };
-
-        let info = vk::SwapchainCreateInfoKHR::builder()
-            .surface(surface)
-            .min_image_count(image_count)
-            .image_format(surface_format.format)
-            .image_color_space(surface_format.color_space)
-            .image_extent(extent)
-            .image_array_layers(1)
-            .image_usage(vk::ImageUsageFlags::COLOR_ATTACHMENT)
-            .image_sharing_mode(image_sharing_mode)
-            .queue_family_indices(&queue_family_indices)
-            .pre_transform(swapchain_support.capabilities.current_transform)
-            .composite_alpha(vk::CompositeAlphaFlagsKHR::OPAQUE)
-            .present_mode(present_mode)
-            .clipped(true)
-            .old_swapchain(SwapchainKHR::null());
-
-        let swapchain = swapchain_loader.create_swapchain(&info, None)?;
-
-        let swapchain_images = unsafe { swapchain_loader.get_swapchain_images(swapchain)? };
-
-        let image_views = create_swapchain_image_views(logical_device, &swapchain_images, surface_format.format)?;
-
-        Ok(Self {
-            swapchain,
-            images: swapchain_images,
-            loader: swapchain_loader,
-            format: surface_format.format,
-            extent,
-            image_views
-        })
-    }
-}
-
-unsafe fn create_swapchain_image_views(
-    device: &Device,
-    swapchain_images: &Vec<Image>,
-    format: vk::Format
-) -> Result<Vec<vk::ImageView>> {
-    let components = ComponentMapping::builder()
-        .r(vk::ComponentSwizzle::IDENTITY)
-        .g(vk::ComponentSwizzle::IDENTITY)
-        .b(vk::ComponentSwizzle::IDENTITY)
-        .a(vk::ComponentSwizzle::IDENTITY)
-        .build();
-
-    let subresource_range = vk::ImageSubresourceRange::builder()
-        .aspect_mask(vk::ImageAspectFlags::COLOR)
-        .base_mip_level(0)
-        .level_count(1)
-        .base_array_layer(0)
-        .layer_count(1)
-        .build();
-
-    let image_views = swapchain_images
-        .iter()
-        .map(|i| {
-            let info = vk::ImageViewCreateInfo::builder()
-                .image(*i)
-                .view_type(vk::ImageViewType::TYPE_2D)
-                .format(format)
-                .components(components)
-                .subresource_range(subresource_range);
-
-            device.create_image_view(&info, None)
-        })
-        .collect::<Result<Vec<_>, _>>()?;
-
-    Ok(image_views)
-}
-
-fn get_swapchain_surface_format(formats: &[vk::SurfaceFormatKHR]) -> vk::SurfaceFormatKHR {
-    formats
-        .iter()
-        .cloned()
-        .find(|f| {
-            f.format == vk::Format::B8G8R8_SRGB && f.color_space == vk::ColorSpaceKHR::SRGB_NONLINEAR
-        })
-        .unwrap_or_else(|| formats[0])
-}
-
-fn get_swapchain_present_mode(present_modes: &[vk::PresentModeKHR]) -> vk::PresentModeKHR {
-    present_modes
-        .iter()
-        .cloned()
-        .find(|m| *m == vk::PresentModeKHR::MAILBOX)
-        .unwrap_or(vk::PresentModeKHR::FIFO)
-}
-
-// Get resolution of the swapchain images
-fn get_swapchain_extent(
-    window: &Window,
-    capabilities: vk::SurfaceCapabilitiesKHR) -> vk::Extent2D {
-    if capabilities.current_extent.width != u32::MAX {
-        capabilities.current_extent
-    } else {
-        let size = window.inner_size();
-        let clamp = |min: u32, max: u32, v: u32| min.max(max.min(v));
-        vk::Extent2D::builder()
-            .width(clamp(
-                capabilities.min_image_extent.width,
-                capabilities.max_image_extent.width,
-                size.width
-            ))
-            .height(clamp(
-                capabilities.min_image_extent.height,
-                capabilities.max_image_extent.height,
-                size.height
-            ))
-            .build()
-    }
-}
-
 unsafe fn create_logical_device(entry: &Entry, instance: &Instance, physical_device: PhysicalDevice, indices: &QueueFamilyIndices) -> Result<Device> {
     let queue_priorities = &[1.0];
     let queue_info = vk::DeviceQueueCreateInfo::builder()
@@ -458,46 +245,4 @@ fn create_instance(entry: &Entry) -> Result<Instance> {
     };
 
     Ok(instance)
-}
-
-fn create_debug_info() -> vk::DebugUtilsMessengerCreateInfoEXT {
-    vk::DebugUtilsMessengerCreateInfoEXT {
-        s_type: vk::StructureType::DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT,
-        p_next: std::ptr::null(),
-        flags: vk::DebugUtilsMessengerCreateFlagsEXT::empty(),
-        message_severity:
-            vk::DebugUtilsMessageSeverityFlagsEXT::VERBOSE |
-            vk::DebugUtilsMessageSeverityFlagsEXT::ERROR |
-            // vk::DebugUtilsMessageSeverityFlagsEXT::INFO |
-            vk::DebugUtilsMessageSeverityFlagsEXT::WARNING,
-        message_type:
-            vk::DebugUtilsMessageTypeFlagsEXT::GENERAL |
-            vk::DebugUtilsMessageTypeFlagsEXT::VALIDATION |
-            vk::DebugUtilsMessageTypeFlagsEXT::PERFORMANCE ,
-            // vk::DebugUtilsMessageTypeFlagsEXT::DEVICE_ADDRESS_BINDING,
-        pfn_user_callback: Some(vulkan_debug_callback),
-        p_user_data: std::ptr::null_mut()
-    }
-}
-
-extern "system" fn vulkan_debug_callback(
-    severity: vk::DebugUtilsMessageSeverityFlagsEXT,
-    type_: vk::DebugUtilsMessageTypeFlagsEXT,
-    data: *const vk::DebugUtilsMessengerCallbackDataEXT,
-    _: *mut c_void,
-) -> vk::Bool32 {
-    let data = unsafe { *data };
-    let message = unsafe { CStr::from_ptr(data.p_message) }.to_string_lossy();
-
-    if severity >= vk::DebugUtilsMessageSeverityFlagsEXT::ERROR {
-        error!("({:?}) {}", type_, message);
-    } else if severity >= vk::DebugUtilsMessageSeverityFlagsEXT::WARNING {
-        warn!("({:?}) {}", type_, message);
-    } else if severity >= vk::DebugUtilsMessageSeverityFlagsEXT::INFO {
-        info!("({:?}) {}", type_, message);
-    } else {
-        debug!("({:?}) {}", type_, message);
-    }
-
-    vk::FALSE
 }

@@ -1,7 +1,4 @@
-#[path = "./constants.rs"]
-mod constants;
-
-#[path = "./platform.rs"]
+#[path = "vulkan/platform.rs"]
 mod platform;
 
 #[path = "./utils.rs"]
@@ -11,6 +8,8 @@ mod utils;
 mod vulkan_app;
 
 mod nova_engine;
+
+mod vulkan;
 
 use nova_engine::NovaEngine;
 use pretty_env_logger;
