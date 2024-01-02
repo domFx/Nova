@@ -12,7 +12,7 @@ use ash::vk::{SurfaceKHR, PhysicalDevice, Queue};
 use winit::window::{Window};
 
 pub struct VulkanApp {
-    entry: Entry, 
+    entry: Entry,
     instance: Instance,
     surface_loader: Surface,
     logical_device: Device,

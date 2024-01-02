@@ -7,13 +7,13 @@ use crate::vulkan::swapchain::SwapchainSupport;
 use std::collections::HashSet;
 use std::ffi::CStr;
 
-use anyhow::anyhow;
+use anyhow::{Result, anyhow};
 use ash::extensions::khr::Surface;
 use ash::{Instance, vk};
 use ash::vk::{PhysicalDevice, SurfaceKHR};
 use log::{info, warn};
 
-pub unsafe fn pick_physical_device(instance: &Instance, surface_loader: &Surface, surface: vk::SurfaceKHR) -> anyhow::Result<vk::PhysicalDevice> {
+pub unsafe fn pick_physical_device(instance: &Instance, surface_loader: &Surface, surface: SurfaceKHR) -> Result<PhysicalDevice> {
     for physical_device in instance.enumerate_physical_devices()? {
         let properties = instance.get_physical_device_properties(physical_device);
 
@@ -30,7 +30,7 @@ pub unsafe fn pick_physical_device(instance: &Instance, surface_loader: &Surface
     Err(anyhow!(SuitabilityError("Missing valid physical device.")))
 }
 
-unsafe fn check_physical_device(instance: &Instance, surface_loader: &Surface, surface: SurfaceKHR, physical_device: PhysicalDevice) -> anyhow::Result<()> {
+unsafe fn check_physical_device(instance: &Instance, surface_loader: &Surface, surface: SurfaceKHR, physical_device: PhysicalDevice) -> Result<()> {
     QueueFamilyIndices::get(instance, physical_device)?;
     check_physical_device_extensions(instance, physical_device)?;
 
@@ -43,7 +43,7 @@ unsafe fn check_physical_device(instance: &Instance, surface_loader: &Surface, s
     return Ok(())
 }
 
-unsafe fn check_physical_device_extensions(instance: &Instance, physical_device: PhysicalDevice) -> anyhow::Result<()> {
+unsafe fn check_physical_device_extensions(instance: &Instance, physical_device: PhysicalDevice) -> Result<()> {
     let extensions = instance
         .enumerate_device_extension_properties(physical_device)?
         .iter()
