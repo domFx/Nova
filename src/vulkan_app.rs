@@ -2,13 +2,13 @@ use crate::constants::*;
 use crate::platform::*;
 use crate::utils::*;
 
-use std::{ffi::{CStr, CString, c_void}};
+use std::ffi::{CStr, CString, c_void};
 use std::collections::HashSet;
 
 use anyhow::{Result,anyhow};
 use ash::{vk, Entry, Instance, Device};
 use ash::extensions::khr::{ Win32Surface, Surface, Swapchain };
-use ash::vk::{KhrSwapchainFn, SwapchainKHR, SurfaceKHR, PhysicalDevice, Queue, KhrPortabilitySubsetFn};
+use ash::vk::{KhrSwapchainFn, SwapchainKHR, SurfaceKHR, PhysicalDevice, Queue, KhrPortabilitySubsetFn, ComponentMapping, Image};
 use log::*;
 use thiserror::Error;
 use winit::window::{Window};
@@ -31,9 +31,7 @@ pub struct VulkanApp {
     physical_device: PhysicalDevice,
     graphics_queue: Queue,
     surface: SurfaceKHR,
-    swapchain: SwapchainKHR,
-    swapchain_loader: Swapchain,
-    swapchain_images: Vec<vk::Image>
+    swapchain: VulkanAppSwapchain,
 }
 
 impl VulkanApp {
@@ -47,9 +45,7 @@ impl VulkanApp {
         let logical_device = unsafe { create_logical_device(&entry, &instance, physical_device, &indices)? };
         let graphics_queue = unsafe { logical_device.get_device_queue(indices.graphics, 0) };
 
-        let swapchain_loader = Swapchain::new(&instance, &logical_device);
-        let swapchain = unsafe { create_swapchain(&window, &instance, physical_device, &swapchain_loader, &surface_loader, surface)? };
-        let swapchain_images = unsafe { swapchain_loader.get_swapchain_images(swapchain)? };
+        let swapchain = unsafe { VulkanAppSwapchain::get(&window, &instance, &logical_device, physical_device, &surface_loader, surface)? };
 
         Ok(Self {
             entry,
@@ -60,14 +56,16 @@ impl VulkanApp {
             graphics_queue,
             surface,
             swapchain,
-            swapchain_loader,
-            swapchain_images
         })
     }
 
     pub fn destroy(&mut self) {
         unsafe {
-            self.swapchain_loader.destroy_swapchain(self.swapchain, None);
+            self.swapchain.image_views
+                .iter()
+                .for_each(|v| self.logical_device.destroy_image_view(*v, None));
+
+            self.swapchain.loader.destroy_swapchain(self.swapchain.swapchain, None);
 
             self.logical_device.destroy_device(None);
 
@@ -208,60 +206,115 @@ impl SwapchainSupport {
     }
 }
 
-unsafe fn create_swapchain(
-    window: &Window,
-    instance: &Instance,
-    physical_device: PhysicalDevice,
-    swapchain_loader: &Swapchain,
-    surface_loader: &Surface,
-    surface: SurfaceKHR) -> Result<SwapchainKHR> {
-
-    let indices = QueueFamilyIndices::get(instance, physical_device)?;
-    let swapchain_support = SwapchainSupport::get(&surface_loader, physical_device, surface)?;
-
-    let surface_format = get_swapchain_surface_format(&swapchain_support.formats);
-    let present_mode = get_swapchain_present_mode(&swapchain_support.present_modes);
-    let extent = get_swapchain_extent(window, swapchain_support.capabilities);
-
-    let mut image_count = swapchain_support.capabilities.min_image_count + 1;
-    if swapchain_support.capabilities.max_image_count != 0 && image_count > swapchain_support.capabilities.max_image_count {
-        image_count = swapchain_support.capabilities.max_image_count;
-    }
-
-    let mut queue_family_indices = vec![];
-    let image_sharing_mode = if indices.graphics != indices.present {
-        queue_family_indices.push(indices.graphics);
-        queue_family_indices.push(indices.present);
-        vk::SharingMode::CONCURRENT
-    } else {
-        vk::SharingMode::EXCLUSIVE
-    };
-
-    let info = vk::SwapchainCreateInfoKHR::builder()
-        .surface(surface)
-        .min_image_count(image_count)
-        .image_format(surface_format.format)
-        .image_color_space(surface_format.color_space)
-        .image_extent(extent)
-        .image_array_layers(1)
-        .image_usage(vk::ImageUsageFlags::COLOR_ATTACHMENT)
-        .image_sharing_mode(image_sharing_mode)
-        .queue_family_indices(&queue_family_indices)
-        .pre_transform(swapchain_support.capabilities.current_transform)
-        .composite_alpha(vk::CompositeAlphaFlagsKHR::OPAQUE)
-        .present_mode(present_mode)
-        .clipped(true)
-        .old_swapchain(vk::SwapchainKHR::null());
-
-    let swapchain = swapchain_loader.create_swapchain(&info, None)?;
-
-    Ok(swapchain)
+struct VulkanAppSwapchain {
+    swapchain: SwapchainKHR,
+    images: Vec<Image>,
+    loader: Swapchain,
+    format: vk::Format,
+    extent: vk::Extent2D,
+    image_views: Vec<vk::ImageView>
 }
 
-unsafe fn create_swapchain_image_vies(
-    device: &Device
-) -> Result<()> {
+impl VulkanAppSwapchain {
+    pub unsafe fn get(
+        window: &Window,
+        instance: &Instance,
+        logical_device: &Device,
+        physical_device: PhysicalDevice,
+        surface_loader: &Surface,
+        surface: SurfaceKHR) -> Result<Self> {
 
+        let swapchain_loader = Swapchain::new(instance, logical_device);
+
+        let indices = QueueFamilyIndices::get(instance, physical_device)?;
+        let swapchain_support = SwapchainSupport::get(&surface_loader, physical_device, surface)?;
+
+        let surface_format = get_swapchain_surface_format(&swapchain_support.formats);
+        let present_mode = get_swapchain_present_mode(&swapchain_support.present_modes);
+        let extent = get_swapchain_extent(window, swapchain_support.capabilities);
+
+        let mut image_count = swapchain_support.capabilities.min_image_count + 1;
+        if swapchain_support.capabilities.max_image_count != 0 && image_count > swapchain_support.capabilities.max_image_count {
+            image_count = swapchain_support.capabilities.max_image_count;
+        }
+
+        let mut queue_family_indices = vec![];
+        let image_sharing_mode = if indices.graphics != indices.present {
+            queue_family_indices.push(indices.graphics);
+            queue_family_indices.push(indices.present);
+            vk::SharingMode::CONCURRENT
+        } else {
+            vk::SharingMode::EXCLUSIVE
+        };
+
+        let info = vk::SwapchainCreateInfoKHR::builder()
+            .surface(surface)
+            .min_image_count(image_count)
+            .image_format(surface_format.format)
+            .image_color_space(surface_format.color_space)
+            .image_extent(extent)
+            .image_array_layers(1)
+            .image_usage(vk::ImageUsageFlags::COLOR_ATTACHMENT)
+            .image_sharing_mode(image_sharing_mode)
+            .queue_family_indices(&queue_family_indices)
+            .pre_transform(swapchain_support.capabilities.current_transform)
+            .composite_alpha(vk::CompositeAlphaFlagsKHR::OPAQUE)
+            .present_mode(present_mode)
+            .clipped(true)
+            .old_swapchain(SwapchainKHR::null());
+
+        let swapchain = swapchain_loader.create_swapchain(&info, None)?;
+
+        let swapchain_images = unsafe { swapchain_loader.get_swapchain_images(swapchain)? };
+
+        let image_views = create_swapchain_image_views(logical_device, &swapchain_images, surface_format.format)?;
+
+        Ok(Self {
+            swapchain,
+            images: swapchain_images,
+            loader: swapchain_loader,
+            format: surface_format.format,
+            extent,
+            image_views
+        })
+    }
+}
+
+unsafe fn create_swapchain_image_views(
+    device: &Device,
+    swapchain_images: &Vec<Image>,
+    format: vk::Format
+) -> Result<Vec<vk::ImageView>> {
+    let components = ComponentMapping::builder()
+        .r(vk::ComponentSwizzle::IDENTITY)
+        .g(vk::ComponentSwizzle::IDENTITY)
+        .b(vk::ComponentSwizzle::IDENTITY)
+        .a(vk::ComponentSwizzle::IDENTITY)
+        .build();
+
+    let subresource_range = vk::ImageSubresourceRange::builder()
+        .aspect_mask(vk::ImageAspectFlags::COLOR)
+        .base_mip_level(0)
+        .level_count(1)
+        .base_array_layer(0)
+        .layer_count(1)
+        .build();
+
+    let image_views = swapchain_images
+        .iter()
+        .map(|i| {
+            let info = vk::ImageViewCreateInfo::builder()
+                .image(*i)
+                .view_type(vk::ImageViewType::TYPE_2D)
+                .format(format)
+                .components(components)
+                .subresource_range(subresource_range);
+
+            device.create_image_view(&info, None)
+        })
+        .collect::<Result<Vec<_>, _>>()?;
+
+    Ok(image_views)
 }
 
 fn get_swapchain_surface_format(formats: &[vk::SurfaceFormatKHR]) -> vk::SurfaceFormatKHR {
