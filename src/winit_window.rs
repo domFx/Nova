@@ -20,7 +20,10 @@ pub fn open_winit_window() {
                     WindowEvent::CloseRequested => {
                         elwt.exit();
                         vulkan_app.destroy();
-                    }
+                    },
+                    WindowEvent::RedrawRequested => {
+                        unsafe { vulkan_app.render(&window).unwrap() };
+                    },
                     _ => ()
                 }
             },
