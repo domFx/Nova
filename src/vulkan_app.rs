@@ -4,11 +4,12 @@ use crate::vulkan::physical_device::*;
 use crate::vulkan::queue_families::*;
 use crate::vulkan::swapchain::*;
 use crate::vulkan::surface::*;
+use crate::vulkan::pipeline::*;
 
 use anyhow::{Result};
 use ash::{Entry, Instance, Device};
 use ash::extensions::khr::{ Surface };
-use ash::vk::{SurfaceKHR, PhysicalDevice, Queue};
+use ash::vk::{SurfaceKHR, PhysicalDevice, Queue, PipelineLayout};
 use winit::window::{Window};
 
 pub struct VulkanApp {
@@ -20,6 +21,7 @@ pub struct VulkanApp {
     graphics_queue: Queue,
     surface: SurfaceKHR,
     swapchain: VulkanAppSwapchain,
+    pipeline_layout: PipelineLayout
 }
 
 impl VulkanApp {
@@ -32,8 +34,8 @@ impl VulkanApp {
         let indices = unsafe { QueueFamilyIndices::get(&instance, physical_device)? };
         let logical_device = unsafe { create_logical_device(&entry, &instance, physical_device, &indices)? };
         let graphics_queue = unsafe { logical_device.get_device_queue(indices.graphics, 0) };
-
         let swapchain = unsafe { VulkanAppSwapchain::get(&window, &instance, &logical_device, physical_device, &surface_loader, surface)? };
+        let pipeline_layout = unsafe { create_pipeline(&logical_device, swapchain.extent)? };
 
         Ok(Self {
             entry,
@@ -44,22 +46,19 @@ impl VulkanApp {
             graphics_queue,
             surface,
             swapchain,
+            pipeline_layout
         })
     }
 
     pub fn destroy(&mut self) {
         unsafe {
+            self.logical_device.destroy_pipeline_layout(self.pipeline_layout, None);
             self.swapchain.image_views
                 .iter()
                 .for_each(|v| self.logical_device.destroy_image_view(*v, None));
-
             self.swapchain.loader.destroy_swapchain(self.swapchain.swapchain, None);
-
             self.logical_device.destroy_device(None);
-
-            // self.surface.destroy_surface_khr --> probably a cleaner way to do this
             self.surface_loader.destroy_surface(self.surface, None);
-
             self.instance.destroy_instance(None);
         }
     }
