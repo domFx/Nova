@@ -1,5 +1,4 @@
 // Utilities
-use std::io::Read;
 
 // Converts an vec[i8] to string
 pub fn convert_vec_to_string(vec: &Vec<i8>) -> String {
