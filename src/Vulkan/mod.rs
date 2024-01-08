@@ -9,3 +9,4 @@ pub mod logical_device;
 pub mod physical_device;
 pub mod surface;
 pub mod pipeline;
+pub mod render_pass;

@@ -9,8 +9,9 @@ use crate::vulkan::pipeline::*;
 use anyhow::{Result};
 use ash::{Entry, Instance, Device};
 use ash::extensions::khr::{ Surface };
-use ash::vk::{SurfaceKHR, PhysicalDevice, Queue, PipelineLayout};
+use ash::vk::{SurfaceKHR, PhysicalDevice, Queue, PipelineLayout, RenderPass};
 use winit::window::{Window};
+use crate::vulkan::render_pass::create_render_pass;
 
 pub struct VulkanApp {
     entry: Entry,
@@ -21,7 +22,8 @@ pub struct VulkanApp {
     graphics_queue: Queue,
     surface: SurfaceKHR,
     swapchain: VulkanAppSwapchain,
-    pipeline_layout: PipelineLayout
+    pipeline_layout: PipelineLayout,
+    render_pass: RenderPass
 }
 
 impl VulkanApp {
@@ -35,6 +37,7 @@ impl VulkanApp {
         let logical_device = unsafe { create_logical_device(&entry, &instance, physical_device, &indices)? };
         let graphics_queue = unsafe { logical_device.get_device_queue(indices.graphics, 0) };
         let swapchain = unsafe { VulkanAppSwapchain::get(&window, &instance, &logical_device, physical_device, &surface_loader, surface)? };
+        let render_pass = unsafe { create_render_pass(&instance, &logical_device, swapchain.format)? };
         let pipeline_layout = unsafe { create_pipeline(&logical_device, swapchain.extent)? };
 
         Ok(Self {
@@ -46,13 +49,15 @@ impl VulkanApp {
             graphics_queue,
             surface,
             swapchain,
-            pipeline_layout
+            pipeline_layout,
+            render_pass
         })
     }
 
     pub fn destroy(&mut self) {
         unsafe {
             self.logical_device.destroy_pipeline_layout(self.pipeline_layout, None);
+            self.logical_device.destroy_render_pass(self.render_pass, None);
             self.swapchain.image_views
                 .iter()
                 .for_each(|v| self.logical_device.destroy_image_view(*v, None));
