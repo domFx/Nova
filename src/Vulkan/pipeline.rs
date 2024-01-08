@@ -2,11 +2,15 @@ use std::ffi::CStr;
 
 use anyhow::Result;
 use ash::{Device, vk};
+use ash::vk::{Pipeline, PipelineLayout, RenderPass};
 
-pub unsafe fn create_pipeline(device: &Device, extent: vk::Extent2D) -> Result<vk::PipelineLayout> {
+pub struct VulkanAppPipeline {
+    pub pipeline_layout: PipelineLayout,
+    pub pipeline: Pipeline
+}
+pub unsafe fn create_pipeline(device: &Device, extent: vk::Extent2D, render_pass: RenderPass) -> Result<VulkanAppPipeline> {
     let vert = ash::util::read_spv(&mut std::fs::File::open("./src/shaders/vert.spv").unwrap()).unwrap();
     let frag = ash::util::read_spv(&mut std::fs::File::open("./src/shaders/frag.spv").unwrap()).unwrap();
-
 
     let vertex_shader_module = create_shader_module(device, &vert[..])?;
     let fragment_shader_module = create_shader_module(device, &frag[..])?;
@@ -14,12 +18,14 @@ pub unsafe fn create_pipeline(device: &Device, extent: vk::Extent2D) -> Result<v
     let vertex_stage = vk::PipelineShaderStageCreateInfo::builder()
         .stage(vk::ShaderStageFlags::VERTEX)
         .module(vertex_shader_module)
-        .name(CStr::from_bytes_with_nul_unchecked(b"main\0"));
+        .name(CStr::from_bytes_with_nul_unchecked(b"main\0"))
+        .build();
 
     let frag_stage = vk::PipelineShaderStageCreateInfo::builder()
         .stage(vk::ShaderStageFlags::FRAGMENT)
         .module(fragment_shader_module)
-        .name(CStr::from_bytes_with_nul_unchecked(b"main\0"));
+        .name(CStr::from_bytes_with_nul_unchecked(b"main\0"))
+        .build();
 
     let vertex_input_state = vk::PipelineVertexInputStateCreateInfo::builder();
 
@@ -82,11 +88,33 @@ pub unsafe fn create_pipeline(device: &Device, extent: vk::Extent2D) -> Result<v
 
     let pipeline_layout = device.create_pipeline_layout(&layout_info, None)?;
 
+    let stages = &[vertex_stage, frag_stage];
+    let pipeline_info = vk::GraphicsPipelineCreateInfo::builder()
+        .stages(stages)
+        .vertex_input_state(&vertex_input_state)
+        .input_assembly_state(&input_assembly_state)
+        .viewport_state(&viewport_state)
+        .rasterization_state(&rasterization_state)
+        .multisample_state(&multisample_state)
+        .color_blend_state(&color_blend_state)
+        .layout(pipeline_layout)
+        .render_pass(render_pass)
+        .subpass(0)
+        .build();
+
+    let pipeline = device.create_graphics_pipelines(vk::PipelineCache::null(), &[pipeline_info], None)
+        .expect("Unable to create graphics pipeline")
+        .pop()
+        .unwrap();
+
     // Cleanup
     device.destroy_shader_module(vertex_shader_module, None);
     device.destroy_shader_module(fragment_shader_module, None);
 
-    Ok(pipeline_layout)
+    Ok(VulkanAppPipeline {
+        pipeline_layout,
+        pipeline
+    })
 }
 
 unsafe fn create_shader_module(device: &Device, bytecode: &[u32]) -> Result<vk::ShaderModule> {

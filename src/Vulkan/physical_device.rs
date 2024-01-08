@@ -9,7 +9,7 @@ use std::ffi::CStr;
 
 use anyhow::{Result, anyhow};
 use ash::extensions::khr::Surface;
-use ash::{Instance, vk};
+use ash::{Instance};
 use ash::vk::{PhysicalDevice, SurfaceKHR};
 use log::{info, warn};
 

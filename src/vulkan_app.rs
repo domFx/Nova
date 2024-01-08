@@ -1,17 +1,21 @@
+use std::process::Command;
+use crate::vulkan::command_buffers::*;
+use crate::vulkan::command_pool::*;
+use crate::vulkan::framebuffer::*;
 use crate::vulkan::instance::*;
 use crate::vulkan::logical_device::*;
 use crate::vulkan::physical_device::*;
+use crate::vulkan::pipeline::*;
 use crate::vulkan::queue_families::*;
+use crate::vulkan::render_pass::*;
 use crate::vulkan::swapchain::*;
 use crate::vulkan::surface::*;
-use crate::vulkan::pipeline::*;
 
 use anyhow::{Result};
 use ash::{Entry, Instance, Device};
 use ash::extensions::khr::{ Surface };
-use ash::vk::{SurfaceKHR, PhysicalDevice, Queue, RenderPass};
+use ash::vk::{SurfaceKHR, PhysicalDevice, Queue, RenderPass, Framebuffer, CommandPool, CommandBuffer};
 use winit::window::{Window};
-use crate::vulkan::render_pass::create_render_pass;
 
 pub struct VulkanApp {
     entry: Entry,
@@ -23,7 +27,10 @@ pub struct VulkanApp {
     surface: SurfaceKHR,
     swapchain: VulkanAppSwapchain,
     pipeline: VulkanAppPipeline,
-    render_pass: RenderPass
+    render_pass: RenderPass,
+    framebuffers: Vec<Framebuffer>,
+    command_pool: CommandPool,
+    command_buffers: Vec<CommandBuffer>
 }
 
 impl VulkanApp {
@@ -39,6 +46,9 @@ impl VulkanApp {
         let swapchain = unsafe { VulkanAppSwapchain::get(&window, &instance, &logical_device, physical_device, &surface_loader, surface)? };
         let render_pass = unsafe { create_render_pass(&instance, &logical_device, swapchain.format)? };
         let pipeline = unsafe { create_pipeline(&logical_device, swapchain.extent, render_pass)? };
+        let framebuffers = unsafe { create_framebuffers(&logical_device, &swapchain.image_views, render_pass, &swapchain.extent)? };
+        let command_pool = unsafe { create_command_pool(&logical_device, &indices)? };
+        let command_buffers = unsafe { create_command_buffers(&logical_device, command_pool, swapchain.extent, render_pass, &framebuffers, pipeline.pipeline)? };
 
         Ok(Self {
             entry,
@@ -50,12 +60,17 @@ impl VulkanApp {
             surface,
             swapchain,
             pipeline,
-            render_pass
+            render_pass,
+            framebuffers,
+            command_pool,
+            command_buffers
         })
     }
 
     pub fn destroy(&mut self) {
         unsafe {
+            self.logical_device.destroy_command_pool(self.command_pool, None);
+            self.framebuffers.iter().for_each(|f| self.logical_device.destroy_framebuffer(*f, None));
             self.logical_device.destroy_pipeline(self.pipeline.pipeline, None);
             self.logical_device.destroy_pipeline_layout(self.pipeline.pipeline_layout, None);
             self.logical_device.destroy_render_pass(self.render_pass, None);
