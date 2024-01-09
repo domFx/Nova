@@ -14,3 +14,5 @@ pub const VALIDATION_LAYERS: &'static [&'static str] = &[
 pub const DEVICE_EXTENSIONS: &[&CStr] = &[
     KhrSwapchainFn::name()
 ];
+
+pub const MAX_FRAMES_IN_FLIGHT: usize = 2;
