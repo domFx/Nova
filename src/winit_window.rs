@@ -19,11 +19,19 @@ pub fn open_winit_window() {
                 match event {
                     WindowEvent::CloseRequested => {
                         elwt.exit();
-                        vulkan_app.destroy();
+                        unsafe { vulkan_app.destroy() };
                     },
                     WindowEvent::RedrawRequested => {
                         unsafe { vulkan_app.render(&window).unwrap() };
                     },
+                    WindowEvent::Resized(size) => {
+                        if size.width == 0 || size.height == 0 {
+                            // minimized = true;
+                        } else {
+                            // minimized = false;
+                            vulkan_app.resized = true;
+                        }
+                    }
                     _ => ()
                 }
             },
