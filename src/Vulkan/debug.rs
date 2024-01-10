@@ -1,6 +1,26 @@
 use std::ffi::{c_void, CStr};
-use ash::vk;
+use anyhow::Result;
+use ash::{Instance, Entry, vk};
+use ash::extensions::ext::DebugUtils;
+use ash::vk::{DebugUtilsMessengerEXT};
 use log::{debug, error, info, warn};
+
+pub struct VulkanAppDebug {
+    pub debug_utils: DebugUtils,
+    pub utils_messenger: DebugUtilsMessengerEXT
+}
+
+impl VulkanAppDebug {
+    pub unsafe fn get(entry: &Entry, instance: &Instance, debug_info: vk::DebugUtilsMessengerCreateInfoEXT) -> Result<Self> {
+        let debug_utils = DebugUtils::new(&entry, &instance);
+        let utils_messenger = debug_utils.create_debug_utils_messenger(&debug_info, None)?;
+
+        Ok(Self{
+            debug_utils,
+            utils_messenger
+        })
+    }
+}
 
 pub fn create_debug_info() -> vk::DebugUtilsMessengerCreateInfoEXT {
     vk::DebugUtilsMessengerCreateInfoEXT {

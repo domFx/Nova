@@ -4,7 +4,7 @@ use crate::vulkan::constants::{API_VERSION, APPLICATION_VERSION, ENGINE_NAME, EN
 use crate::vulkan::debug::create_debug_info;
 use crate::vulkan::platform::required_extension_names;
 
-pub fn create_instance(entry: &Entry) -> anyhow::Result<Instance> {
+pub fn create_instance(entry: &Entry, debug_info: vk::DebugUtilsMessengerCreateInfoEXT) -> anyhow::Result<Instance> {
     let app_name = CString::new(WINDOW_TITLE).unwrap();
     let engine_name = CString::new(ENGINE_NAME).unwrap();
 
@@ -18,7 +18,6 @@ pub fn create_instance(entry: &Entry) -> anyhow::Result<Instance> {
         api_version: API_VERSION
     };
 
-    let debug_info = create_debug_info();
 
     let required_extension_names = required_extension_names();
 

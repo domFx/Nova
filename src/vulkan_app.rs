@@ -136,9 +136,9 @@ impl VulkanApp {
         };
 
         let image_in_flight = self.images_in_flight[image_index];
-        // if !image_in_flight {
+        if image_in_flight != Fence::null() {
             self.logical_device.wait_for_fences(&[image_in_flight], true, u64::MAX)?;
-        // }
+        }
 
         self.images_in_flight[image_index] = in_flight_fence;
 
