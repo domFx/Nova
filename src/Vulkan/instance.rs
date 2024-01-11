@@ -1,64 +1,67 @@
-use std::ffi::{c_void, CString};
-use ash::{Entry, Instance, vk};
-use crate::vulkan::constants::{API_VERSION, APPLICATION_VERSION, ENGINE_NAME, ENGINE_VERSION, VALIDATION_ENABLED, VALIDATION_LAYERS, WINDOW_TITLE};
-use crate::vulkan::debug::create_debug_info;
+use crate::vulkan::constants::{VALIDATION_ENABLED, VALIDATION_LAYERS, WINDOW_TITLE};
 use crate::vulkan::platform::required_extension_names;
 
-pub fn create_instance(entry: &Entry, debug_info: vk::DebugUtilsMessengerCreateInfoEXT) -> anyhow::Result<Instance> {
-    let app_name = CString::new(WINDOW_TITLE).unwrap();
-    let engine_name = CString::new(ENGINE_NAME).unwrap();
+use std::collections::HashSet;
+use std::ffi::{CStr, CString};
+use anyhow::anyhow;
+use anyhow::Result;
+use ash::{Entry, Instance, vk};
 
-    let app_info = vk::ApplicationInfo {
-        p_application_name: app_name.as_ptr(),
-        s_type: vk::StructureType::APPLICATION_INFO,
-        p_next: std::ptr::null(),
-        application_version: APPLICATION_VERSION,
-        p_engine_name: engine_name.as_ptr(),
-        engine_version: ENGINE_VERSION,
-        api_version: API_VERSION
+pub unsafe fn create_instance(entry: &Entry, debug_info: &mut vk::DebugUtilsMessengerCreateInfoEXT) -> Result<Instance> {
+    let app_info = vk::ApplicationInfo::builder()
+        .application_name(CString::new(WINDOW_TITLE).unwrap().as_c_str())
+        .application_version(vk::make_api_version(1, 0, 0, 0))
+        .engine_name(CString::new(WINDOW_TITLE).unwrap().as_c_str())
+        .api_version(vk::make_api_version(1, 0, 0, 0))
+        .build();
+
+    let mut extensions = required_extension_names();
+
+    if VALIDATION_ENABLED {
+        let available_layers = entry
+            .enumerate_instance_layer_properties()?
+            .iter()
+            .map(|l| CStr::from_ptr(l.layer_name.as_ptr()))
+            .collect::<HashSet<_>>();
+
+        let mut valid_layers = true;
+        VALIDATION_LAYERS
+            .iter()
+            .for_each(|l| {
+                if !available_layers.contains(l) {
+                    valid_layers = false;
+                }
+            });
+
+        if !valid_layers {
+            return Err(anyhow!("Validation layer requested but not supported."));
+        }
+
+        extensions.push(vk::ExtDebugUtilsFn::name().as_ptr())
+    }
+
+    let layers = if VALIDATION_ENABLED {
+        VALIDATION_LAYERS
+            .iter()
+            .map(|v| v.as_ptr())
+            .collect::<Vec<_>>()
+    } else {
+        Vec::new()
     };
 
+    let mut instance_info = vk::InstanceCreateInfo::builder()
+        .application_info(&app_info)
+        .enabled_layer_names(&layers)
+        .enabled_extension_names(&extensions)
+        .flags(vk::InstanceCreateFlags::empty());
 
-    let required_extension_names = required_extension_names();
+    if VALIDATION_ENABLED {
+        instance_info = instance_info.push_next(debug_info);
+    }
 
-    let required_validation_layer_raw_names: Vec<CString> = VALIDATION_LAYERS
-        .iter()
-        .map(|layer_name| CString::new(*layer_name).unwrap())
-        .collect();
-
-    let layer_names: Vec<*const i8>= required_validation_layer_raw_names
-        .iter()
-        .map(|layer_name| layer_name.as_ptr())
-        .collect();
-
-    let create_info = vk::InstanceCreateInfo {
-        s_type: vk::StructureType::INSTANCE_CREATE_INFO,
-        p_next: if VALIDATION_ENABLED {
-            &debug_info as *const vk::DebugUtilsMessengerCreateInfoEXT as *const c_void
-        } else {
-            std::ptr::null()
-        },
-        flags: vk::InstanceCreateFlags::empty(),
-        p_application_info: &app_info,
-        pp_enabled_layer_names: if VALIDATION_ENABLED {
-            layer_names.as_ptr()
-        } else {
-            std::ptr::null()
-        },
-        enabled_layer_count: if VALIDATION_ENABLED {
-            layer_names.len()
-        } else {
-            0
-        } as u32,
-        pp_enabled_extension_names: required_extension_names.as_ptr(),
-        enabled_extension_count: required_extension_names.len() as u32
-    };
-
-    let instance: Instance = unsafe {
-        entry
-            .create_instance(&create_info, None)
-            .expect("Failed to create Instance")
-    };
+    let instance: Instance = entry
+            .create_instance(&instance_info, None)
+            .expect("Failed to create Instance");
 
     Ok(instance)
 }

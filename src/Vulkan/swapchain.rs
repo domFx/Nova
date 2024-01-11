@@ -21,11 +21,10 @@ impl VulkanAppSwapchain {
         logical_device: &Device,
         physical_device: PhysicalDevice,
         surface_loader: &Surface,
-        surface: SurfaceKHR) -> anyhow::Result<Self> {
+        surface: SurfaceKHR,
+        indices: &QueueFamilyIndices) -> anyhow::Result<Self> {
 
         let swapchain_loader = Swapchain::new(instance, logical_device);
-
-        let indices = QueueFamilyIndices::get(instance, physical_device)?;
         let swapchain_support = SwapchainSupport::get(&surface_loader, physical_device, surface)?;
 
         let surface_format = get_swapchain_surface_format(&swapchain_support.formats);
@@ -64,7 +63,7 @@ impl VulkanAppSwapchain {
 
         let swapchain = swapchain_loader.create_swapchain(&info, None)?;
 
-        let swapchain_images = unsafe { swapchain_loader.get_swapchain_images(swapchain)? };
+        let swapchain_images = swapchain_loader.get_swapchain_images(swapchain)?;
 
         let image_views = create_swapchain_image_views(logical_device, &swapchain_images, surface_format.format)?;
 
@@ -84,24 +83,24 @@ unsafe fn create_swapchain_image_views(
     swapchain_images: &Vec<Image>,
     format: vk::Format
 ) -> anyhow::Result<Vec<vk::ImageView>> {
-    let components = ComponentMapping::builder()
-        .r(vk::ComponentSwizzle::IDENTITY)
-        .g(vk::ComponentSwizzle::IDENTITY)
-        .b(vk::ComponentSwizzle::IDENTITY)
-        .a(vk::ComponentSwizzle::IDENTITY)
-        .build();
-
-    let subresource_range = vk::ImageSubresourceRange::builder()
-        .aspect_mask(vk::ImageAspectFlags::COLOR)
-        .base_mip_level(0)
-        .level_count(1)
-        .base_array_layer(0)
-        .layer_count(1)
-        .build();
-
     let image_views = swapchain_images
         .iter()
         .map(|i| {
+            let components = ComponentMapping::builder()
+                .r(vk::ComponentSwizzle::IDENTITY)
+                .g(vk::ComponentSwizzle::IDENTITY)
+                .b(vk::ComponentSwizzle::IDENTITY)
+                .a(vk::ComponentSwizzle::IDENTITY)
+                .build();
+
+            let subresource_range = vk::ImageSubresourceRange::builder()
+                .aspect_mask(vk::ImageAspectFlags::COLOR)
+                .base_mip_level(0)
+                .level_count(1)
+                .base_array_layer(0)
+                .layer_count(1)
+                .build();
+
             let info = vk::ImageViewCreateInfo::builder()
                 .image(*i)
                 .view_type(vk::ImageViewType::TYPE_2D)
@@ -169,8 +168,8 @@ pub struct SwapchainSupport {
 impl SwapchainSupport {
     pub unsafe fn get(
         surface_loader: &Surface,
-        physical_device: vk::PhysicalDevice,
-        surface: vk::SurfaceKHR
+        physical_device: PhysicalDevice,
+        surface: SurfaceKHR
     ) -> anyhow::Result<Self> {
         Ok(Self {
             capabilities: surface_loader.get_physical_device_surface_capabilities(physical_device, surface)?,

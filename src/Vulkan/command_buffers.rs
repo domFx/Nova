@@ -9,6 +9,7 @@ pub unsafe fn create_command_buffers(
     render_pass: RenderPass,
     framebuffers: &Vec<Framebuffer>,
     pipeline: Pipeline) -> Result<Vec<CommandBuffer>> {
+
     let info = vk::CommandBufferAllocateInfo::builder()
         .command_pool(command_pool)
         .level(vk::CommandBufferLevel::PRIMARY)
@@ -17,11 +18,7 @@ pub unsafe fn create_command_buffers(
     let command_buffers = device.allocate_command_buffers(&info)?;
 
     for (i, command_buffer) in command_buffers.iter().enumerate() {
-        let inheritance = vk::CommandBufferInheritanceInfo::builder();
-
-        let info = vk::CommandBufferBeginInfo::builder()
-            .flags(vk::CommandBufferUsageFlags::empty())
-            .inheritance_info(&inheritance);
+        let info = vk::CommandBufferBeginInfo::builder();
 
         device.begin_command_buffer(*command_buffer, &info)?;
 
@@ -44,12 +41,10 @@ pub unsafe fn create_command_buffers(
             .clear_values(clear_values);
 
         device.cmd_begin_render_pass(*command_buffer, &info, vk::SubpassContents::INLINE);
-
         device.cmd_bind_pipeline(*command_buffer, vk::PipelineBindPoint::GRAPHICS, pipeline);
-
         device.cmd_draw(*command_buffer, 3, 1, 0, 0);
-
         device.cmd_end_render_pass(*command_buffer);
+
         device.end_command_buffer(*command_buffer)?;
     }
 

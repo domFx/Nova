@@ -31,7 +31,7 @@ pub unsafe fn pick_physical_device(instance: &Instance, surface_loader: &Surface
 }
 
 unsafe fn check_physical_device(instance: &Instance, surface_loader: &Surface, surface: SurfaceKHR, physical_device: PhysicalDevice) -> Result<()> {
-    QueueFamilyIndices::get(instance, physical_device)?;
+    QueueFamilyIndices::get(instance, physical_device, surface, &surface_loader)?;
     check_physical_device_extensions(instance, physical_device)?;
 
     let support = SwapchainSupport::get(surface_loader, physical_device, surface)?;

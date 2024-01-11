@@ -1,4 +1,4 @@
-use crate::vulkan::constants::{DEVICE_EXTENSIONS, ENABLE_VALIDATION_LAYERS, PORTABILITY_MACOS_VERSION, VALIDATION_LAYERS};
+use crate::vulkan::constants::{DEVICE_EXTENSIONS, PORTABILITY_MACOS_VERSION, VALIDATION_ENABLED, VALIDATION_LAYERS};
 use crate::vulkan::queue_families::QueueFamilyIndices;
 
 use std::ffi::CString;
@@ -7,11 +7,20 @@ use ash::{Device, Entry, Instance, vk};
 use ash::vk::{KhrPortabilitySubsetFn, PhysicalDevice};
 
 pub unsafe fn create_logical_device(entry: &Entry, instance: &Instance, physical_device: PhysicalDevice, indices: &QueueFamilyIndices) -> anyhow::Result<Device> {
+    let mut unique_indices = std::collections::HashSet::new();
+    unique_indices.insert(indices.graphics);
+    unique_indices.insert(indices.present);
+
     let queue_priorities = &[1.0];
-    let queue_info = vk::DeviceQueueCreateInfo::builder()
-        .queue_family_index(indices.graphics)
-        .queue_priorities(queue_priorities)
-        .build();
+    let queue_infos = unique_indices
+        .iter()
+        .map(|i| {
+            vk::DeviceQueueCreateInfo::builder()
+                .queue_family_index(*i)
+                .queue_priorities(queue_priorities)
+                .build()
+        })
+        .collect::<Vec<_>>();
 
     let mut extensions: Vec<*const i8> = DEVICE_EXTENSIONS
         .iter()
@@ -23,10 +32,9 @@ pub unsafe fn create_logical_device(entry: &Entry, instance: &Instance, physical
         extensions.push(portability.as_ptr());
     // }
 
-    let layers: Vec<*const i8> = if ENABLE_VALIDATION_LAYERS {
+    let layers: Vec<*const i8> = if VALIDATION_ENABLED {
         VALIDATION_LAYERS
             .iter()
-            .map(|v| CString::new(*v).unwrap())
             .map(|v| v.as_ptr())
             .collect()
     } else  {
@@ -35,9 +43,8 @@ pub unsafe fn create_logical_device(entry: &Entry, instance: &Instance, physical
 
     let features = vk::PhysicalDeviceFeatures::builder();
 
-    let queue_infos = &[queue_info];
     let info = vk::DeviceCreateInfo::builder()
-        .queue_create_infos(queue_infos)
+        .queue_create_infos(&queue_infos)
         .enabled_layer_names(&layers)
         .enabled_extension_names(&extensions)
         .enabled_features(&features);

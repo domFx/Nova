@@ -7,9 +7,9 @@ pub const API_VERSION: u32 = ash::vk::make_api_version(0, 1, 0, 92);
 pub const ENGINE_VERSION: u32 = ash::vk::make_api_version(0, 1, 0, 0);
 pub const APPLICATION_VERSION: u32 = ash::vk::make_api_version(0, 1, 0, 0);
 pub const PORTABILITY_MACOS_VERSION: u32 = ash::vk::make_api_version(1, 3, 216, 0);
-pub const ENABLE_VALIDATION_LAYERS: bool = true;
-pub const VALIDATION_LAYERS: &'static [&'static str] = &[
-    "VK_LAYER_KHRONOS_validation"
+
+pub const VALIDATION_LAYERS: &[&CStr] = &[
+    unsafe { CStr::from_bytes_with_nul_unchecked(b"VK_LAYER_KHRONOS_validation\0") }
 ];
 pub const DEVICE_EXTENSIONS: &[&CStr] = &[
     KhrSwapchainFn::name()

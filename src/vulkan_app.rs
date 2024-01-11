@@ -41,7 +41,8 @@ pub struct VulkanApp {
     frame: usize,
     in_flight_fences: Vec<Fence>,
     images_in_flight: Vec<Fence>,
-    pub resized: bool
+    pub resized: bool,
+    indices: QueueFamilyIndices
 }
 
 impl VulkanApp {
@@ -57,7 +58,7 @@ impl VulkanApp {
         let logical_device = unsafe { create_logical_device(&entry, &instance, physical_device, &indices)? };
         let graphics_queue = unsafe { logical_device.get_device_queue(indices.graphics, 0) };
         let present_queue = unsafe { logical_device.get_device_queue(indices.present, 0) };
-        let swapchain = unsafe { VulkanAppSwapchain::get(&window, &instance, &logical_device, physical_device, &surface_loader, surface)? };
+        let swapchain = unsafe { VulkanAppSwapchain::get(&window, &instance, &logical_device, physical_device, &surface_loader, surface, &indices)? };
         let render_pass = unsafe { create_render_pass(&instance, &logical_device, swapchain.format)? };
         let pipeline = unsafe { create_pipeline(&logical_device, swapchain.extent, render_pass)? };
         let framebuffers = unsafe { create_framebuffers(&logical_device, &swapchain.image_views, render_pass, &swapchain.extent)? };
@@ -101,7 +102,8 @@ impl VulkanApp {
             frame: 0,
             in_flight_fences,
             images_in_flight,
-            resized: false
+            resized: false,
+            indices
         })
     }
 
@@ -110,7 +112,7 @@ impl VulkanApp {
 
         self.destroy_swapchain();
 
-        self.swapchain = VulkanAppSwapchain::get(window, &self.instance, &self.logical_device, self.physical_device, &self.surface_loader, self.surface)?;
+        self.swapchain = VulkanAppSwapchain::get(window, &self.instance, &self.logical_device, self.physical_device, &self.surface_loader, self.surface, &self.indices)?;
         self.render_pass = create_render_pass(&self.instance, &self.logical_device, self.swapchain.format)?;
         self.pipeline = create_pipeline(&self.logical_device, self.swapchain.extent, self.render_pass)?;
         self.framebuffers = create_framebuffers(&self.logical_device, &self.swapchain.image_views, self.render_pass, &self.swapchain.extent)?;
@@ -126,7 +128,7 @@ impl VulkanApp {
 
         let result = self.swapchain.loader.acquire_next_image(
             self.swapchain.swapchain,
-            std::u64::MAX,
+            u64::MAX,
             self.image_available_semaphores[self.frame],
             Fence::null(),
         );
@@ -181,7 +183,8 @@ impl VulkanApp {
 
         self.frame = (self.frame + 1) % MAX_FRAMES_IN_FLIGHT;
 
-        Ok(()) }
+        Ok(())
+    }
 
     pub unsafe fn destroy(&mut self) {
         self.logical_device.device_wait_idle().unwrap();
