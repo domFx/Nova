@@ -47,13 +47,13 @@ pub struct VulkanApp {
 impl VulkanApp {
     pub fn new(window: &Window) -> Result<Self> {
         let entry = unsafe { Entry::load()? };
-        let debug_info = create_debug_info();
-        let instance = create_instance(&entry, debug_info)?;
+        let mut debug_info = create_debug_info();
+        let instance = unsafe { create_instance(&entry, &mut debug_info)? };
         let debug = unsafe { VulkanAppDebug::get(&entry, &instance, debug_info)? };
         let surface_loader = Surface::new(&entry, &instance);
         let surface = unsafe { create_surface(window, &entry, &instance)? };
         let physical_device = unsafe { pick_physical_device(&instance, &surface_loader, surface )? };
-        let indices = unsafe { QueueFamilyIndices::get(&instance, physical_device)? };
+        let indices = unsafe { QueueFamilyIndices::get(&instance, physical_device, surface, &surface_loader)? };
         let logical_device = unsafe { create_logical_device(&entry, &instance, physical_device, &indices)? };
         let graphics_queue = unsafe { logical_device.get_device_queue(indices.graphics, 0) };
         let present_queue = unsafe { logical_device.get_device_queue(indices.present, 0) };
@@ -107,7 +107,9 @@ impl VulkanApp {
 
     pub unsafe fn recreate_swapchain(&mut self, window: &Window) -> Result<()> {
         self.logical_device.device_wait_idle()?;
+
         self.destroy_swapchain();
+
         self.swapchain = VulkanAppSwapchain::get(window, &self.instance, &self.logical_device, self.physical_device, &self.surface_loader, self.surface)?;
         self.render_pass = create_render_pass(&self.instance, &self.logical_device, self.swapchain.format)?;
         self.pipeline = create_pipeline(&self.logical_device, self.swapchain.extent, self.render_pass)?;
@@ -136,7 +138,7 @@ impl VulkanApp {
         };
 
         let image_in_flight = self.images_in_flight[image_index];
-        if image_in_flight != Fence::null() {
+        if image_in_flight.ne(&Fence::null()) {
             self.logical_device.wait_for_fences(&[image_in_flight], true, u64::MAX)?;
         }
 
@@ -170,6 +172,7 @@ impl VulkanApp {
         let changed = result == VkResult::Ok(suboptimal_khr) || result == VkResult::Err(vk::Result::ERROR_OUT_OF_DATE_KHR);
 
         if self.resized || changed {
+            // debug!("Window resized resized: {:?} changed {:?}", self.resized, changed);
             self.resized = false;
             self.recreate_swapchain(window)?;
         } else if let Err(e) = result {
@@ -178,8 +181,7 @@ impl VulkanApp {
 
         self.frame = (self.frame + 1) % MAX_FRAMES_IN_FLIGHT;
 
-        Ok(())
-    }
+        Ok(()) }
 
     pub unsafe fn destroy(&mut self) {
         self.logical_device.device_wait_idle().unwrap();
@@ -202,10 +204,10 @@ impl VulkanApp {
     }
 
     pub unsafe fn destroy_swapchain(&mut self) {
+        self.logical_device.free_command_buffers(self.command_pool, &self.command_buffers);
         self.framebuffers
             .iter()
             .for_each(|f| self.logical_device.destroy_framebuffer(*f, None));
-        self.logical_device.free_command_buffers(self.command_pool, &self.command_buffers);
         self.logical_device.destroy_pipeline(self.pipeline.pipeline, None);
         self.logical_device.destroy_pipeline_layout(self.pipeline.pipeline_layout, None);
         self.logical_device.destroy_render_pass(self.render_pass, None);
