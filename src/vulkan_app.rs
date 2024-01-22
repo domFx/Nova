@@ -111,7 +111,6 @@ impl VulkanApp {
         self.logical_device.device_wait_idle()?;
 
         self.destroy_swapchain();
-
         self.swapchain = VulkanAppSwapchain::get(window, &self.instance, &self.logical_device, self.physical_device, &self.surface_loader, self.surface, &self.indices)?;
         self.render_pass = create_render_pass(&self.instance, &self.logical_device, self.swapchain.format)?;
         self.pipeline = create_pipeline(&self.logical_device, self.swapchain.extent, self.render_pass)?;
