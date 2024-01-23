@@ -9,6 +9,7 @@ use crate::vulkan::queue_families::*;
 use crate::vulkan::render_pass::*;
 use crate::vulkan::swapchain::*;
 use crate::vulkan::surface::*;
+use crate::vulkan::vertex::*;
 
 use anyhow::*;
 use anyhow::{Result};
@@ -20,6 +21,8 @@ use ash::vk::{SurfaceKHR, PhysicalDevice, Queue, RenderPass, Framebuffer, Comman
 use winit::window::{Window};
 use crate::vulkan::constants::{MAX_FRAMES_IN_FLIGHT, VALIDATION_ENABLED};
 use crate::vulkan::debug::{create_debug_info, VulkanAppDebug};
+use crate::vulkan::memory::get_device_memory;
+use crate::vulkan::vertex::create_vertex_buffer;
 
 pub struct VulkanApp {
     entry: Entry,
@@ -45,76 +48,92 @@ pub struct VulkanApp {
     indices: QueueFamilyIndices,
     images: Vec<Image>,
     image_views: Vec<vk::ImageView>,
+    vertex_buffer: vk::Buffer,
+    vertex_buffer_memory: vk::DeviceMemory,
     pub resized: bool
 }
 
 impl VulkanApp {
     pub fn new(window: &Window) -> Result<Self> {
-        let entry = unsafe { Entry::load()? };
-        let mut debug_info = create_debug_info();
-        let instance = unsafe { create_instance(&entry, &mut debug_info)? };
-        let debug = unsafe { VulkanAppDebug::get(&entry, &instance, debug_info)? };
-        let surface_loader = Surface::new(&entry, &instance);
-        let surface = unsafe { create_surface(window, &entry, &instance)? };
-        let physical_device = unsafe { pick_physical_device(&instance, &surface_loader, surface )? };
-        let indices = unsafe { QueueFamilyIndices::get(&instance, physical_device, surface, &surface_loader)? };
+        unsafe {
+            let entry = Entry::load()?;
+            let mut debug_info = create_debug_info();
+            let instance = create_instance(&entry, &mut debug_info)?;
+            let debug = VulkanAppDebug::get(&entry, &instance, debug_info)?;
+            let surface_loader = Surface::new(&entry, &instance);
+            let surface = create_surface(window, &entry, &instance)?;
+            let physical_device = pick_physical_device(&instance, &surface_loader, surface )?;
+            let indices = QueueFamilyIndices::get(&instance, physical_device, surface, &surface_loader)?;
 
-        let logical_device = unsafe { create_logical_device(&entry, &instance, physical_device, &indices)? };
-        let graphics_queue = unsafe { logical_device.get_device_queue(indices.graphics, 0) };
-        let present_queue = unsafe { logical_device.get_device_queue(indices.present, 0) };
-        let swapchain = unsafe { VulkanAppSwapchain::get(&window, &instance, &logical_device, physical_device, &surface_loader, surface, &indices)? };
-        let images = unsafe { swapchain.loader.get_swapchain_images(swapchain.swapchain)? };
-        let image_views =  unsafe { create_swapchain_image_views(&logical_device, &images, swapchain.format)? };
+            let logical_device = create_logical_device(&entry, &instance, physical_device, &indices)?;
+            let graphics_queue = logical_device.get_device_queue(indices.graphics, 0);
+            let present_queue = logical_device.get_device_queue(indices.present, 0);
+            let swapchain = VulkanAppSwapchain::get(&window, &instance, &logical_device, physical_device, &surface_loader, surface, &indices)?;
+            let images = swapchain.loader.get_swapchain_images(swapchain.swapchain)?;
+            let image_views =  create_swapchain_image_views(&logical_device, &images, swapchain.format)?;
 
-        let render_pass = unsafe { create_render_pass(&instance, &logical_device, swapchain.format)? };
-        let pipeline = unsafe { create_pipeline(&logical_device, swapchain.extent, render_pass)? };
-        let framebuffers = unsafe { create_framebuffers(&logical_device, &image_views, render_pass, &swapchain.extent)? };
-        let command_pool = unsafe { create_command_pool(&logical_device, &indices)? };
-        let command_buffers = unsafe { create_command_buffers(&logical_device, command_pool, swapchain.extent, render_pass, &framebuffers, pipeline.pipeline)? };
+            let render_pass = create_render_pass(&instance, &logical_device, swapchain.format)?;
+            let pipeline = create_pipeline(&logical_device, swapchain.extent, render_pass)?;
+            let framebuffers = create_framebuffers(&logical_device, &image_views, render_pass, &swapchain.extent)?;
+            let command_pool = create_command_pool(&logical_device, &indices)?;
 
-        let semaphore_info = vk::SemaphoreCreateInfo::builder();
-        let fence_info = vk::FenceCreateInfo::builder()
-            .flags(vk::FenceCreateFlags::SIGNALED)
-            .build();
+            let vertex_buffer = create_vertex_buffer(&instance, &logical_device)?;
+            let requirements = logical_device.get_buffer_memory_requirements(vertex_buffer);
+            let vertex_buffer_memory = get_device_memory(&instance, &logical_device, physical_device, requirements)?;
+            logical_device.bind_buffer_memory(vertex_buffer, vertex_buffer_memory, 0)?;
 
-        let mut image_available_semaphores = Vec::new();
-        let mut render_finished_semaphores = Vec::new();
-        let mut in_flight_fences = Vec::new();
+            let memory = logical_device.map_memory(vertex_buffer_memory, 0,  vk::WHOLE_SIZE, vk::MemoryMapFlags::empty())?;
+            std::ptr::copy_nonoverlapping(VERTICES.as_ptr(), memory.cast(), VERTICES.len());
+            logical_device.unmap_memory(vertex_buffer_memory);
 
-        for _ in 0..MAX_FRAMES_IN_FLIGHT {
-            image_available_semaphores.push(unsafe{ logical_device.create_semaphore(&semaphore_info, None)? });
-            render_finished_semaphores.push(unsafe{ logical_device.create_semaphore(&semaphore_info, None)? });
-            in_flight_fences.push(unsafe { logical_device.create_fence(&fence_info, None)? });
+            let command_buffers = create_command_buffers(&logical_device, command_pool, swapchain.extent, render_pass, &framebuffers, pipeline.pipeline, vertex_buffer)?;
+
+            let semaphore_info = vk::SemaphoreCreateInfo::builder();
+            let fence_info = vk::FenceCreateInfo::builder()
+                .flags(vk::FenceCreateFlags::SIGNALED)
+                .build();
+
+            let mut image_available_semaphores = Vec::new();
+            let mut render_finished_semaphores = Vec::new();
+            let mut in_flight_fences = Vec::new();
+
+            for _ in 0..MAX_FRAMES_IN_FLIGHT {
+                image_available_semaphores.push(logical_device.create_semaphore(&semaphore_info, None)?);
+                render_finished_semaphores.push(logical_device.create_semaphore(&semaphore_info, None)?);
+                in_flight_fences.push(logical_device.create_fence(&fence_info, None)?);
+            }
+
+            let images_in_flight = images.iter().map(|_| Fence::null()).collect();
+
+            Ok(Self {
+                entry,
+                instance,
+                surface_loader,
+                physical_device,
+                logical_device,
+                debug,
+                graphics_queue,
+                present_queue,
+                surface,
+                swapchain,
+                pipeline,
+                render_pass,
+                framebuffers,
+                command_pool,
+                command_buffers,
+                image_available_semaphores,
+                render_finished_semaphores,
+                frame: 0,
+                in_flight_fences,
+                images_in_flight,
+                indices,
+                images,
+                image_views,
+                vertex_buffer,
+                vertex_buffer_memory,
+                resized: false
+            })
         }
-
-        let images_in_flight = images.iter().map(|_| Fence::null()).collect();
-
-        Ok(Self {
-            entry,
-            instance,
-            surface_loader,
-            physical_device,
-            logical_device,
-            debug,
-            graphics_queue,
-            present_queue,
-            surface,
-            swapchain,
-            pipeline,
-            render_pass,
-            framebuffers,
-            command_pool,
-            command_buffers,
-            image_available_semaphores,
-            render_finished_semaphores,
-            frame: 0,
-            in_flight_fences,
-            images_in_flight,
-            indices,
-            images,
-            image_views,
-            resized: false
-        })
     }
 
     pub unsafe fn render(&mut self, window: &Window) -> Result<()> {
@@ -195,6 +214,9 @@ impl VulkanApp {
         self.render_finished_semaphores.iter().for_each(|s| self.logical_device.destroy_semaphore(*s, None));
         self.image_available_semaphores.iter().for_each(|s| self.logical_device.destroy_semaphore(*s, None));
 
+        self.logical_device.destroy_buffer(self.vertex_buffer, None);
+        self.logical_device.free_memory(self.vertex_buffer_memory, None);
+
         self.logical_device.destroy_command_pool(self.command_pool, None);
         self.logical_device.destroy_device(None);
         self.surface_loader.destroy_surface(self.surface, None);
@@ -231,7 +253,7 @@ impl VulkanApp {
         self.render_pass = create_render_pass(&self.instance, &self.logical_device, self.swapchain.format)?;
         self.pipeline = create_pipeline(&self.logical_device, self.swapchain.extent, self.render_pass)?;
         self.framebuffers = create_framebuffers(&self.logical_device, &self.image_views, self.render_pass, &self.swapchain.extent)?;
-        self.command_buffers = create_command_buffers(&self.logical_device, self.command_pool, self.swapchain.extent, self.render_pass, &self.framebuffers, self.pipeline.pipeline)?;
+        self.command_buffers = create_command_buffers(&self.logical_device, self.command_pool, self.swapchain.extent, self.render_pass, &self.framebuffers, self.pipeline.pipeline, self.vertex_buffer)?;
         self.images_in_flight.resize(self.images.len(), Fence::null());
         Ok(())
     }

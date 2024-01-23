@@ -1,8 +1,11 @@
+use crate::vulkan::vertex::Vertex;
+
 use std::ffi::CStr;
 
 use anyhow::Result;
 use ash::{Device, vk};
 use ash::vk::{Pipeline, PipelineLayout, RenderPass};
+
 pub struct VulkanAppPipeline {
     pub pipeline_layout: PipelineLayout,
     pub pipeline: Pipeline
@@ -26,7 +29,12 @@ pub unsafe fn create_pipeline(device: &Device, extent: vk::Extent2D, render_pass
         .name(CStr::from_bytes_with_nul_unchecked(b"main\0"))
         .build();
 
-    let vertex_input_state = vk::PipelineVertexInputStateCreateInfo::builder();
+    let binding_descriptions = &[Vertex::binding_description()];
+    let attribute_descriptions = Vertex::attribute_descriptions();
+    let vertex_input_state = vk::PipelineVertexInputStateCreateInfo::builder()
+        .vertex_binding_descriptions(binding_descriptions)
+        .vertex_attribute_descriptions(&attribute_descriptions)
+        .build();
 
     let input_assembly_state = vk::PipelineInputAssemblyStateCreateInfo::builder()
         .topology(vk::PrimitiveTopology::TRIANGLE_LIST)

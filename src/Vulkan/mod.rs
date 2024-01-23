@@ -13,3 +13,5 @@ pub mod render_pass;
 pub mod framebuffer;
 pub mod command_pool;
 pub mod command_buffers;
+pub mod vertex;
+pub mod memory;
