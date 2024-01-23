@@ -2,16 +2,14 @@ use crate::vulkan::queue_families::*;
 
 use ash::extensions::khr::{Surface, Swapchain};
 use ash::{Device, Instance, vk};
-use ash::vk::{ComponentMapping, Image, PhysicalDevice, SurfaceKHR, SwapchainKHR};
+use ash::vk::{Image, PhysicalDevice, SurfaceKHR, SwapchainKHR};
 use winit::window::Window;
 
 pub struct VulkanAppSwapchain {
     pub swapchain: SwapchainKHR,
-    pub images: Vec<Image>,
     pub loader: Swapchain,
     pub format: vk::Format,
     pub extent: vk::Extent2D,
-    pub image_views: Vec<vk::ImageView>
 }
 
 impl VulkanAppSwapchain {
@@ -59,34 +57,29 @@ impl VulkanAppSwapchain {
             .composite_alpha(vk::CompositeAlphaFlagsKHR::OPAQUE)
             .present_mode(present_mode)
             .clipped(true)
-            .old_swapchain(SwapchainKHR::null());
+            .old_swapchain(SwapchainKHR::null())
+            .build();
 
         let swapchain = swapchain_loader.create_swapchain(&info, None)?;
 
-        let swapchain_images = swapchain_loader.get_swapchain_images(swapchain)?;
-
-        let image_views = create_swapchain_image_views(logical_device, &swapchain_images, surface_format.format)?;
-
         Ok(Self {
             swapchain,
-            images: swapchain_images,
             loader: swapchain_loader,
             format: surface_format.format,
-            extent,
-            image_views
+            extent
         })
     }
 }
 
-unsafe fn create_swapchain_image_views(
+pub unsafe fn create_swapchain_image_views(
     device: &Device,
-    swapchain_images: &Vec<Image>,
-    format: vk::Format
+    images: &Vec<Image>,
+    format: vk::Format,
 ) -> anyhow::Result<Vec<vk::ImageView>> {
-    let image_views = swapchain_images
+    let image_views = images
         .iter()
         .map(|i| {
-            let components = ComponentMapping::builder()
+            let components = vk::ComponentMapping::builder()
                 .r(vk::ComponentSwizzle::IDENTITY)
                 .g(vk::ComponentSwizzle::IDENTITY)
                 .b(vk::ComponentSwizzle::IDENTITY)
@@ -106,11 +99,12 @@ unsafe fn create_swapchain_image_views(
                 .view_type(vk::ImageViewType::TYPE_2D)
                 .format(format)
                 .components(components)
-                .subresource_range(subresource_range);
+                .subresource_range(subresource_range)
+                .build();
 
             device.create_image_view(&info, None)
         })
-        .collect::<anyhow::Result<Vec<_>, _>>()?;
+        .collect::<Result<Vec<_>, _>>()?;
 
     Ok(image_views)
 }
@@ -119,9 +113,7 @@ fn get_swapchain_surface_format(formats: &[vk::SurfaceFormatKHR]) -> vk::Surface
     formats
         .iter()
         .cloned()
-        .find(|f| {
-            f.format == vk::Format::B8G8R8_SRGB && f.color_space == vk::ColorSpaceKHR::SRGB_NONLINEAR
-        })
+        .find(|f| f.format == vk::Format::B8G8R8A8_SRGB && f.color_space == vk::ColorSpaceKHR::SRGB_NONLINEAR)
         .unwrap_or_else(|| formats[0])
 }
 
@@ -146,12 +138,12 @@ fn get_swapchain_extent(
             .width(clamp(
                 capabilities.min_image_extent.width,
                 capabilities.max_image_extent.width,
-                size.width
+                size.width,
             ))
             .height(clamp(
                 capabilities.min_image_extent.height,
                 capabilities.max_image_extent.height,
-                size.height
+                size.height,
             ))
             .build()
     }

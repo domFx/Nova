@@ -3,7 +3,6 @@ use std::ffi::CStr;
 use anyhow::Result;
 use ash::{Device, vk};
 use ash::vk::{Pipeline, PipelineLayout, RenderPass};
-
 pub struct VulkanAppPipeline {
     pub pipeline_layout: PipelineLayout,
     pub pipeline: Pipeline
@@ -51,7 +50,8 @@ pub unsafe fn create_pipeline(device: &Device, extent: vk::Extent2D, render_pass
     let scissors = &[scissor];
     let viewport_state = vk::PipelineViewportStateCreateInfo::builder()
         .viewports(viewports)
-        .scissors(scissors);
+        .scissors(scissors)
+        .build();
 
     let rasterization_state = vk::PipelineRasterizationStateCreateInfo::builder()
         .depth_clamp_enable(false)
@@ -60,11 +60,13 @@ pub unsafe fn create_pipeline(device: &Device, extent: vk::Extent2D, render_pass
         .line_width(1.0)
         .cull_mode(vk::CullModeFlags::BACK)
         .front_face(vk::FrontFace::CLOCKWISE)
-        .depth_bias_enable(false);
+        .depth_bias_enable(false)
+        .build();
 
     let multisample_state = vk::PipelineMultisampleStateCreateInfo::builder()
         .sample_shading_enable(false)
-        .rasterization_samples(vk::SampleCountFlags::TYPE_1);
+        .rasterization_samples(vk::SampleCountFlags::TYPE_1)
+        .build();
 
     let attachment = vk::PipelineColorBlendAttachmentState::builder()
         .color_write_mask(vk::ColorComponentFlags::RGBA)
@@ -82,7 +84,8 @@ pub unsafe fn create_pipeline(device: &Device, extent: vk::Extent2D, render_pass
         .logic_op_enable(false)
         .logic_op(vk::LogicOp::COPY)
         .attachments(attachments)
-        .blend_constants([0.0, 0.0, 0.0, 0.0]);
+        .blend_constants([0.0, 0.0, 0.0, 0.0])
+        .build();
 
     let layout_info = vk::PipelineLayoutCreateInfo::builder();
 
@@ -119,7 +122,8 @@ pub unsafe fn create_pipeline(device: &Device, extent: vk::Extent2D, render_pass
 
 unsafe fn create_shader_module(device: &Device, bytecode: &[u32]) -> Result<vk::ShaderModule> {
     let info = vk::ShaderModuleCreateInfo::builder()
-        .code(bytecode);
+        .code(bytecode)
+        .build();
 
     let shader_module = device.create_shader_module(&info, None)?;
 

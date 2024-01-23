@@ -25,7 +25,7 @@ impl QueueFamilyIndices {
             .map(|i| i as u32);
 
         let mut present = None;
-        for (index, properties) in properties.iter().enumerate() {
+        for (index, _properties) in properties.iter().enumerate() {
             if surface_loader.get_physical_device_surface_support(physical_device, index as u32, surface)? {
                 present = Some(index as u32);
                 break;

@@ -15,7 +15,8 @@ use anyhow::{Result};
 use ash::{Entry, Instance, Device, vk};
 use ash::extensions::khr::{Surface};
 use ash::prelude::VkResult;
-use ash::vk::{SurfaceKHR, PhysicalDevice, Queue, RenderPass, Framebuffer, CommandPool, CommandBuffer, Fence, Semaphore};
+use ash::vk::{SurfaceKHR, PhysicalDevice, Queue, RenderPass, Framebuffer, CommandPool, CommandBuffer, Fence, Semaphore, Image};
+use log::info;
 use winit::window::{Window};
 use crate::vulkan::constants::{MAX_FRAMES_IN_FLIGHT, VALIDATION_ENABLED};
 use crate::vulkan::debug::{create_debug_info, VulkanAppDebug};
@@ -41,8 +42,10 @@ pub struct VulkanApp {
     frame: usize,
     in_flight_fences: Vec<Fence>,
     images_in_flight: Vec<Fence>,
-    pub resized: bool,
-    indices: QueueFamilyIndices
+    indices: QueueFamilyIndices,
+    images: Vec<Image>,
+    image_views: Vec<vk::ImageView>,
+    pub resized: bool
 }
 
 impl VulkanApp {
@@ -55,19 +58,24 @@ impl VulkanApp {
         let surface = unsafe { create_surface(window, &entry, &instance)? };
         let physical_device = unsafe { pick_physical_device(&instance, &surface_loader, surface )? };
         let indices = unsafe { QueueFamilyIndices::get(&instance, physical_device, surface, &surface_loader)? };
+
         let logical_device = unsafe { create_logical_device(&entry, &instance, physical_device, &indices)? };
         let graphics_queue = unsafe { logical_device.get_device_queue(indices.graphics, 0) };
         let present_queue = unsafe { logical_device.get_device_queue(indices.present, 0) };
         let swapchain = unsafe { VulkanAppSwapchain::get(&window, &instance, &logical_device, physical_device, &surface_loader, surface, &indices)? };
+        let images = unsafe { swapchain.loader.get_swapchain_images(swapchain.swapchain)? };
+        let image_views =  unsafe { create_swapchain_image_views(&logical_device, &images, swapchain.format)? };
+
         let render_pass = unsafe { create_render_pass(&instance, &logical_device, swapchain.format)? };
         let pipeline = unsafe { create_pipeline(&logical_device, swapchain.extent, render_pass)? };
-        let framebuffers = unsafe { create_framebuffers(&logical_device, &swapchain.image_views, render_pass, &swapchain.extent)? };
+        let framebuffers = unsafe { create_framebuffers(&logical_device, &image_views, render_pass, &swapchain.extent)? };
         let command_pool = unsafe { create_command_pool(&logical_device, &indices)? };
         let command_buffers = unsafe { create_command_buffers(&logical_device, command_pool, swapchain.extent, render_pass, &framebuffers, pipeline.pipeline)? };
 
         let semaphore_info = vk::SemaphoreCreateInfo::builder();
         let fence_info = vk::FenceCreateInfo::builder()
-            .flags(vk::FenceCreateFlags::SIGNALED);
+            .flags(vk::FenceCreateFlags::SIGNALED)
+            .build();
 
         let mut image_available_semaphores = Vec::new();
         let mut render_finished_semaphores = Vec::new();
@@ -79,7 +87,7 @@ impl VulkanApp {
             in_flight_fences.push(unsafe { logical_device.create_fence(&fence_info, None)? });
         }
 
-        let images_in_flight = swapchain.images.iter().map(|_| vk::Fence::null()).collect();
+        let images_in_flight = images.iter().map(|_| Fence::null()).collect();
 
         Ok(Self {
             entry,
@@ -102,22 +110,11 @@ impl VulkanApp {
             frame: 0,
             in_flight_fences,
             images_in_flight,
-            resized: false,
-            indices
+            indices,
+            images,
+            image_views,
+            resized: false
         })
-    }
-
-    pub unsafe fn recreate_swapchain(&mut self, window: &Window) -> Result<()> {
-        self.logical_device.device_wait_idle()?;
-
-        self.destroy_swapchain();
-        self.swapchain = VulkanAppSwapchain::get(window, &self.instance, &self.logical_device, self.physical_device, &self.surface_loader, self.surface, &self.indices)?;
-        self.render_pass = create_render_pass(&self.instance, &self.logical_device, self.swapchain.format)?;
-        self.pipeline = create_pipeline(&self.logical_device, self.swapchain.extent, self.render_pass)?;
-        self.framebuffers = create_framebuffers(&self.logical_device, &self.swapchain.image_views, self.render_pass, &self.swapchain.extent)?;
-        self.command_buffers = create_command_buffers(&self.logical_device, self.command_pool, self.swapchain.extent, self.render_pass, &self.framebuffers, self.pipeline.pipeline)?;
-        self.images_in_flight.resize(self.swapchain.images.len(), Fence::null());
-        Ok(())
     }
 
     pub unsafe fn render(&mut self, window: &Window) -> Result<()> {
@@ -139,7 +136,7 @@ impl VulkanApp {
         };
 
         let image_in_flight = self.images_in_flight[image_index];
-        if image_in_flight.ne(&Fence::null()) {
+        if image_in_flight != Fence::null() {
             self.logical_device.wait_for_fences(&[image_in_flight], true, u64::MAX)?;
         }
 
@@ -165,12 +162,16 @@ impl VulkanApp {
         let present_info = vk::PresentInfoKHR::builder()
             .wait_semaphores(signal_semaphores)
             .swapchains(swapchains)
-            .image_indices(image_indices);
+            .image_indices(image_indices)
+            .build();
 
         let result = self.swapchain.loader.queue_present(self.present_queue, &present_info);
 
-        let suboptimal_khr: bool = true;
-        let changed = result == VkResult::Ok(suboptimal_khr) || result == VkResult::Err(vk::Result::ERROR_OUT_OF_DATE_KHR);
+        let changed = match result {
+            VkResult::Ok(true) => true,
+            Err(vk::Result::ERROR_OUT_OF_DATE_KHR) => true,
+            _ => false
+        };
 
         if self.resized || changed {
             // debug!("Window resized resized: {:?} changed {:?}", self.resized, changed);
@@ -213,10 +214,25 @@ impl VulkanApp {
         self.logical_device.destroy_pipeline(self.pipeline.pipeline, None);
         self.logical_device.destroy_pipeline_layout(self.pipeline.pipeline_layout, None);
         self.logical_device.destroy_render_pass(self.render_pass, None);
-        self.swapchain.image_views
+        self.image_views
             .iter()
             .for_each(|v| self.logical_device.destroy_image_view(*v, None));
         self.swapchain.loader.destroy_swapchain(self.swapchain.swapchain, None);
     }
 
+    pub unsafe fn recreate_swapchain(&mut self, window: &Window) -> Result<()> {
+        self.logical_device.device_wait_idle().unwrap();
+
+        self.destroy_swapchain();
+
+        self.swapchain = VulkanAppSwapchain::get(window, &self.instance, &self.logical_device, self.physical_device, &self.surface_loader, self.surface, &self.indices)?;
+        self.images = self.swapchain.loader.get_swapchain_images(self.swapchain.swapchain)?;
+        self.image_views = create_swapchain_image_views(&self.logical_device, &self.images, self.swapchain.format)?;
+        self.render_pass = create_render_pass(&self.instance, &self.logical_device, self.swapchain.format)?;
+        self.pipeline = create_pipeline(&self.logical_device, self.swapchain.extent, self.render_pass)?;
+        self.framebuffers = create_framebuffers(&self.logical_device, &self.image_views, self.render_pass, &self.swapchain.extent)?;
+        self.command_buffers = create_command_buffers(&self.logical_device, self.command_pool, self.swapchain.extent, self.render_pass, &self.framebuffers, self.pipeline.pipeline)?;
+        self.images_in_flight.resize(self.images.len(), Fence::null());
+        Ok(())
+    }
 }

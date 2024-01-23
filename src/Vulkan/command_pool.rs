@@ -6,8 +6,9 @@ use anyhow::Result;
 
 pub unsafe fn create_command_pool(device: &Device, indices: &QueueFamilyIndices) -> Result<CommandPool> {
     let info = vk::CommandPoolCreateInfo::builder()
-        .flags(vk::CommandPoolCreateFlags::empty())
-        .queue_family_index(indices.graphics);
+        // .flags(vk::CommandPoolCreateFlags::empty())
+        .queue_family_index(indices.graphics)
+        .build();
 
     let command_pool = device.create_command_pool(&info, None)?;
 

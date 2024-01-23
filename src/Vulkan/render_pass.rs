@@ -2,7 +2,7 @@ use ash::{Device, Instance, vk};
 use ash::vk::{Format, RenderPass};
 use anyhow::Result;
 
-pub unsafe fn create_render_pass(instance: &Instance, device: &Device, format: Format) -> Result<RenderPass> {
+pub unsafe fn create_render_pass(_instance: &Instance, device: &Device, format: Format) -> Result<RenderPass> {
     let color_attachment = vk::AttachmentDescription::builder()
         .format(format)
         .samples(vk::SampleCountFlags::TYPE_1)
@@ -40,7 +40,8 @@ pub unsafe fn create_render_pass(instance: &Instance, device: &Device, format: F
     let info = vk::RenderPassCreateInfo::builder()
         .attachments(attachments)
         .subpasses(subpasses)
-        .dependencies(dependencies);
+        .dependencies(dependencies)
+        .build();
 
     let render_pass = device.create_render_pass(&info, None)?;
 
