@@ -7,7 +7,8 @@ pub unsafe fn create_framebuffers(
     image_views: &Vec<ImageView>,
     render_pass: RenderPass,
     extent: &Extent2D) -> Result<Vec<Framebuffer>> {
-    let framebuffers = image_views
+    let framebuffers =
+        image_views
         .iter()
         .map(|i| {
             let attachments = &[*i];
@@ -16,7 +17,8 @@ pub unsafe fn create_framebuffers(
                 .attachments(attachments)
                 .width(extent.width)
                 .height(extent.height)
-                .layers(1);
+                .layers(1)
+                .build();
 
             device.create_framebuffer(&create_info, None)
         })

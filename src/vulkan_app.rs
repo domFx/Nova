@@ -16,7 +16,7 @@ use ash::{Entry, Instance, Device, vk};
 use ash::extensions::khr::{Surface};
 use ash::prelude::VkResult;
 use ash::vk::{SurfaceKHR, PhysicalDevice, Queue, RenderPass, Framebuffer, CommandPool, CommandBuffer, Fence, Semaphore, Image};
-use log::info;
+
 use winit::window::{Window};
 use crate::vulkan::constants::{MAX_FRAMES_IN_FLIGHT, VALIDATION_ENABLED};
 use crate::vulkan::debug::{create_debug_info, VulkanAppDebug};
