@@ -15,3 +15,4 @@ pub mod command_pool;
 pub mod command_buffers;
 pub mod vertex;
 pub mod memory;
+pub mod buffer;

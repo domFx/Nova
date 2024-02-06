@@ -19,9 +19,9 @@ use ash::prelude::VkResult;
 use ash::vk::{SurfaceKHR, PhysicalDevice, Queue, RenderPass, Framebuffer, CommandPool, CommandBuffer, Fence, Semaphore, Image};
 
 use winit::window::{Window};
+use crate::vulkan::buffer::VulkanAppBuffer;
 use crate::vulkan::constants::{MAX_FRAMES_IN_FLIGHT, VALIDATION_ENABLED};
 use crate::vulkan::debug::{create_debug_info, VulkanAppDebug};
-use crate::vulkan::memory::get_device_memory;
 use crate::vulkan::vertex::create_vertex_buffer;
 
 pub struct VulkanApp {
@@ -48,8 +48,7 @@ pub struct VulkanApp {
     indices: QueueFamilyIndices,
     images: Vec<Image>,
     image_views: Vec<vk::ImageView>,
-    vertex_buffer: vk::Buffer,
-    vertex_buffer_memory: vk::DeviceMemory,
+    vertex_buffer: VulkanAppBuffer,
     pub resized: bool
 }
 
@@ -77,16 +76,9 @@ impl VulkanApp {
             let framebuffers = create_framebuffers(&logical_device, &image_views, render_pass, &swapchain.extent)?;
             let command_pool = create_command_pool(&logical_device, &indices)?;
 
-            let vertex_buffer = create_vertex_buffer(&instance, &logical_device)?;
-            let requirements = logical_device.get_buffer_memory_requirements(vertex_buffer);
-            let vertex_buffer_memory = get_device_memory(&instance, &logical_device, physical_device, requirements)?;
-            logical_device.bind_buffer_memory(vertex_buffer, vertex_buffer_memory, 0)?;
+            let vertex_buffer = create_vertex_buffer(&instance, &logical_device, physical_device, graphics_queue, command_pool)?;
 
-            let memory = logical_device.map_memory(vertex_buffer_memory, 0,  vk::WHOLE_SIZE, vk::MemoryMapFlags::empty())?;
-            std::ptr::copy_nonoverlapping(VERTICES.as_ptr(), memory.cast(), VERTICES.len());
-            logical_device.unmap_memory(vertex_buffer_memory);
-
-            let command_buffers = create_command_buffers(&logical_device, command_pool, swapchain.extent, render_pass, &framebuffers, pipeline.pipeline, vertex_buffer)?;
+            let command_buffers = create_command_buffers(&logical_device, command_pool, swapchain.extent, render_pass, &framebuffers, pipeline.pipeline, vertex_buffer.buffer)?;
 
             let semaphore_info = vk::SemaphoreCreateInfo::builder();
             let fence_info = vk::FenceCreateInfo::builder()
@@ -130,7 +122,6 @@ impl VulkanApp {
                 images,
                 image_views,
                 vertex_buffer,
-                vertex_buffer_memory,
                 resized: false
             })
         }
@@ -214,8 +205,8 @@ impl VulkanApp {
         self.render_finished_semaphores.iter().for_each(|s| self.logical_device.destroy_semaphore(*s, None));
         self.image_available_semaphores.iter().for_each(|s| self.logical_device.destroy_semaphore(*s, None));
 
-        self.logical_device.destroy_buffer(self.vertex_buffer, None);
-        self.logical_device.free_memory(self.vertex_buffer_memory, None);
+        self.logical_device.destroy_buffer(self.vertex_buffer.buffer, None);
+        self.logical_device.free_memory(self.vertex_buffer.buffer_memory, None);
 
         self.logical_device.destroy_command_pool(self.command_pool, None);
         self.logical_device.destroy_device(None);
@@ -253,7 +244,7 @@ impl VulkanApp {
         self.render_pass = create_render_pass(&self.instance, &self.logical_device, self.swapchain.format)?;
         self.pipeline = create_pipeline(&self.logical_device, self.swapchain.extent, self.render_pass)?;
         self.framebuffers = create_framebuffers(&self.logical_device, &self.image_views, self.render_pass, &self.swapchain.extent)?;
-        self.command_buffers = create_command_buffers(&self.logical_device, self.command_pool, self.swapchain.extent, self.render_pass, &self.framebuffers, self.pipeline.pipeline, self.vertex_buffer)?;
+        self.command_buffers = create_command_buffers(&self.logical_device, self.command_pool, self.swapchain.extent, self.render_pass, &self.framebuffers, self.pipeline.pipeline, self.vertex_buffer.buffer)?;
         self.images_in_flight.resize(self.images.len(), Fence::null());
         Ok(())
     }
