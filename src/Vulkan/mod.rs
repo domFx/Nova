@@ -16,3 +16,4 @@ pub mod command_buffers;
 pub mod vertex;
 pub mod memory;
 pub mod buffer;
+pub mod index_buffer;

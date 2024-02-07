@@ -1,4 +1,3 @@
-use log::info;
 use crate::vulkan_app::VulkanApp;
 
 use winit::{

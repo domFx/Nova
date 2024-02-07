@@ -10,6 +10,7 @@ use crate::vulkan::render_pass::*;
 use crate::vulkan::swapchain::*;
 use crate::vulkan::surface::*;
 use crate::vulkan::vertex::*;
+use crate::vulkan::index_buffer::*;
 
 use anyhow::*;
 use anyhow::{Result};
@@ -49,6 +50,7 @@ pub struct VulkanApp {
     images: Vec<Image>,
     image_views: Vec<vk::ImageView>,
     vertex_buffer: VulkanAppBuffer,
+    index_buffer: VulkanAppBuffer,
     pub resized: bool
 }
 
@@ -60,8 +62,8 @@ impl VulkanApp {
             let instance = create_instance(&entry, &mut debug_info)?;
             let debug = VulkanAppDebug::get(&entry, &instance, debug_info)?;
             let surface_loader = Surface::new(&entry, &instance);
-            let surface = create_surface(window, &entry, &instance)?;
-            let physical_device = pick_physical_device(&instance, &surface_loader, surface )?;
+            let surface = create_surface(&window, &entry, &instance)?;
+            let physical_device = pick_physical_device(&instance, &surface_loader, surface)?;
             let indices = QueueFamilyIndices::get(&instance, physical_device, surface, &surface_loader)?;
 
             let logical_device = create_logical_device(&entry, &instance, physical_device, &indices)?;
@@ -77,8 +79,9 @@ impl VulkanApp {
             let command_pool = create_command_pool(&logical_device, &indices)?;
 
             let vertex_buffer = create_vertex_buffer(&instance, &logical_device, physical_device, graphics_queue, command_pool)?;
+            let index_buffer = create_index_buffer(&instance, &logical_device, physical_device, graphics_queue, command_pool)?;
 
-            let command_buffers = create_command_buffers(&logical_device, command_pool, swapchain.extent, render_pass, &framebuffers, pipeline.pipeline, vertex_buffer.buffer)?;
+            let command_buffers = create_command_buffers(&logical_device, command_pool, swapchain.extent, render_pass, &framebuffers, pipeline.pipeline, vertex_buffer.buffer, index_buffer.buffer)?;
 
             let semaphore_info = vk::SemaphoreCreateInfo::builder();
             let fence_info = vk::FenceCreateInfo::builder()
@@ -122,6 +125,7 @@ impl VulkanApp {
                 images,
                 image_views,
                 vertex_buffer,
+                index_buffer,
                 resized: false
             })
         }
@@ -207,6 +211,8 @@ impl VulkanApp {
 
         self.logical_device.destroy_buffer(self.vertex_buffer.buffer, None);
         self.logical_device.free_memory(self.vertex_buffer.buffer_memory, None);
+        self.logical_device.destroy_buffer(self.index_buffer.buffer, None);
+        self.logical_device.free_memory(self.index_buffer.buffer_memory, None);
 
         self.logical_device.destroy_command_pool(self.command_pool, None);
         self.logical_device.destroy_device(None);
@@ -244,7 +250,7 @@ impl VulkanApp {
         self.render_pass = create_render_pass(&self.instance, &self.logical_device, self.swapchain.format)?;
         self.pipeline = create_pipeline(&self.logical_device, self.swapchain.extent, self.render_pass)?;
         self.framebuffers = create_framebuffers(&self.logical_device, &self.image_views, self.render_pass, &self.swapchain.extent)?;
-        self.command_buffers = create_command_buffers(&self.logical_device, self.command_pool, self.swapchain.extent, self.render_pass, &self.framebuffers, self.pipeline.pipeline, self.vertex_buffer.buffer)?;
+        self.command_buffers = create_command_buffers(&self.logical_device, self.command_pool, self.swapchain.extent, self.render_pass, &self.framebuffers, self.pipeline.pipeline, self.vertex_buffer.buffer, self.index_buffer.buffer)?;
         self.images_in_flight.resize(self.images.len(), Fence::null());
         Ok(())
     }
