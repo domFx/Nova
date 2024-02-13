@@ -1,16 +1,15 @@
 use std::mem::{size_of};
 use anyhow::Result;
 use ash::{Device, Instance, vk};
-use ash::vk::{DescriptorSetLayout, PhysicalDevice};
+use ash::vk::{PhysicalDevice};
 use cgmath::{Deg, point3, vec3};
 use crate::vulkan::buffer::VulkanAppBuffer;
-use crate::vulkan::vertex::INDICES;
 
 type Mat4 = cgmath::Matrix4<f32>;
 
 #[repr(C)]
 #[derive(Copy, Clone, Debug)]
-struct UniformBufferObject {
+pub struct UniformBufferObject {
     model: Mat4,
     view: Mat4,
     proj: Mat4
