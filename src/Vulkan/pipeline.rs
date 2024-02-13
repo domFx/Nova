@@ -4,13 +4,18 @@ use std::ffi::CStr;
 
 use anyhow::Result;
 use ash::{Device, vk};
-use ash::vk::{Pipeline, PipelineLayout, RenderPass};
+use ash::vk::{DescriptorSetLayout, Pipeline, PipelineLayout, RenderPass};
 
 pub struct VulkanAppPipeline {
     pub pipeline_layout: PipelineLayout,
     pub pipeline: Pipeline
 }
-pub unsafe fn create_pipeline(device: &Device, extent: vk::Extent2D, render_pass: RenderPass) -> Result<VulkanAppPipeline> {
+pub unsafe fn create_pipeline(
+    device: &Device,
+    extent: vk::Extent2D,
+    render_pass: RenderPass,
+    descriptor_set_layout: DescriptorSetLayout
+) -> Result<VulkanAppPipeline> {
     let vert = ash::util::read_spv(&mut std::fs::File::open("./src/shaders/vert.spv").unwrap()).unwrap();
     let frag = ash::util::read_spv(&mut std::fs::File::open("./src/shaders/frag.spv").unwrap()).unwrap();
 
@@ -95,7 +100,9 @@ pub unsafe fn create_pipeline(device: &Device, extent: vk::Extent2D, render_pass
         .blend_constants([0.0, 0.0, 0.0, 0.0])
         .build();
 
-    let layout_info = vk::PipelineLayoutCreateInfo::builder();
+    let layout_info = vk::PipelineLayoutCreateInfo::builder()
+        .set_layouts(&[descriptor_set_layout])
+        .build();
 
     let pipeline_layout = device.create_pipeline_layout(&layout_info, None)?;
 

@@ -1,7 +1,7 @@
 use anyhow::Result;
 use ash::{Device, vk};
 use ash::vk::{Buffer, CommandBuffer, CommandPool, Extent2D, Framebuffer, Pipeline, RenderPass};
-use crate::vulkan::vertex::VERTICES;
+use crate::vulkan::vertex::{INDICES, VERTICES};
 
 pub unsafe fn create_command_buffers(
     device: &Device,
@@ -10,7 +10,9 @@ pub unsafe fn create_command_buffers(
     render_pass: RenderPass,
     framebuffers: &Vec<Framebuffer>,
     pipeline: Pipeline,
-    vertex_buffer: Buffer) -> Result<Vec<CommandBuffer>> {
+    vertex_buffer: Buffer,
+    index_buffer: Buffer
+) -> Result<Vec<CommandBuffer>> {
 
     let info = vk::CommandBufferAllocateInfo::builder()
         .command_pool(command_pool)
@@ -48,7 +50,8 @@ pub unsafe fn create_command_buffers(
         device.cmd_begin_render_pass(*command_buffer, &info, vk::SubpassContents::INLINE);
         device.cmd_bind_pipeline(*command_buffer, vk::PipelineBindPoint::GRAPHICS, pipeline);
         device.cmd_bind_vertex_buffers(*command_buffer, 0, &[vertex_buffer], &[0]);
-        device.cmd_draw(*command_buffer, VERTICES.len() as u32, 1, 0, 0);
+        device.cmd_bind_index_buffer(*command_buffer, index_buffer, 0, vk::IndexType::UINT16);
+        device.cmd_draw_indexed(*command_buffer, INDICES.len() as u32, 1, 0, 0, 0);
         device.cmd_end_render_pass(*command_buffer);
 
         device.end_command_buffer(*command_buffer)?;

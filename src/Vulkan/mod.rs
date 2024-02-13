@@ -17,3 +17,5 @@ pub mod vertex;
 pub mod memory;
 pub mod buffer;
 pub mod index_buffer;
+pub mod uniform_buffers;
+pub mod descriptor_set_layout;

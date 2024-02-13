@@ -1,5 +1,6 @@
 use crate::vulkan::command_buffers::*;
 use crate::vulkan::command_pool::*;
+use crate::vulkan::descriptor_set_layout::*;
 use crate::vulkan::framebuffer::*;
 use crate::vulkan::instance::*;
 use crate::vulkan::logical_device::*;
@@ -12,18 +13,20 @@ use crate::vulkan::surface::*;
 use crate::vulkan::vertex::*;
 use crate::vulkan::index_buffer::*;
 
+use crate::vulkan::buffer::VulkanAppBuffer;
+use crate::vulkan::constants::{MAX_FRAMES_IN_FLIGHT, VALIDATION_ENABLED};
+use crate::vulkan::debug::{create_debug_info, VulkanAppDebug};
+use crate::vulkan::uniform_buffers::{create_uniform_buffers, update_uniform_buffer};
+use crate::vulkan::vertex::create_vertex_buffer;
+
 use anyhow::*;
 use anyhow::{Result};
 use ash::{Entry, Instance, Device, vk};
 use ash::extensions::khr::{Surface};
 use ash::prelude::VkResult;
-use ash::vk::{SurfaceKHR, PhysicalDevice, Queue, RenderPass, Framebuffer, CommandPool, CommandBuffer, Fence, Semaphore, Image};
-
+use ash::vk::{SurfaceKHR, PhysicalDevice, Queue, RenderPass, Framebuffer, CommandPool, CommandBuffer, Fence, Semaphore, Image, DescriptorSetLayout};
+use std::time::Instant;
 use winit::window::{Window};
-use crate::vulkan::buffer::VulkanAppBuffer;
-use crate::vulkan::constants::{MAX_FRAMES_IN_FLIGHT, VALIDATION_ENABLED};
-use crate::vulkan::debug::{create_debug_info, VulkanAppDebug};
-use crate::vulkan::vertex::create_vertex_buffer;
 
 pub struct VulkanApp {
     entry: Entry,
@@ -37,6 +40,7 @@ pub struct VulkanApp {
     surface: SurfaceKHR,
     swapchain: VulkanAppSwapchain,
     pipeline: VulkanAppPipeline,
+    descriptor_set_layout: DescriptorSetLayout,
     render_pass: RenderPass,
     framebuffers: Vec<Framebuffer>,
     command_pool: CommandPool,
@@ -51,6 +55,8 @@ pub struct VulkanApp {
     image_views: Vec<vk::ImageView>,
     vertex_buffer: VulkanAppBuffer,
     index_buffer: VulkanAppBuffer,
+    uniform_buffers: Vec<VulkanAppBuffer>,
+    start: Instant,
     pub resized: bool
 }
 
@@ -59,7 +65,8 @@ impl VulkanApp {
         unsafe {
             let entry = Entry::load()?;
             let mut debug_info = create_debug_info();
-            let instance = create_instance(&entry, &mut debug_info)?;
+            let instance
+                = create_instance(&entry, &mut debug_info)?;
             let debug = VulkanAppDebug::get(&entry, &instance, debug_info)?;
             let surface_loader = Surface::new(&entry, &instance);
             let surface = create_surface(&window, &entry, &instance)?;
@@ -74,12 +81,14 @@ impl VulkanApp {
             let image_views =  create_swapchain_image_views(&logical_device, &images, swapchain.format)?;
 
             let render_pass = create_render_pass(&instance, &logical_device, swapchain.format)?;
-            let pipeline = create_pipeline(&logical_device, swapchain.extent, render_pass)?;
+            let descriptor_set_layout = create_descriptor_set_layout(&logical_device)?;
+            let pipeline = create_pipeline(&logical_device, swapchain.extent, render_pass, descriptor_set_layout)?;
             let framebuffers = create_framebuffers(&logical_device, &image_views, render_pass, &swapchain.extent)?;
             let command_pool = create_command_pool(&logical_device, &indices)?;
 
             let vertex_buffer = create_vertex_buffer(&instance, &logical_device, physical_device, graphics_queue, command_pool)?;
             let index_buffer = create_index_buffer(&instance, &logical_device, physical_device, graphics_queue, command_pool)?;
+            let uniform_buffers = create_uniform_buffers(&instance, &logical_device, physical_device, &images)?;
 
             let command_buffers = create_command_buffers(&logical_device, command_pool, swapchain.extent, render_pass, &framebuffers, pipeline.pipeline, vertex_buffer.buffer, index_buffer.buffer)?;
 
@@ -100,6 +109,8 @@ impl VulkanApp {
 
             let images_in_flight = images.iter().map(|_| Fence::null()).collect();
 
+            let start = Instant::now();
+
             Ok(Self {
                 entry,
                 instance,
@@ -112,6 +123,7 @@ impl VulkanApp {
                 surface,
                 swapchain,
                 pipeline,
+                descriptor_set_layout,
                 render_pass,
                 framebuffers,
                 command_pool,
@@ -126,6 +138,8 @@ impl VulkanApp {
                 image_views,
                 vertex_buffer,
                 index_buffer,
+                uniform_buffers,
+                start,
                 resized: false
             })
         }
@@ -155,6 +169,8 @@ impl VulkanApp {
         }
 
         self.images_in_flight[image_index] = in_flight_fence;
+
+        update_uniform_buffer(image_index, &self.uniform_buffers, self.swapchain.extent, &self.logical_device, &self.start)?;
 
         let wait_semaphores = &[self.image_available_semaphores[self.frame]];
         let wait_stages = &[vk::PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT];
@@ -205,6 +221,8 @@ impl VulkanApp {
 
         self.destroy_swapchain();
 
+        self.logical_device.destroy_descriptor_set_layout(self.descriptor_set_layout, None);
+
         self.in_flight_fences.iter().for_each(|f| self.logical_device.destroy_fence(*f, None));
         self.render_finished_semaphores.iter().for_each(|s| self.logical_device.destroy_semaphore(*s, None));
         self.image_available_semaphores.iter().for_each(|s| self.logical_device.destroy_semaphore(*s, None));
@@ -226,6 +244,12 @@ impl VulkanApp {
     }
 
     pub unsafe fn destroy_swapchain(&mut self) {
+        self.uniform_buffers
+            .iter()
+            .for_each(|b| {
+                self.logical_device.destroy_buffer(b.buffer, None);
+                self.logical_device.free_memory(b.buffer_memory, None);
+            });
         self.logical_device.free_command_buffers(self.command_pool, &self.command_buffers);
         self.framebuffers
             .iter()
@@ -248,8 +272,9 @@ impl VulkanApp {
         self.images = self.swapchain.loader.get_swapchain_images(self.swapchain.swapchain)?;
         self.image_views = create_swapchain_image_views(&self.logical_device, &self.images, self.swapchain.format)?;
         self.render_pass = create_render_pass(&self.instance, &self.logical_device, self.swapchain.format)?;
-        self.pipeline = create_pipeline(&self.logical_device, self.swapchain.extent, self.render_pass)?;
+        self.pipeline = create_pipeline(&self.logical_device, self.swapchain.extent, self.render_pass, self.descriptor_set_layout)?;
         self.framebuffers = create_framebuffers(&self.logical_device, &self.image_views, self.render_pass, &self.swapchain.extent)?;
+        self.uniform_buffers = create_uniform_buffers(&self.instance, &self.logical_device, self.physical_device, &self.images)?;
         self.command_buffers = create_command_buffers(&self.logical_device, self.command_pool, self.swapchain.extent, self.render_pass, &self.framebuffers, self.pipeline.pipeline, self.vertex_buffer.buffer, self.index_buffer.buffer)?;
         self.images_in_flight.resize(self.images.len(), Fence::null());
         Ok(())
