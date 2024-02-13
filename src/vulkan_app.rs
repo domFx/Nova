@@ -24,9 +24,11 @@ use anyhow::{Result};
 use ash::{Entry, Instance, Device, vk};
 use ash::extensions::khr::{Surface};
 use ash::prelude::VkResult;
-use ash::vk::{SurfaceKHR, PhysicalDevice, Queue, RenderPass, Framebuffer, CommandPool, CommandBuffer, Fence, Semaphore, Image, DescriptorSetLayout};
+use ash::vk::{SurfaceKHR, PhysicalDevice, Queue, RenderPass, Framebuffer, CommandPool, CommandBuffer, Fence, Semaphore, Image, DescriptorSetLayout, DescriptorPool, DescriptorSet};
 use std::time::Instant;
 use winit::window::{Window};
+use crate::vulkan::descriptor_pool::create_descriptor_pool;
+use crate::vulkan::descriptor_sets::create_descriptor_sets;
 
 pub struct VulkanApp {
     entry: Entry,
@@ -41,6 +43,8 @@ pub struct VulkanApp {
     swapchain: VulkanAppSwapchain,
     pipeline: VulkanAppPipeline,
     descriptor_set_layout: DescriptorSetLayout,
+    descriptor_pool: DescriptorPool,
+    descriptor_sets: Vec<DescriptorSet>,
     render_pass: RenderPass,
     framebuffers: Vec<Framebuffer>,
     command_pool: CommandPool,
@@ -79,18 +83,17 @@ impl VulkanApp {
             let swapchain = VulkanAppSwapchain::get(&window, &instance, &logical_device, physical_device, &surface_loader, surface, &indices)?;
             let images = swapchain.loader.get_swapchain_images(swapchain.swapchain)?;
             let image_views =  create_swapchain_image_views(&logical_device, &images, swapchain.format)?;
-
             let render_pass = create_render_pass(&instance, &logical_device, swapchain.format)?;
             let descriptor_set_layout = create_descriptor_set_layout(&logical_device)?;
             let pipeline = create_pipeline(&logical_device, swapchain.extent, render_pass, descriptor_set_layout)?;
             let framebuffers = create_framebuffers(&logical_device, &image_views, render_pass, &swapchain.extent)?;
             let command_pool = create_command_pool(&logical_device, &indices)?;
-
             let vertex_buffer = create_vertex_buffer(&instance, &logical_device, physical_device, graphics_queue, command_pool)?;
             let index_buffer = create_index_buffer(&instance, &logical_device, physical_device, graphics_queue, command_pool)?;
             let uniform_buffers = create_uniform_buffers(&instance, &logical_device, physical_device, &images)?;
-
-            let command_buffers = create_command_buffers(&logical_device, command_pool, swapchain.extent, render_pass, &framebuffers, pipeline.pipeline, vertex_buffer.buffer, index_buffer.buffer)?;
+            let descriptor_pool = create_descriptor_pool(&logical_device, &images)?;
+            let descriptor_sets = create_descriptor_sets(&logical_device, descriptor_pool, descriptor_set_layout, &images, &uniform_buffers)?;
+            let command_buffers = create_command_buffers(&logical_device, command_pool, swapchain.extent, render_pass, &framebuffers, &pipeline, vertex_buffer.buffer, index_buffer.buffer, &descriptor_sets)?;
 
             let semaphore_info = vk::SemaphoreCreateInfo::builder();
             let fence_info = vk::FenceCreateInfo::builder()
@@ -124,6 +127,8 @@ impl VulkanApp {
                 swapchain,
                 pipeline,
                 descriptor_set_layout,
+                descriptor_pool,
+                descriptor_sets,
                 render_pass,
                 framebuffers,
                 command_pool,
@@ -244,6 +249,7 @@ impl VulkanApp {
     }
 
     pub unsafe fn destroy_swapchain(&mut self) {
+        self.logical_device.destroy_descriptor_pool(self.descriptor_pool, None);
         self.uniform_buffers
             .iter()
             .for_each(|b| {
@@ -275,7 +281,9 @@ impl VulkanApp {
         self.pipeline = create_pipeline(&self.logical_device, self.swapchain.extent, self.render_pass, self.descriptor_set_layout)?;
         self.framebuffers = create_framebuffers(&self.logical_device, &self.image_views, self.render_pass, &self.swapchain.extent)?;
         self.uniform_buffers = create_uniform_buffers(&self.instance, &self.logical_device, self.physical_device, &self.images)?;
-        self.command_buffers = create_command_buffers(&self.logical_device, self.command_pool, self.swapchain.extent, self.render_pass, &self.framebuffers, self.pipeline.pipeline, self.vertex_buffer.buffer, self.index_buffer.buffer)?;
+        self.descriptor_pool = create_descriptor_pool(&self.logical_device, &self.images)?;
+        self.descriptor_sets = create_descriptor_sets(&self.logical_device, self.descriptor_pool, self.descriptor_set_layout, &self.images, &self.uniform_buffers)?;
+        self.command_buffers = create_command_buffers(&self.logical_device, self.command_pool, self.swapchain.extent, self.render_pass, &self.framebuffers, &self.pipeline, self.vertex_buffer.buffer, self.index_buffer.buffer, &self.descriptor_sets)?;
         self.images_in_flight.resize(self.images.len(), Fence::null());
         Ok(())
     }
