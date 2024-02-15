@@ -20,5 +20,4 @@ pub mod index_buffer;
 pub mod uniform_buffers;
 pub mod descriptor_set_layout;
 pub mod descriptor_pool;
-
 pub mod descriptor_sets;

@@ -2,6 +2,7 @@ mod utils;
 mod vulkan_app;
 mod nova_engine;
 mod vulkan;
+mod core;
 
 use nova_engine::NovaEngine;
 use pretty_env_logger;
