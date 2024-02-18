@@ -7,10 +7,10 @@ use winit::{
     event_loop::{EventLoop},
     window::WindowBuilder,
 };
-use winit::event::{ElementState, KeyEvent};
+use winit::event::{ElementState, KeyEvent, MouseButton};
 use winit::event_loop::ControlFlow;
 use winit::keyboard::{KeyCode, PhysicalKey};
-use crate::core::input::{INPUT_STATE, KeyboardKey, KeyboardKeyState};
+use crate::core::input::{INPUT_STATE, KeyboardKey, KeyboardKeyState, MouseButtonState};
 
 pub trait Window {
     fn init() -> Self;
@@ -66,14 +66,14 @@ pub fn open_winit_window() {
                 WindowEvent::Resized(size) => {
                     match last_window_size {
                         None => last_window_size = Some(size),
-                        Some(x) => {
+                        Some(physical_size) => {
                             if size.width == 0 || size.height == 0 {
                                 minimized = true;
                             } else {
                                 minimized = false;
                                 vulkan_app.resized = true;
                             }
-                            last_window_size = Some(x);
+                            last_window_size = Some(physical_size);
                         }
                     }
                 },
@@ -84,17 +84,47 @@ pub fn open_winit_window() {
                     };
 
                     let key = match key_event.physical_key {
-                        PhysicalKey::Code(key_code) => Some(parse_winit_key_code(key_code)),
-                        PhysicalKey::Unidentified(_) => { None }
+                        PhysicalKey::Code(key_code) => parse_winit_key_code(key_code),
+                        PhysicalKey::Unidentified(_) => None
                     };
 
                     if let Some(keyboard_key) = key {
-                        // Pass to input system
-                        INPUT_STATE.lock().unwrap().keyboard_state.set_key_state(keyboard_key, keyboard_button_state);
 
-                        println!("pressed keys {:?}", INPUT_STATE.lock().unwrap().keyboard_state.get_pressed_keys());
+                        // TODO: Remove this, temp for quick debug
+                        if keyboard_key == KeyboardKey::Escape {
+                            elwt.exit()
+                        } else {
+                            // Pass to input system
+                            INPUT_STATE.lock().unwrap().keyboard_state.set_key_state(keyboard_key, keyboard_button_state);
+                        }
+
+                        println!("Pressed keys {:?}", INPUT_STATE.lock().unwrap().keyboard_state.get_pressed_keys());
                     } else {
                         info!("Unable to parse key {:?}", key_event.physical_key)
+                    }
+                },
+                WindowEvent::MouseInput { state,  button, ..  } => {
+                    let mouse_button_state = match state {
+                        ElementState::Pressed => MouseButtonState::Pressed,
+                        ElementState::Released => MouseButtonState::Released
+                    };
+
+                    let mouse_button = match button {
+                        MouseButton::Right => Some(crate::core::input::MouseButton::RightButton),
+                        MouseButton::Left => Some(crate::core::input::MouseButton::LeftButton),
+                        MouseButton::Middle => Some(crate::core::input::MouseButton::MiddleButton),
+                        MouseButton::Back => None,
+                        MouseButton::Forward => None,
+                        MouseButton::Other(_) => None,
+                    };
+
+                    if let Some(button) = mouse_button {
+                        INPUT_STATE.lock().unwrap().mouse_state.set_mouse_state(button, mouse_button_state);
+
+                        println!("Pressed mouse buttons {:?}", INPUT_STATE.lock().unwrap().mouse_state.get_pressed_buttons());
+
+                    } else {
+                        info!("Unable to parse mouse button {:?}", button)
                     }
                 }
                 _ => ()
@@ -104,44 +134,44 @@ pub fn open_winit_window() {
     }).expect("TODO: panic message");
 }
 
-fn parse_winit_key_code(key_code: KeyCode) -> KeyboardKey {
+fn parse_winit_key_code(key_code: KeyCode) -> Option<KeyboardKey> {
     match key_code {
-        KeyCode::Digit0 => KeyboardKey::Key0,
-        KeyCode::Digit1 => KeyboardKey::Key1,
-        KeyCode::Digit2 => KeyboardKey::Key2,
-        KeyCode::Digit3 => KeyboardKey::Key3,
-        KeyCode::Digit4 => KeyboardKey::Key4,
-        KeyCode::Digit5 => KeyboardKey::Key5,
-        KeyCode::Digit6 => KeyboardKey::Key6,
-        KeyCode::Digit7 => KeyboardKey::Key7,
-        KeyCode::Digit8 => KeyboardKey::Key8,
-        KeyCode::Digit9 => KeyboardKey::Key9,
-        KeyCode::KeyA => KeyboardKey::KeyA,
-        KeyCode::KeyB => KeyboardKey::KeyB,
-        KeyCode::KeyC => KeyboardKey::KeyC,
-        KeyCode::KeyD => KeyboardKey::KeyD,
-        KeyCode::KeyE => KeyboardKey::KeyE,
-        KeyCode::KeyF => KeyboardKey::KeyF,
-        KeyCode::KeyG => KeyboardKey::KeyG,
-        KeyCode::KeyH => KeyboardKey::KeyH,
-        KeyCode::KeyI => KeyboardKey::KeyI,
-        KeyCode::KeyJ => KeyboardKey::KeyJ,
-        KeyCode::KeyK => KeyboardKey::KeyK,
-        KeyCode::KeyL => KeyboardKey::KeyL,
-        KeyCode::KeyM => KeyboardKey::KeyM,
-        KeyCode::KeyN => KeyboardKey::KeyN,
-        KeyCode::KeyO => KeyboardKey::KeyO,
-        KeyCode::KeyP => KeyboardKey::KeyP,
-        KeyCode::KeyQ => KeyboardKey::KeyQ,
-        KeyCode::KeyR => KeyboardKey::KeyR,
-        KeyCode::KeyS => KeyboardKey::KeyS,
-        KeyCode::KeyT => KeyboardKey::KeyT,
-        KeyCode::KeyU => KeyboardKey::KeyU,
-        KeyCode::KeyV => KeyboardKey::KeyV,
-        KeyCode::KeyW => KeyboardKey::KeyW,
-        KeyCode::KeyX => KeyboardKey::KeyX,
-        KeyCode::KeyY => KeyboardKey::KeyY,
-        KeyCode::KeyZ => KeyboardKey::KeyZ,
+        KeyCode::Digit0 => Some(KeyboardKey::Key0),
+        KeyCode::Digit1 => Some(KeyboardKey::Key1),
+        KeyCode::Digit2 => Some(KeyboardKey::Key2),
+        KeyCode::Digit3 => Some(KeyboardKey::Key3),
+        KeyCode::Digit4 => Some(KeyboardKey::Key4),
+        KeyCode::Digit5 => Some(KeyboardKey::Key5),
+        KeyCode::Digit6 => Some(KeyboardKey::Key6),
+        KeyCode::Digit7 => Some(KeyboardKey::Key7),
+        KeyCode::Digit8 => Some(KeyboardKey::Key8),
+        KeyCode::Digit9 => Some(KeyboardKey::Key9),
+        KeyCode::KeyA => Some(KeyboardKey::KeyA),
+        KeyCode::KeyB => Some(KeyboardKey::KeyB),
+        KeyCode::KeyC => Some(KeyboardKey::KeyC),
+        KeyCode::KeyD => Some(KeyboardKey::KeyD),
+        KeyCode::KeyE => Some(KeyboardKey::KeyE),
+        KeyCode::KeyF => Some(KeyboardKey::KeyF),
+        KeyCode::KeyG => Some(KeyboardKey::KeyG),
+        KeyCode::KeyH => Some(KeyboardKey::KeyH),
+        KeyCode::KeyI => Some(KeyboardKey::KeyI),
+        KeyCode::KeyJ => Some(KeyboardKey::KeyJ),
+        KeyCode::KeyK => Some(KeyboardKey::KeyK),
+        KeyCode::KeyL => Some(KeyboardKey::KeyL),
+        KeyCode::KeyM => Some(KeyboardKey::KeyM),
+        KeyCode::KeyN => Some(KeyboardKey::KeyN),
+        KeyCode::KeyO => Some(KeyboardKey::KeyO),
+        KeyCode::KeyP => Some(KeyboardKey::KeyP),
+        KeyCode::KeyQ => Some(KeyboardKey::KeyQ),
+        KeyCode::KeyR => Some(KeyboardKey::KeyR),
+        KeyCode::KeyS => Some(KeyboardKey::KeyS),
+        KeyCode::KeyT => Some(KeyboardKey::KeyT),
+        KeyCode::KeyU => Some(KeyboardKey::KeyU),
+        KeyCode::KeyV => Some(KeyboardKey::KeyV),
+        KeyCode::KeyW => Some(KeyboardKey::KeyW),
+        KeyCode::KeyX => Some(KeyboardKey::KeyX),
+        KeyCode::KeyY => Some(KeyboardKey::KeyY),
+        KeyCode::KeyZ => Some(KeyboardKey::KeyZ),
         // KeyCode::Backquote => todo!(),
         // KeyCode::Backslash => todo!(),
         // KeyCode::BracketLeft => todo!(),
@@ -220,7 +250,7 @@ fn parse_winit_key_code(key_code: KeyCode) -> KeyboardKey {
         // KeyCode::NumpadParenRight => todo!(),
         // KeyCode::NumpadStar => todo!(),
         // KeyCode::NumpadSubtract => todo!(),
-        // KeyCode::Escape => todo!(),
+        KeyCode::Escape => Some(KeyboardKey::Escape),
         // KeyCode::Fn => todo!(),
         // KeyCode::FnLock => todo!(),
         // KeyCode::PrintScreen => todo!(),
@@ -301,7 +331,7 @@ fn parse_winit_key_code(key_code: KeyCode) -> KeyboardKey {
         // KeyCode::F34 => todo!(),
         // KeyCode::F35 => todo!(),
         _ => {
-            todo!()
+            None
         }
     }
 }
