@@ -1,9 +1,17 @@
-use std::sync::Arc;
-use anyhow::anyhow;
-use log::{error, info};
-use raw_window_handle::{HasRawWindowHandle, RawDisplayHandle, WindowHandle};
+use crate::core::input::{INPUT_STATE, KeyboardKey, KeyboardKeyState, MouseButtonState};
 use crate::vulkan_app::VulkanApp;
 
+use ash::extensions::khr::Win32Surface;
+use cgmath::Vector2;
+use log::{error, info};
+use raw_window_handle::{
+    HasRawWindowHandle,
+    RawDisplayHandle,
+    WindowHandle,
+    HasDisplayHandle,
+    HasWindowHandle,
+    RawWindowHandle
+};
 use winit::{
     event::{Event, WindowEvent},
     event_loop::{EventLoop},
@@ -13,12 +21,8 @@ use winit::dpi::PhysicalSize;
 use winit::event::{ElementState, KeyEvent, MouseButton};
 use winit::event_loop::ControlFlow;
 use winit::keyboard::{KeyCode, PhysicalKey};
-use crate::core::input::{INPUT_STATE, KeyboardKey, KeyboardKeyState, MouseButtonState};
-
-use ash::extensions::khr::Win32Surface;
-use cgmath::Vector2;
-use raw_window_handle::{HasDisplayHandle, HasWindowHandle, RawWindowHandle};
 use winit::platform::run_on_demand::EventLoopExtRunOnDemand;
+
 
 /// Window functionality
 pub trait NovaWindow {
@@ -50,12 +54,14 @@ pub struct WinitWindow {
 
 impl WinitWindow {
     fn init() -> Self {
-        let mut last_window_size = None;
         let mut destroying = false;
         let mut minimized = false;
 
         let event_loop = EventLoop::new().unwrap();
         let window = WindowBuilder::new().build(&event_loop).unwrap();
+
+        let inner_size= window.inner_size();
+        let mut last_window_size = Some(Vector2::new(inner_size.width as f32, inner_size.height as f32));
 
         Self {
             event_loop,
@@ -183,12 +189,6 @@ impl NovaWindow for WinitWindow {
     }
 }
 
-pub fn open_winit_window() {
-
-
-
-}
-
 fn parse_winit_key_code(key_code: KeyCode) -> Option<KeyboardKey> {
     match key_code {
         KeyCode::Digit0 => Some(KeyboardKey::Key0),
@@ -263,7 +263,7 @@ fn parse_winit_key_code(key_code: KeyCode) -> Option<KeyboardKey> {
         // KeyCode::Lang4 => todo!(),
         // KeyCode::Lang5 => todo!(),
         // KeyCode::NonConvert => todo!(),
-        // KeyCode::Delete => todo!(),
+        KeyCode::Delete => Some(KeyboardKey::Delete),
         // KeyCode::End => todo!(),
         // KeyCode::Help => todo!(),
         // KeyCode::Home => todo!(),
@@ -308,7 +308,7 @@ fn parse_winit_key_code(key_code: KeyCode) -> Option<KeyboardKey> {
         KeyCode::Escape => Some(KeyboardKey::Escape),
         // KeyCode::Fn => todo!(),
         // KeyCode::FnLock => todo!(),
-        // KeyCode::PrintScreen => todo!(),
+        KeyCode::PrintScreen => Some(KeyboardKey::PrintScreen),
         // KeyCode::ScrollLock => todo!(),
         // KeyCode::Pause => todo!(),
         // KeyCode::BrowserBack => todo!(),
@@ -350,18 +350,18 @@ fn parse_winit_key_code(key_code: KeyCode) -> Option<KeyboardKey> {
         // KeyCode::Undo => todo!(),
         // KeyCode::Hiragana => todo!(),
         // KeyCode::Katakana => todo!(),
-        // KeyCode::F1 => todo!(),
-        // KeyCode::F2 => todo!(),
-        // KeyCode::F3 => todo!(),
-        // KeyCode::F4 => todo!(),
-        // KeyCode::F5 => todo!(),
-        // KeyCode::F6 => todo!(),
-        // KeyCode::F7 => todo!(),
-        // KeyCode::F8 => todo!(),
-        // KeyCode::F9 => todo!(),
-        // KeyCode::F10 => todo!(),
-        // KeyCode::F11 => todo!(),
-        // KeyCode::F12 => todo!(),
+        KeyCode::F1 => Some(KeyboardKey::F1),
+        KeyCode::F2 => Some(KeyboardKey::F2),
+        KeyCode::F3 => Some(KeyboardKey::F3),
+        KeyCode::F4 => Some(KeyboardKey::F4),
+        KeyCode::F5 => Some(KeyboardKey::F5),
+        KeyCode::F6 => Some(KeyboardKey::F6),
+        KeyCode::F7 => Some(KeyboardKey::F7),
+        KeyCode::F8 => Some(KeyboardKey::F8),
+        KeyCode::F9 => Some(KeyboardKey::F9),
+        KeyCode::F10 => Some(KeyboardKey::F10),
+        KeyCode::F11 => Some(KeyboardKey::F11),
+        KeyCode::F12 => Some(KeyboardKey::F12),
         // KeyCode::F13 => todo!(),
         // KeyCode::F14 => todo!(),
         // KeyCode::F15 => todo!(),

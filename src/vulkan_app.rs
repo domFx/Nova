@@ -28,8 +28,6 @@ use ash::vk::{SurfaceKHR, PhysicalDevice, Queue, RenderPass, Framebuffer, Comman
 use std::time::Instant;
 use cgmath::Vector2;
 use raw_window_handle::{RawDisplayHandle, RawWindowHandle};
-use winit::window::{Window};
-use crate::core::window::NovaWindow;
 use crate::vulkan::descriptor_pool::create_descriptor_pool;
 use crate::vulkan::descriptor_sets::create_descriptor_sets;
 
