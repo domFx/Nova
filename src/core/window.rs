@@ -1,5 +1,5 @@
 use crate::core::input::{INPUT_STATE, KeyboardKey, KeyboardKeyState, MouseButtonState};
-use crate::vulkan_app::VulkanApp;
+use crate::renderer::vulkan::vulkan_app::VulkanApp;
 
 use ash::extensions::khr::Win32Surface;
 use cgmath::Vector2;
@@ -27,7 +27,7 @@ pub trait NovaWindow {
     fn run(&mut self, vulkan_app: &mut VulkanApp);
 
     /// Window Cleanup
-    fn destroy(&self);
+    fn destroy(self);
 
     fn get_raw_display_handle(&self) -> Option<RawDisplayHandle>;
 
@@ -167,7 +167,7 @@ impl NovaWindow for WinitWindow {
         });
     }
 
-    fn destroy(&self) {
+    fn destroy(self) {
         return
     }
 

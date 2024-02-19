@@ -1,8 +1,8 @@
 use anyhow::Result;
 use ash::{Device, vk};
 use ash::vk::{Buffer, CommandBuffer, CommandPool, DescriptorSet, Extent2D, Framebuffer, RenderPass};
-use crate::vulkan::pipeline::VulkanAppPipeline;
-use crate::vulkan::vertex::{INDICES};
+use crate::renderer::vulkan::pipeline::VulkanAppPipeline;
+use crate::renderer::vulkan::vertex::{INDICES};
 
 pub unsafe fn create_command_buffers(
     device: &Device,

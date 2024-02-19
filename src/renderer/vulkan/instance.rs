@@ -1,5 +1,5 @@
-use crate::vulkan::constants::{API_VERSION, APPLICATION_VERSION, ENGINE_NAME, ENGINE_VERSION, PORTABILITY_MACOS_VERSION, VALIDATION_ENABLED, VALIDATION_LAYERS, WINDOW_TITLE};
-use crate::vulkan::platform::required_extension_names;
+use crate::renderer::vulkan::constants::{API_VERSION, APPLICATION_VERSION, ENGINE_NAME, ENGINE_VERSION, PORTABILITY_MACOS_VERSION, VALIDATION_ENABLED, VALIDATION_LAYERS, WINDOW_TITLE};
+use crate::renderer::vulkan::platform::required_extension_names;
 
 use std::collections::HashSet;
 use std::ffi::{CStr, CString};

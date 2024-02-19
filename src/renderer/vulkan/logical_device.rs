@@ -1,5 +1,5 @@
-use crate::vulkan::constants::{DEVICE_EXTENSIONS, PORTABILITY_MACOS_VERSION, VALIDATION_ENABLED, VALIDATION_LAYERS};
-use crate::vulkan::queue_families::QueueFamilyIndices;
+use crate::renderer::vulkan::constants::{DEVICE_EXTENSIONS, PORTABILITY_MACOS_VERSION, VALIDATION_ENABLED, VALIDATION_LAYERS};
+use crate::renderer::vulkan::queue_families::QueueFamilyIndices;
 
 use ash::{Device, Entry, Instance, vk};
 use ash::vk::{KhrPortabilitySubsetFn, PhysicalDevice};

@@ -1,9 +1,9 @@
 use crate::core::window::get_window;
 use crate::core::window::NovaWindow;
-use crate::vulkan_app::VulkanApp;
+use crate::renderer::vulkan::vulkan_app::VulkanApp;
 
 pub struct NovaEngine {
-
+    window: dyn NovaWindow,
 }
 
 impl NovaEngine {

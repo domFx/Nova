@@ -1,4 +1,4 @@
-use crate::vulkan::errors::*;
+use crate::renderer::vulkan::errors::*;
 
 use anyhow::anyhow;
 use ash::{Instance, vk};

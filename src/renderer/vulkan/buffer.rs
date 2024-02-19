@@ -1,7 +1,7 @@
 use anyhow::Result;
 use ash::{Device, Instance, vk};
 use ash::vk::{Buffer, CommandPool, DeviceMemory, PhysicalDevice};
-use crate::vulkan::memory::get_memory_type_index;
+use crate::renderer::vulkan::memory::get_memory_type_index;
 
 pub struct VulkanAppBuffer {
     pub buffer: Buffer,

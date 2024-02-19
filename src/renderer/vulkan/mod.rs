@@ -21,3 +21,4 @@ pub mod uniform_buffers;
 pub mod descriptor_set_layout;
 pub mod descriptor_pool;
 pub mod descriptor_sets;
+pub mod vulkan_app;

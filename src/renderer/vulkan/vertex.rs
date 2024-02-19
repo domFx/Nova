@@ -5,7 +5,7 @@ use ash::Device;
 use ash::vk::{CommandPool, PhysicalDevice};
 
 use cgmath::{vec2, vec3};
-use crate::vulkan::buffer::VulkanAppBuffer;
+use crate::renderer::vulkan::buffer::VulkanAppBuffer;
 
 type Vec2 = cgmath::Vector2<f32>;
 type Vec3 = cgmath::Vector3<f32>;

@@ -2,8 +2,8 @@ use std::mem::size_of;
 use anyhow::Result;
 use ash::{Device, vk};
 use ash::vk::{DescriptorPool, DescriptorSet, DescriptorSetLayout, Image};
-use crate::vulkan::buffer::VulkanAppBuffer;
-use crate::vulkan::uniform_buffers::UniformBufferObject;
+use crate::renderer::vulkan::buffer::VulkanAppBuffer;
+use crate::renderer::vulkan::uniform_buffers::UniformBufferObject;
 
 pub fn create_descriptor_sets(
     logical_device: &Device,

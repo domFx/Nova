@@ -1,4 +1,4 @@
-use crate::vulkan::queue_families::QueueFamilyIndices;
+use crate::renderer::vulkan::queue_families::QueueFamilyIndices;
 
 use ash::{Device,vk};
 use ash::vk::{CommandPool};
