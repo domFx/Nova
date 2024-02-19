@@ -1,6 +1,6 @@
 use anyhow::Result;
 use ash::{Device, vk};
-use ash::vk::{Buffer, CommandBuffer, CommandPool, DescriptorSet, Extent2D, Framebuffer, PipelineLayout, RenderPass};
+use ash::vk::{Buffer, CommandBuffer, CommandPool, DescriptorSet, Extent2D, Framebuffer, RenderPass};
 use crate::vulkan::pipeline::VulkanAppPipeline;
 use crate::vulkan::vertex::{INDICES};
 

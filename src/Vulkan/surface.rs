@@ -3,7 +3,7 @@ use anyhow::anyhow;
 use ash::{Entry, Instance, vk};
 use ash::extensions::khr::Win32Surface;
 use log::error;
-use raw_window_handle::{HasDisplayHandle, HasWindowHandle, RawDisplayHandle, RawWindowHandle};
+use raw_window_handle::{RawDisplayHandle, RawWindowHandle};
 use winit::window::Window;
 use crate::core::window::NovaWindow;
 

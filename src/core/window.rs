@@ -5,24 +5,21 @@ use ash::extensions::khr::Win32Surface;
 use cgmath::Vector2;
 use log::{error, info};
 use raw_window_handle::{
-    HasRawWindowHandle,
-    RawDisplayHandle,
-    WindowHandle,
     HasDisplayHandle,
+    HasRawWindowHandle,
     HasWindowHandle,
-    RawWindowHandle
+    RawDisplayHandle,
+    RawWindowHandle,
+    WindowHandle
 };
 use winit::{
-    event::{Event, WindowEvent},
-    event_loop::{EventLoop},
+    dpi::PhysicalSize,
+    event::{Event, WindowEvent, ElementState, KeyEvent, MouseButton},
+    event_loop::{EventLoop, ControlFlow},
+    keyboard::{KeyCode, PhysicalKey},
     window::WindowBuilder,
+    platform::run_on_demand::EventLoopExtRunOnDemand
 };
-use winit::dpi::PhysicalSize;
-use winit::event::{ElementState, KeyEvent, MouseButton};
-use winit::event_loop::ControlFlow;
-use winit::keyboard::{KeyCode, PhysicalKey};
-use winit::platform::run_on_demand::EventLoopExtRunOnDemand;
-
 
 /// Window functionality
 pub trait NovaWindow {
