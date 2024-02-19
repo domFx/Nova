@@ -26,7 +26,10 @@ use ash::extensions::khr::{Surface};
 use ash::prelude::VkResult;
 use ash::vk::{SurfaceKHR, PhysicalDevice, Queue, RenderPass, Framebuffer, CommandPool, CommandBuffer, Fence, Semaphore, Image, DescriptorSetLayout, DescriptorPool, DescriptorSet};
 use std::time::Instant;
+use cgmath::Vector2;
+use raw_window_handle::{RawDisplayHandle, RawWindowHandle};
 use winit::window::{Window};
+use crate::core::window::NovaWindow;
 use crate::vulkan::descriptor_pool::create_descriptor_pool;
 use crate::vulkan::descriptor_sets::create_descriptor_sets;
 
@@ -65,7 +68,7 @@ pub struct VulkanApp {
 }
 
 impl VulkanApp {
-    pub fn new(window: &Window) -> Result<Self> {
+    pub fn new(raw_window_handle: RawWindowHandle, raw_display_handle: RawDisplayHandle, window_dimensions: Vector2<f32>) -> Result<Self> {
         unsafe {
             let entry = Entry::load()?;
             let mut debug_info = create_debug_info();
@@ -73,14 +76,14 @@ impl VulkanApp {
                 = create_instance(&entry, &mut debug_info)?;
             let debug = VulkanAppDebug::get(&entry, &instance, debug_info)?;
             let surface_loader = Surface::new(&entry, &instance);
-            let surface = create_surface(&window, &entry, &instance)?;
+            let surface = create_surface(raw_window_handle, raw_display_handle, &entry, &instance)?;
             let physical_device = pick_physical_device(&instance, &surface_loader, surface)?;
             let indices = QueueFamilyIndices::get(&instance, physical_device, surface, &surface_loader)?;
 
             let logical_device = create_logical_device(&entry, &instance, physical_device, &indices)?;
             let graphics_queue = logical_device.get_device_queue(indices.graphics, 0);
             let present_queue = logical_device.get_device_queue(indices.present, 0);
-            let swapchain = VulkanAppSwapchain::get(&window, &instance, &logical_device, physical_device, &surface_loader, surface, &indices)?;
+            let swapchain = VulkanAppSwapchain::get(window_dimensions, &instance, &logical_device, physical_device, &surface_loader, surface, &indices)?;
             let images = swapchain.loader.get_swapchain_images(swapchain.swapchain)?;
             let image_views =  create_swapchain_image_views(&logical_device, &images, swapchain.format)?;
             let render_pass = create_render_pass(&instance, &logical_device, swapchain.format)?;
@@ -150,7 +153,7 @@ impl VulkanApp {
         }
     }
 
-    pub unsafe fn render(&mut self, window: &Window) -> Result<()> {
+    pub unsafe fn render(&mut self, window_dimensions: Vector2<f32>) -> Result<()> {
         let in_flight_fence = self.in_flight_fences[self.frame];
 
         self.logical_device.wait_for_fences(&[in_flight_fence], true, u64::MAX)?;
@@ -164,7 +167,7 @@ impl VulkanApp {
 
         let image_index = match result {
             VkResult::Ok((image_index, _)) => image_index as usize,
-            VkResult::Err(vk::Result::ERROR_OUT_OF_DATE_KHR) => return self.recreate_swapchain(window),
+            VkResult::Err(vk::Result::ERROR_OUT_OF_DATE_KHR) => return self.recreate_swapchain(window_dimensions),
             VkResult::Err(e) => return Err(anyhow!(e))
         };
 
@@ -211,7 +214,7 @@ impl VulkanApp {
         if self.resized || changed {
             // debug!("Window resized resized: {:?} changed {:?}", self.resized, changed);
             self.resized = false;
-            self.recreate_swapchain(window)?;
+            self.recreate_swapchain(window_dimensions)?;
         } else if let Err(e) = result {
             return Err(anyhow!(e));
         }
@@ -221,31 +224,33 @@ impl VulkanApp {
         Ok(())
     }
 
-    pub unsafe fn destroy(&mut self) {
-        self.logical_device.device_wait_idle().unwrap();
+    pub fn destroy(&mut self) {
+        unsafe {
+            self.logical_device.device_wait_idle().unwrap();
 
-        self.destroy_swapchain();
+            self.destroy_swapchain();
 
-        self.logical_device.destroy_descriptor_set_layout(self.descriptor_set_layout, None);
+            self.logical_device.destroy_descriptor_set_layout(self.descriptor_set_layout, None);
 
-        self.in_flight_fences.iter().for_each(|f| self.logical_device.destroy_fence(*f, None));
-        self.render_finished_semaphores.iter().for_each(|s| self.logical_device.destroy_semaphore(*s, None));
-        self.image_available_semaphores.iter().for_each(|s| self.logical_device.destroy_semaphore(*s, None));
+            self.in_flight_fences.iter().for_each(|f| self.logical_device.destroy_fence(*f, None));
+            self.render_finished_semaphores.iter().for_each(|s| self.logical_device.destroy_semaphore(*s, None));
+            self.image_available_semaphores.iter().for_each(|s| self.logical_device.destroy_semaphore(*s, None));
 
-        self.logical_device.destroy_buffer(self.vertex_buffer.buffer, None);
-        self.logical_device.free_memory(self.vertex_buffer.buffer_memory, None);
-        self.logical_device.destroy_buffer(self.index_buffer.buffer, None);
-        self.logical_device.free_memory(self.index_buffer.buffer_memory, None);
+            self.logical_device.destroy_buffer(self.vertex_buffer.buffer, None);
+            self.logical_device.free_memory(self.vertex_buffer.buffer_memory, None);
+            self.logical_device.destroy_buffer(self.index_buffer.buffer, None);
+            self.logical_device.free_memory(self.index_buffer.buffer_memory, None);
 
-        self.logical_device.destroy_command_pool(self.command_pool, None);
-        self.logical_device.destroy_device(None);
-        self.surface_loader.destroy_surface(self.surface, None);
+            self.logical_device.destroy_command_pool(self.command_pool, None);
+            self.logical_device.destroy_device(None);
+            self.surface_loader.destroy_surface(self.surface, None);
 
-        if VALIDATION_ENABLED {
-            self.debug.debug_utils.destroy_debug_utils_messenger(self.debug.utils_messenger, None);
+            if VALIDATION_ENABLED {
+                self.debug.debug_utils.destroy_debug_utils_messenger(self.debug.utils_messenger, None);
+            }
+
+            self.instance.destroy_instance(None);
         }
-
-        self.instance.destroy_instance(None);
     }
 
     pub unsafe fn destroy_swapchain(&mut self) {
@@ -269,12 +274,12 @@ impl VulkanApp {
         self.swapchain.loader.destroy_swapchain(self.swapchain.swapchain, None);
     }
 
-    pub unsafe fn recreate_swapchain(&mut self, window: &Window) -> Result<()> {
+    pub unsafe fn recreate_swapchain(&mut self, window_dimensions: Vector2<f32>) -> Result<()> {
         self.logical_device.device_wait_idle().unwrap();
 
         self.destroy_swapchain();
 
-        self.swapchain = VulkanAppSwapchain::get(window, &self.instance, &self.logical_device, self.physical_device, &self.surface_loader, self.surface, &self.indices)?;
+        self.swapchain = VulkanAppSwapchain::get(window_dimensions, &self.instance, &self.logical_device, self.physical_device, &self.surface_loader, self.surface, &self.indices)?;
         self.images = self.swapchain.loader.get_swapchain_images(self.swapchain.swapchain)?;
         self.image_views = create_swapchain_image_views(&self.logical_device, &self.images, self.swapchain.format)?;
         self.render_pass = create_render_pass(&self.instance, &self.logical_device, self.swapchain.format)?;

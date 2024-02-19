@@ -166,12 +166,16 @@ fn get_key_index(keyboard_key: KeyboardKey) -> Option<usize> {
     None
 }
 
+/// Keyboard State enum
+/// Represents whether a key is pressed
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub enum KeyboardKeyState {
     Pressed,
     Released
 }
 
+/// Keyboard Keys enum
+// TODO: Remove Eq, PartialEq with escape to close window
 #[derive(Debug, Eq, PartialEq)]
 pub enum KeyboardKey {
     KeyA = 0,
@@ -219,12 +223,15 @@ pub enum KeyboardKey {
     KeyMax,
 }
 
+/// Mouse Button State enum
+/// Represents whether a mouse button is pressed
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub enum MouseButtonState {
     Pressed,
     Released
 }
 
+/// Mouse Button enum
 #[derive(Debug)]
 pub enum MouseButton {
     LeftButton,

@@ -3,7 +3,7 @@ use crate::vulkan::queue_families::*;
 use ash::extensions::khr::{Surface, Swapchain};
 use ash::{Device, Instance, vk};
 use ash::vk::{Image, PhysicalDevice, SurfaceKHR, SwapchainKHR};
-use winit::window::Window;
+use cgmath::Vector2;
 
 pub struct VulkanAppSwapchain {
     pub swapchain: SwapchainKHR,
@@ -14,7 +14,7 @@ pub struct VulkanAppSwapchain {
 
 impl VulkanAppSwapchain {
     pub unsafe fn get(
-        window: &Window,
+        window_dimensions: Vector2<f32>,
         instance: &Instance,
         logical_device: &Device,
         physical_device: PhysicalDevice,
@@ -27,7 +27,7 @@ impl VulkanAppSwapchain {
 
         let surface_format = get_swapchain_surface_format(&swapchain_support.formats);
         let present_mode = get_swapchain_present_mode(&swapchain_support.present_modes);
-        let extent = get_swapchain_extent(window, swapchain_support.capabilities);
+        let extent = get_swapchain_extent(window_dimensions, swapchain_support.capabilities);
 
         let mut image_count = swapchain_support.capabilities.min_image_count + 1;
         if swapchain_support.capabilities.max_image_count != 0 && image_count > swapchain_support.capabilities.max_image_count {
@@ -127,23 +127,22 @@ fn get_swapchain_present_mode(present_modes: &[vk::PresentModeKHR]) -> vk::Prese
 
 // Get resolution of the swapchain images
 fn get_swapchain_extent(
-    window: &Window,
+    window_dimensions: Vector2<f32>,
     capabilities: vk::SurfaceCapabilitiesKHR) -> vk::Extent2D {
     if capabilities.current_extent.width != u32::MAX {
         capabilities.current_extent
     } else {
-        let size = window.inner_size();
         let clamp = |min: u32, max: u32, v: u32| min.max(max.min(v));
         vk::Extent2D::builder()
             .width(clamp(
                 capabilities.min_image_extent.width,
                 capabilities.max_image_extent.width,
-                size.width,
+                window_dimensions.x as u32,
             ))
             .height(clamp(
                 capabilities.min_image_extent.height,
                 capabilities.max_image_extent.height,
-                size.height,
+                window_dimensions.y as u32,
             ))
             .build()
     }

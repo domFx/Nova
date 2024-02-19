@@ -5,12 +5,9 @@ use ash::extensions::khr::Win32Surface;
 use log::error;
 use raw_window_handle::{HasDisplayHandle, HasWindowHandle, RawDisplayHandle, RawWindowHandle};
 use winit::window::Window;
+use crate::core::window::NovaWindow;
 
-pub unsafe fn create_surface(window: &Window, entry: &Entry, instance: &Instance) -> anyhow::Result<vk::SurfaceKHR> {
-    let raw_display_handle = window.display_handle()?.as_raw();
-    let window_handle = window.window_handle()?;
-    let raw_window_handle = window_handle.as_ref();
-
+pub unsafe fn create_surface(raw_window_handle: RawWindowHandle, raw_display_handle: RawDisplayHandle, entry: &Entry, instance: &Instance) -> anyhow::Result<vk::SurfaceKHR> {
     match (raw_display_handle, raw_window_handle) {
         (RawDisplayHandle::Windows(_), RawWindowHandle::Win32(win32_window_handle)) => {
             let hinstance_ptr: *const c_void = match win32_window_handle.hinstance {

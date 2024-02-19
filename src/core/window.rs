@@ -1,5 +1,7 @@
+use std::sync::Arc;
 use anyhow::anyhow;
 use log::{error, info};
+use raw_window_handle::{HasRawWindowHandle, RawDisplayHandle, WindowHandle};
 use crate::vulkan_app::VulkanApp;
 
 use winit::{
@@ -7,131 +9,184 @@ use winit::{
     event_loop::{EventLoop},
     window::WindowBuilder,
 };
+use winit::dpi::PhysicalSize;
 use winit::event::{ElementState, KeyEvent, MouseButton};
 use winit::event_loop::ControlFlow;
 use winit::keyboard::{KeyCode, PhysicalKey};
 use crate::core::input::{INPUT_STATE, KeyboardKey, KeyboardKeyState, MouseButtonState};
 
-pub trait Window {
-    fn init() -> Self;
-    fn run();
-    fn destroy();
+use ash::extensions::khr::Win32Surface;
+use cgmath::Vector2;
+use raw_window_handle::{HasDisplayHandle, HasWindowHandle, RawWindowHandle};
+use winit::platform::run_on_demand::EventLoopExtRunOnDemand;
+
+/// Window functionality
+pub trait NovaWindow {
+    /// Window Loop
+    fn run(&mut self, vulkan_app: &mut VulkanApp);
+
+    /// Window Cleanup
+    fn destroy(&self);
+
+    fn get_raw_display_handle(&self) -> Option<RawDisplayHandle>;
+
+    fn get_window_handle(&self) -> Option<RawWindowHandle>;
+
+    fn get_window_dimensions(&self) -> Vector2<f32>;
+}
+
+pub fn get_window() -> impl NovaWindow {
+    WinitWindow::init()
 }
 
 pub struct WinitWindow {
-    event_loop: EventLoop<()>
+    event_loop: EventLoop<()>,
+    window: winit::window::Window,
+
+    last_window_size: Option<Vector2<f32>>,
+    minimized: bool,
+    destroying: bool
 }
 
-impl Window for WinitWindow {
+impl WinitWindow {
     fn init() -> Self {
-        todo!()
+        let mut last_window_size = None;
+        let mut destroying = false;
+        let mut minimized = false;
+
+        let event_loop = EventLoop::new().unwrap();
+        let window = WindowBuilder::new().build(&event_loop).unwrap();
+
+        Self {
+            event_loop,
+            window,
+
+            last_window_size,
+            destroying,
+            minimized
+        }
+    }
+}
+
+impl NovaWindow for WinitWindow {
+    fn run(&mut self, vulkan_app: &mut VulkanApp) {
+        self.event_loop.set_control_flow(ControlFlow::Poll);
+
+        let _ = self.event_loop.run_on_demand(|event_loop_event, elwt| {
+            match event_loop_event {
+                Event::AboutToWait => self.window.request_redraw(),
+                Event::WindowEvent { event, .. } => match event {
+                    WindowEvent::CloseRequested => {
+                        self.destroying = true;
+                        elwt.exit();
+                        vulkan_app.destroy();
+                    },
+                    WindowEvent::RedrawRequested => {
+                        if !self.destroying && !self.minimized {
+                            match self.last_window_size {
+                                Some(window_dimensions) => {
+                                    unsafe { vulkan_app.render(window_dimensions).unwrap() };
+                                },
+                                _ => {}
+                            }
+                        }
+                    },
+                    WindowEvent::Resized(size) => {
+                        let window_dimensions = Vector2::new(size.width as f32, size.height as f32);
+                        match self.last_window_size {
+                            None => self.last_window_size = Some(window_dimensions),
+                            Some(physical_size) => {
+                                if size.width == 0 || size.height == 0 {
+                                    self.minimized = true;
+                                } else {
+                                    self.minimized = false;
+                                    vulkan_app.resized = true;
+                                }
+
+                                self.last_window_size = Some(window_dimensions);
+                            }
+                        }
+                    },
+                    WindowEvent::KeyboardInput { event: key_event, is_synthetic: false, .. } => {
+                        let keyboard_button_state = match key_event.state {
+                            ElementState::Pressed => KeyboardKeyState::Pressed,
+                            ElementState::Released => KeyboardKeyState::Released
+                        };
+
+                        let key = match key_event.physical_key {
+                            PhysicalKey::Code(key_code) => parse_winit_key_code(key_code),
+                            PhysicalKey::Unidentified(_) => None
+                        };
+
+                        if let Some(keyboard_key) = key {
+
+                            // TODO: Remove this, temp for quick debug
+                            if keyboard_key == KeyboardKey::Escape {
+                                elwt.exit()
+                            } else {
+                                // Pass to input system
+                                INPUT_STATE.lock().unwrap().keyboard_state.set_key_state(keyboard_key, keyboard_button_state);
+                            }
+
+                            println!("Pressed keys {:?}", INPUT_STATE.lock().unwrap().keyboard_state.get_pressed_keys());
+                        } else {
+                            info!("Unable to parse key {:?}", key_event.physical_key)
+                        }
+                    },
+                    WindowEvent::MouseInput { state,  button, ..  } => {
+                        let mouse_button_state = match state {
+                            ElementState::Pressed => MouseButtonState::Pressed,
+                            ElementState::Released => MouseButtonState::Released
+                        };
+
+                        let mouse_button = match button {
+                            MouseButton::Right => Some(crate::core::input::MouseButton::RightButton),
+                            MouseButton::Left => Some(crate::core::input::MouseButton::LeftButton),
+                            MouseButton::Middle => Some(crate::core::input::MouseButton::MiddleButton),
+                            MouseButton::Back => None,
+                            MouseButton::Forward => None,
+                            MouseButton::Other(_) => None,
+                        };
+
+                        if let Some(button) = mouse_button {
+                            INPUT_STATE.lock().unwrap().mouse_state.set_mouse_state(button, mouse_button_state);
+
+                            println!("Pressed mouse buttons {:?}", INPUT_STATE.lock().unwrap().mouse_state.get_pressed_buttons());
+
+                        } else {
+                            info!("Unable to parse mouse button {:?}", button)
+                        }
+                    }
+                    _ => ()
+                },
+                _ => (),
+            }
+        });
     }
 
-    fn run() {
-        todo!()
+    fn destroy(&self) {
+        return
     }
 
-    fn destroy() {
-        todo!()
+    fn get_raw_display_handle(&self) -> Option<RawDisplayHandle> {
+        Some(self.window.display_handle().unwrap().as_raw())
+    }
+
+    fn get_window_handle(&self) -> Option<RawWindowHandle> {
+        Some(self.window.raw_window_handle().unwrap())
+    }
+
+    fn get_window_dimensions(&self) -> Vector2<f32> {
+        let inner_size = self.window.inner_size();
+        let dimensions = Vector2::new(inner_size.width as f32, inner_size.height as f32);
+        dimensions
     }
 }
 
 pub fn open_winit_window() {
-    let event_loop = EventLoop::new().unwrap();
 
-    let window = WindowBuilder::new().build(&event_loop).unwrap();
 
-    let mut vulkan_app = VulkanApp::new(&window).unwrap();
 
-    let mut last_window_size = None;
-    let mut destroying = false;
-    let mut minimized = false;
-
-    event_loop.set_control_flow(ControlFlow::Poll);
-
-    event_loop.run(move |event_loop_event, elwt| {
-        match event_loop_event {
-            Event::AboutToWait => window.request_redraw(),
-            Event::WindowEvent { event, .. } => match event {
-                WindowEvent::CloseRequested => {
-                    destroying = true;
-                    elwt.exit();
-                    unsafe { vulkan_app.destroy() };
-                },
-                WindowEvent::RedrawRequested => {
-                    if !destroying && !minimized {
-                        unsafe { vulkan_app.render(&window).unwrap() };
-                    }
-                },
-                WindowEvent::Resized(size) => {
-                    match last_window_size {
-                        None => last_window_size = Some(size),
-                        Some(physical_size) => {
-                            if size.width == 0 || size.height == 0 {
-                                minimized = true;
-                            } else {
-                                minimized = false;
-                                vulkan_app.resized = true;
-                            }
-                            last_window_size = Some(physical_size);
-                        }
-                    }
-                },
-                WindowEvent::KeyboardInput { event: key_event, is_synthetic: false, .. } => {
-                    let keyboard_button_state = match key_event.state {
-                        ElementState::Pressed => KeyboardKeyState::Pressed,
-                        ElementState::Released => KeyboardKeyState::Released
-                    };
-
-                    let key = match key_event.physical_key {
-                        PhysicalKey::Code(key_code) => parse_winit_key_code(key_code),
-                        PhysicalKey::Unidentified(_) => None
-                    };
-
-                    if let Some(keyboard_key) = key {
-
-                        // TODO: Remove this, temp for quick debug
-                        if keyboard_key == KeyboardKey::Escape {
-                            elwt.exit()
-                        } else {
-                            // Pass to input system
-                            INPUT_STATE.lock().unwrap().keyboard_state.set_key_state(keyboard_key, keyboard_button_state);
-                        }
-
-                        println!("Pressed keys {:?}", INPUT_STATE.lock().unwrap().keyboard_state.get_pressed_keys());
-                    } else {
-                        info!("Unable to parse key {:?}", key_event.physical_key)
-                    }
-                },
-                WindowEvent::MouseInput { state,  button, ..  } => {
-                    let mouse_button_state = match state {
-                        ElementState::Pressed => MouseButtonState::Pressed,
-                        ElementState::Released => MouseButtonState::Released
-                    };
-
-                    let mouse_button = match button {
-                        MouseButton::Right => Some(crate::core::input::MouseButton::RightButton),
-                        MouseButton::Left => Some(crate::core::input::MouseButton::LeftButton),
-                        MouseButton::Middle => Some(crate::core::input::MouseButton::MiddleButton),
-                        MouseButton::Back => None,
-                        MouseButton::Forward => None,
-                        MouseButton::Other(_) => None,
-                    };
-
-                    if let Some(button) = mouse_button {
-                        INPUT_STATE.lock().unwrap().mouse_state.set_mouse_state(button, mouse_button_state);
-
-                        println!("Pressed mouse buttons {:?}", INPUT_STATE.lock().unwrap().mouse_state.get_pressed_buttons());
-
-                    } else {
-                        info!("Unable to parse mouse button {:?}", button)
-                    }
-                }
-                _ => ()
-            },
-            _ => (),
-        }
-    }).expect("TODO: panic message");
 }
 
 fn parse_winit_key_code(key_code: KeyCode) -> Option<KeyboardKey> {
