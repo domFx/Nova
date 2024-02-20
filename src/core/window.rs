@@ -1,3 +1,4 @@
+use std::time::{Duration, Instant};
 use crate::core::input::{INPUT_STATE, KeyboardKey, KeyboardKeyState, MouseButtonState};
 use crate::renderer::vulkan::vulkan_app::VulkanApp;
 
@@ -46,7 +47,7 @@ pub struct WinitWindow {
 
     last_window_size: Option<Vector2<f32>>,
     minimized: bool,
-    destroying: bool
+    destroying: bool,
 }
 
 impl WinitWindow {
@@ -75,9 +76,25 @@ impl NovaWindow for WinitWindow {
     fn run(&mut self, vulkan_app: &mut VulkanApp) {
         self.event_loop.set_control_flow(ControlFlow::Poll);
 
+        let mut last_frame_time = Instant::now();
+        let mut frame_counter = 0;
+        let mut fps: f32 = 0.0;
+        const TARGET_FRAME_RATE: f32 = 1.0 / 100.0;
+        const TARGET_DISPLAY_RATE: f32 = 1.0 / 10.0;
+
         let _ = self.event_loop.run_on_demand(|event_loop_event, elwt| {
             match event_loop_event {
-                Event::AboutToWait => self.window.request_redraw(),
+                Event::AboutToWait => {
+                    let now = Instant::now();
+                    let time_since_last_frame = now - last_frame_time;
+
+                    if last_frame_time.elapsed().as_secs_f32() >= TARGET_FRAME_RATE {
+                        fps = (frame_counter as f32) / time_since_last_frame.as_secs_f32();
+
+                        frame_counter = 0;
+                        self.window.request_redraw();
+                    }
+                },
                 Event::WindowEvent { event, .. } => match event {
                     WindowEvent::CloseRequested => {
                         self.destroying = true;
@@ -85,6 +102,11 @@ impl NovaWindow for WinitWindow {
                         vulkan_app.destroy();
                     },
                     WindowEvent::RedrawRequested => {
+                        frame_counter += 1;
+                        last_frame_time = Instant::now();
+
+                        info!("FPS {:.2}", fps);
+
                         if !self.destroying && !self.minimized {
                             match self.last_window_size {
                                 Some(window_dimensions) => {

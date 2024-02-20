@@ -3,33 +3,7 @@ name = "nova"
 version = "0.1.0"
 edition = "2021"
 
-# DX12 stuff 
-
-# [target.'cfg(windows)'.dependencies]
-# winapi = { version = "0.3", features = ["xinput", "winuser", "dsound"] }
-
-# [target.'cfg(windows)'.dependencies.windows]
-# version = "0.48.0"
-# features = [
-#     "Foundation_Collections",
-#     "Foundation_Numerics",
-#     "Graphics",
-#     "System",
-#     "UI_Composition_Desktop",
-#     "Win32_Foundation",
-#     "Win32_Graphics_Gdi",
-#     "Win32_System_LibraryLoader",
-#     "Win32_System_Memory",
-#     "Win32_System_WinRT",
-#     "Win32_System_WinRT_Composition",
-#     "Win32_UI_WindowsAndMessaging",
-# ]
-
-# [target.'cfg(not(any(windows)))'.dependencies]
-# winit = "0.28.6"
-
-# Vulkan Implementation
-
+# Vulkan Renderer
 [dependencies]
 ash = "0.37.3"
 ash-window = "0.12.0"
@@ -40,4 +14,4 @@ thiserror = "1.0"
 log = "0.4.20"
 pretty_env_logger = "0.5.0"
 cgmath = "0.18.0"
-#imgui-rs = "1.47.0"
+imgui = "0.11.0"
