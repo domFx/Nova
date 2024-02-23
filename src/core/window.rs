@@ -30,9 +30,9 @@ pub trait NovaWindow {
     /// Window Cleanup
     fn destroy(self);
 
-    fn get_raw_display_handle(&self) -> Option<RawDisplayHandle>;
+    fn get_raw_display_handle(&self) -> RawDisplayHandle;
 
-    fn get_window_handle(&self) -> Option<RawWindowHandle>;
+    fn get_window_handle(&self) -> RawWindowHandle;
 
     fn get_window_dimensions(&self) -> Vector2<f32>;
 }
@@ -198,12 +198,12 @@ impl NovaWindow for WinitWindow {
         return
     }
 
-    fn get_raw_display_handle(&self) -> Option<RawDisplayHandle> {
-        Some(self.window.display_handle().unwrap().as_raw())
+    fn get_raw_display_handle(&self) -> RawDisplayHandle {
+        self.window.display_handle().unwrap().as_raw()
     }
 
-    fn get_window_handle(&self) -> Option<RawWindowHandle> {
-        Some(self.window.raw_window_handle().unwrap())
+    fn get_window_handle(&self) -> RawWindowHandle {
+        self.window.raw_window_handle().unwrap()
     }
 
     fn get_window_dimensions(&self) -> Vector2<f32> {

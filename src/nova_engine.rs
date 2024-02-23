@@ -11,8 +11,8 @@ impl NovaEngine {
         let mut window = get_window();
 
         let vulkan_app = &mut VulkanApp::new(
-            window.get_window_handle().unwrap(),
-            window.get_raw_display_handle().unwrap(),
+            window.get_window_handle(),
+            window.get_raw_display_handle(),
             window.get_window_dimensions()
         ).unwrap();
 
