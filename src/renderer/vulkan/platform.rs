@@ -4,7 +4,7 @@ use ash::extensions::khr::Surface;
 use ash::extensions::khr::Win32Surface;
 
 #[cfg(target_os = "macos")]
-use ash::extensions::khr::MacOsSurface;
+use ash::extensions::mvk::MacOSSurface;
 
 #[cfg(all(unix, not(target_os = "macos"), not(target_os="android")))]
 use ash::extensions::khr::XlibSurface;
@@ -19,8 +19,7 @@ pub fn required_extension_names() -> Vec<*const i8> {
     #[cfg(target_os = "macos")]
     return vec![
         Surface::name().as_ptr(),
-        MacOsSurface::name().as_ptr(),
-        DebugUtils::name().as_ptr()
+        MacOSSurface::name().as_ptr()
     ];
 
     #[cfg(all(unix, not(target_os = "macos"), not(target_os="android")))]
