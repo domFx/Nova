@@ -752,11 +752,16 @@ dependencies = [
  "cgmath",
  "imgui",
  "log",
+ "nova_math",
  "pretty_env_logger",
  "raw-window-handle 0.6.0",
  "thiserror",
  "winit",
 ]
+
+[[package]]
+name = "nova_math"
+version = "0.1.0"
 
 [[package]]
 name = "num-traits"
