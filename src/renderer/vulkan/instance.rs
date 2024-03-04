@@ -58,6 +58,8 @@ pub unsafe fn create_instance(entry: &Entry, debug_info: &mut vk::DebugUtilsMess
         info!("Enabling extensions for macOS portability.");
         extensions.push(vk::KhrGetPhysicalDeviceProperties2Fn::name().as_ptr());
         extensions.push(vk::KhrPortabilityEnumerationFn::name().as_ptr());
+        extensions.push(vk::ExtMetalSurfaceFn::name().as_ptr());
+        extensions.push(vk::MvkMacosSurfaceFn::name().as_ptr());
         vk::InstanceCreateFlags::ENUMERATE_PORTABILITY_KHR
     } else {
         extensions.push(vk::KhrGetPhysicalDeviceProperties2Fn::name().as_ptr());

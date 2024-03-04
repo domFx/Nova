@@ -1,6 +1,7 @@
 use std::ffi::c_void;
 use anyhow::anyhow;
 use ash::{Entry, Instance, vk};
+use ash::extensions::khr::Surface;
 use log::error;
 use raw_window_handle::{RawDisplayHandle, RawWindowHandle};
 use winit::window::Window;
@@ -37,88 +38,32 @@ pub unsafe fn create_surface(
         },
         #[cfg(target_os = "macos")]
         (RawDisplayHandle::AppKit(_), RawWindowHandle::AppKit(window)) => {
-            use ash::extensions::mvk::*;
-            use ash::vk::{MacOSSurfaceCreateFlagsMVK, MacOSSurfaceCreateInfoMVK, PFN_vkCreateMetalSurfaceEXT};
-            use cocoa::appkit::{NSView, NSWindow};
+            use ash::extensions::ext::MetalSurface;
+            use cocoa::appkit::{NSView};
             use cocoa::{base::id as cocoa_id};
-            use cocoa::appkit::NSEvent;
-            use core_graphics_types::{base::CGFloat, geometry::CGRect};
-            use metal::MetalLayer;
-            use objc::runtime::{YES,BOOL,Object};
-            use objc::*;
-            use objc::msg_send;
-            use objc2::rc::Id;
-            use std::mem;
-            use winit::platform::macos::WindowExtMacOS;
-            use winit::platform::macos;
+            use metal::{MetalLayer, MetalLayerRef};
+            use objc::runtime::{YES};
 
-            // let ns_view = window.ns_view as cocoa_id;
+            let ns_view_ptr = window.ns_view.as_ptr();
 
-            // SAFETY: The pointer came from `WindowHandle`, which ensures
-            // that the `AppKitWindowHandle` contains a valid pointer to an
-            // `NSView`.
-            // Unwrap is fine, since the pointer came from `NonNull`.
-            // let ns_view: Id<NSView> = unsafe { Id::retain(ns_view.cast()) }.unwrap();
-            // Do something with the NSView here, like getting the `NSWindow`
+            let mut layer = MetalLayer::new();
+            layer.set_opaque(false);
+            layer.set_presents_with_transaction(false);
 
-            // let ns_view = Id::<NSView>::new(ns_view_ptr).unwrap();
-            let view = window.ns_view.as_ptr() as cocoa_id;
-            let win: cocoa_id = msg_send![view, window];
-            if !win.is_null() {
-                let ns_window = win.window();
+            (ns_view_ptr as cocoa_id).setWantsLayer(YES);
+            (ns_view_ptr as cocoa_id).setLayer(layer.as_ref() as *const _ as _);
 
-                // TODO: this logic is duplicated from gfx-backend-metal, refactor?
-                unsafe {
-                    let existing: *mut Object = msg_send![view, layer];
-                    let class = class!(CAMetalLayer);
+            let layer_ptr = (layer.as_ref() as *const MetalLayerRef).cast::<c_void>();
 
-                    let use_current = if existing.is_null() {
-                        false
-                    } else {
-                        let result: BOOL = msg_send![existing, isKindOfClass: class];
-                        result == YES
-                    };
+            let info = vk::MetalSurfaceCreateInfoEXT::builder()
+                .flags(vk::MetalSurfaceCreateFlagsEXT::empty())
+                .layer(layer_ptr)
+                .build();
 
-                    if !use_current {
-                        let layer: *mut Object = msg_send![class, new];
-                        let () = msg_send![view, setLayer: layer];
-                        let bounds: CGRect = msg_send![view, bounds];
-                        let () = msg_send![layer, setBounds: bounds];
+            let metal_surface = MetalSurface::new(entry, instance);
 
-                        let window: *mut Object = msg_send![view, window];
-                        if !window.is_null() {
-                            let scale_factor: CGFloat = msg_send![window, backingScaleFactor];
-                            let () = msg_send![layer, setContentsScale: scale_factor];
-                        }
-                    }
-                }
-                // let wnd: *mut objc::runtime::Object = mem::transmute(ns_window);
-
-                // let ns_window = ns_view.window().expect("view was not installed in a window");
-
-                // let layer = MetalLayer::new();
-                // layer.set_edge_antialiasing_mask(0);
-                // layer.set_presents_with_transaction(false);
-                // layer.remove_all_animations();
-                //
-                // let view = ns_window.contentView();
-                //
-                // layer.set_contents_scale(win.backingScaleFactor());
-                // win.setLayer(mem::transmute(layer.as_ref()));
-                // win.setWantsLayer(YES);
-
-                let info = vk::MacOSSurfaceCreateInfoMVK::builder()
-                    .flags(vk::MacOSSurfaceCreateFlagsMVK::empty())
-                    .view(window.ns_view.as_ptr())
-                    .build();
-
-                let metal_surface = MacOSSurface::new(entry, instance);
-
-                let surface = metal_surface.create_mac_os_surface(&info, None)?;
-                return Ok(surface);
-            }
-
-            Err(anyhow!("Unable to create macos window"))
+            let surface = metal_surface.create_metal_surface(&info, None)?;
+            Ok(surface)
         },
         _ => {
             error!("Raw window handle not implemented");

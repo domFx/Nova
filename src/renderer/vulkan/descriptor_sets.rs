@@ -12,9 +12,10 @@ pub fn create_descriptor_sets(
     swapchain_images: &Vec<Image>,
     uniform_buffers: &Vec<VulkanAppBuffer>
 ) -> Result<Vec<DescriptorSet>> {
+    let set_layouts = vec![descriptor_set_layout; swapchain_images.len()];
     let descriptor_set_allocator_info = vk::DescriptorSetAllocateInfo::builder()
         .descriptor_pool(descriptor_pool)
-        .set_layouts(&vec![descriptor_set_layout; swapchain_images.len()])
+        .set_layouts(&set_layouts)
         .build();
 
     unsafe {
