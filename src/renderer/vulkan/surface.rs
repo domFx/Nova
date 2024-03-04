@@ -1,16 +1,9 @@
 use std::ffi::c_void;
 use anyhow::anyhow;
 use ash::{Entry, Instance, vk};
-use ash::extensions::mvk::*;
-use ash::vk::{MacOSSurfaceCreateFlagsMVK, MacOSSurfaceCreateInfoMVK, PFN_vkCreateMetalSurfaceEXT};
-use cocoa::appkit::NSEvent;
 use log::error;
-use metal::MetalLayer;
-use objc::msg_send;
-use objc::runtime::{Object, YES};
 use raw_window_handle::{RawDisplayHandle, RawWindowHandle};
 use winit::window::Window;
-use winit::platform::macos;
 use crate::core::window::NovaWindow;
 
 pub unsafe fn create_surface(
@@ -44,19 +37,20 @@ pub unsafe fn create_surface(
         },
         #[cfg(target_os = "macos")]
         (RawDisplayHandle::AppKit(_), RawWindowHandle::AppKit(window)) => {
-            use std::mem;
-
-            #[cfg(target_os = "macos")]
+            use ash::extensions::mvk::*;
+            use ash::vk::{MacOSSurfaceCreateFlagsMVK, MacOSSurfaceCreateInfoMVK, PFN_vkCreateMetalSurfaceEXT};
             use cocoa::appkit::{NSView, NSWindow};
-            #[cfg(target_os = "macos")]
-            use metal::MetalLayer;
-            #[cfg(target_os = "macos")]
-            use objc::runtime::{YES,BOOL};
-            use objc::*;
-            use objc2::rc::Id;
             use cocoa::{base::id as cocoa_id};
-            use winit::platform::macos::WindowExtMacOS;
+            use cocoa::appkit::NSEvent;
             use core_graphics_types::{base::CGFloat, geometry::CGRect};
+            use metal::MetalLayer;
+            use objc::runtime::{YES,BOOL,Object};
+            use objc::*;
+            use objc::msg_send;
+            use objc2::rc::Id;
+            use std::mem;
+            use winit::platform::macos::WindowExtMacOS;
+            use winit::platform::macos;
 
             // let ns_view = window.ns_view as cocoa_id;
 
