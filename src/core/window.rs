@@ -2,9 +2,8 @@ use std::time::{Duration, Instant};
 use crate::core::input::{INPUT_STATE, KeyboardKey, KeyboardKeyState, MouseButtonState};
 use crate::renderer::vulkan::vulkan_app::VulkanApp;
 
-use ash::extensions::khr::Win32Surface;
 use cgmath::Vector2;
-use log::{error, info};
+use log::{info};
 use raw_window_handle::{
     HasDisplayHandle,
     HasRawWindowHandle,
@@ -14,8 +13,7 @@ use raw_window_handle::{
     WindowHandle
 };
 use winit::{
-    dpi::PhysicalSize,
-    event::{Event, WindowEvent, ElementState, KeyEvent, MouseButton},
+    event::{Event, WindowEvent, ElementState, MouseButton},
     event_loop::{EventLoop, ControlFlow},
     keyboard::{KeyCode, PhysicalKey},
     window::WindowBuilder,
@@ -52,14 +50,14 @@ pub struct WinitWindow {
 
 impl WinitWindow {
     fn init() -> Self {
-        let mut destroying = false;
-        let mut minimized = false;
+        let destroying = false;
+        let minimized = false;
 
         let event_loop = EventLoop::new().unwrap();
         let window = WindowBuilder::new().build(&event_loop).unwrap();
 
         let inner_size= window.inner_size();
-        let mut last_window_size = Some(Vector2::new(inner_size.width as f32, inner_size.height as f32));
+        let last_window_size = Some(Vector2::new(inner_size.width as f32, inner_size.height as f32));
 
         Self {
             event_loop,
@@ -125,7 +123,7 @@ impl NovaWindow for WinitWindow {
                         let window_dimensions = Vector2::new(size.width as f32, size.height as f32);
                         match self.last_window_size {
                             None => self.last_window_size = Some(window_dimensions),
-                            Some(physical_size) => {
+                            Some(_) => {
                                 if size.width == 0 || size.height == 0 {
                                     self.minimized = true;
                                 } else {
