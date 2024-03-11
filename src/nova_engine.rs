@@ -21,7 +21,7 @@ impl NovaEngine {
                 window.run(renderer);
                 window.destroy();
             },
-            Err(e) => error!("Error creating VulkanApp {e:?}")
+            Err(e) => error!("Error creating renderer {e:?}")
         }
     }
 }
