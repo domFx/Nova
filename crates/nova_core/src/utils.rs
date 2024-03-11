@@ -1,3 +1,5 @@
+#![allow(dead_code)]
+
 // Utilities
 use std::os::raw::c_char;
 
