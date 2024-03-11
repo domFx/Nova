@@ -1,5 +1,5 @@
 use std::time::{Duration, Instant};
-use crate::core::input::{INPUT_STATE, KeyboardKey, KeyboardKeyState, MouseButtonState};
+use nova_core::input::{INPUT_STATE, KeyboardKey, KeyboardKeyState, MouseButtonState};
 use crate::renderer::vulkan::vulkan_app::VulkanApp;
 
 use cgmath::Vector2;
@@ -168,9 +168,9 @@ impl NovaWindow for WinitWindow {
                         };
 
                         let mouse_button = match button {
-                            MouseButton::Right => Some(crate::core::input::MouseButton::RightButton),
-                            MouseButton::Left => Some(crate::core::input::MouseButton::LeftButton),
-                            MouseButton::Middle => Some(crate::core::input::MouseButton::MiddleButton),
+                            MouseButton::Right => Some(nova_core::input::MouseButton::RightButton),
+                            MouseButton::Left => Some(nova_core::input::MouseButton::LeftButton),
+                            MouseButton::Middle => Some(nova_core::input::MouseButton::MiddleButton),
                             MouseButton::Back => None,
                             MouseButton::Forward => None,
                             MouseButton::Other(_) => None,

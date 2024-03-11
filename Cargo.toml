@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2021"
 
 [workspace]
-members = [
+members = [ "crates/nova_core",
     "crates/nova_math"
 ]
 
@@ -27,4 +27,5 @@ log = "0.4.20"
 pretty_env_logger = "0.5.0"
 cgmath = "0.18.0"
 imgui = "0.11.0"
+nova_core = {  path = "crates/nova_core", version = "0.1.0" }
 nova_math = {  path = "crates/nova_math", version = "0.1.0" }

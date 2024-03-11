@@ -147,7 +147,7 @@ fn get_mouse_index(mouse_button: MouseButton) -> Option<usize> {
 
     let max_button_index = MouseButton::MaxButton as usize;
 
-    if idx >= 0 && idx < max_button_index {
+    if idx < max_button_index {
         return Some(idx)
     }
 
@@ -159,7 +159,7 @@ fn get_key_index(keyboard_key: KeyboardKey) -> Option<usize> {
 
     let max_keyboard_index = KeyboardKey::KeyMax as usize;
 
-    if idx >= 0 && idx < max_keyboard_index {
+    if idx < max_keyboard_index {
         return Some(idx)
     }
 
