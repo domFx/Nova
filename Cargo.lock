@@ -69,9 +69,9 @@ checksum = "fc7eb209b1518d6bb87b283c20095f5228ecda460da70b44f0802523dea6da04"
 
 [[package]]
 name = "anyhow"
-version = "1.0.75"
+version = "1.0.80"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a4668cab20f66d8d020e1fbc0ebe47217433c1b6c8f2040faf858554e394ace6"
+checksum = "5ad32ce52e4161730f7098c077cd2ed6229b5804ccf99e5366be1ab72a98b4e1"
 
 [[package]]
 name = "approx"
@@ -729,22 +729,11 @@ dependencies = [
 name = "nova"
 version = "0.1.0"
 dependencies = [
- "anyhow",
- "ash",
- "ash-window",
- "cgmath",
- "cocoa 0.25.0",
- "core-graphics-types",
  "log",
- "metal",
  "nova_core",
  "nova_math",
- "objc",
- "objc2 0.5.0",
+ "nova_renderer",
  "pretty_env_logger",
- "raw-window-handle 0.6.0",
- "thiserror",
- "winit",
 ]
 
 [[package]]
@@ -754,6 +743,26 @@ version = "0.1.0"
 [[package]]
 name = "nova_math"
 version = "0.1.0"
+
+[[package]]
+name = "nova_renderer"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "ash",
+ "ash-window",
+ "cgmath",
+ "cocoa 0.25.0",
+ "core-graphics-types",
+ "log",
+ "metal",
+ "nova_core",
+ "objc",
+ "objc2 0.5.0",
+ "raw-window-handle 0.6.0",
+ "thiserror",
+ "winit",
+]
 
 [[package]]
 name = "num-traits"

@@ -4,8 +4,7 @@ use ash::{Entry, Instance, vk};
 use ash::extensions::khr::Surface;
 use log::error;
 use raw_window_handle::{RawDisplayHandle, RawWindowHandle};
-use winit::window::Window;
-use crate::core::window::NovaWindow;
+use crate::window::NovaWindow;
 
 pub unsafe fn create_surface(
     raw_window_handle: RawWindowHandle,

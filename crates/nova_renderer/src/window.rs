@@ -1,6 +1,6 @@
 use std::time::{Duration, Instant};
 use nova_core::input::{INPUT_STATE, KeyboardKey, KeyboardKeyState, MouseButtonState};
-use crate::renderer::vulkan::vulkan_app::VulkanApp;
+use crate::renderer::Renderer;
 
 use cgmath::Vector2;
 use log::{info};
@@ -23,7 +23,7 @@ use winit::{
 /// Window functionality
 pub trait NovaWindow {
     /// Window Loop
-    fn run(&mut self, vulkan_app: &mut VulkanApp);
+    fn run(&mut self, vulkan_app: &mut Renderer);
 
     /// Window Cleanup
     fn destroy(self);
@@ -71,7 +71,7 @@ impl WinitWindow {
 }
 
 impl NovaWindow for WinitWindow {
-    fn run(&mut self, vulkan_app: &mut VulkanApp) {
+    fn run(&mut self, render: &mut Renderer) {
         self.event_loop.set_control_flow(ControlFlow::Poll);
 
         let mut last_frame_time = Instant::now();
@@ -96,7 +96,7 @@ impl NovaWindow for WinitWindow {
                     WindowEvent::CloseRequested => {
                         self.destroying = true;
                         elwt.exit();
-                        vulkan_app.destroy();
+                        render.destroy();
                     },
                     WindowEvent::RedrawRequested => {
                         let now = Instant::now();
@@ -113,7 +113,7 @@ impl NovaWindow for WinitWindow {
                         if !self.destroying && !self.minimized {
                             match self.last_window_size {
                                 Some(window_dimensions) => {
-                                    unsafe { vulkan_app.render(window_dimensions).unwrap() };
+                                    unsafe { render.render(window_dimensions).unwrap() };
                                 },
                                 _ => {}
                             }
@@ -128,7 +128,7 @@ impl NovaWindow for WinitWindow {
                                     self.minimized = true;
                                 } else {
                                     self.minimized = false;
-                                    vulkan_app.resized = true;
+                                    render.resized = true;
                                 }
 
                                 self.last_window_size = Some(window_dimensions);

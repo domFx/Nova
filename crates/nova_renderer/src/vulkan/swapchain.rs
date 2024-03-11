@@ -1,4 +1,4 @@
-use crate::renderer::vulkan::queue_families::*;
+use crate::vulkan::queue_families::*;
 
 use ash::extensions::khr::{Surface, Swapchain};
 use ash::{Device, Instance, vk};

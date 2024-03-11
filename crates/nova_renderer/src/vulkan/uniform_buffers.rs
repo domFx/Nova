@@ -3,7 +3,7 @@ use anyhow::Result;
 use ash::{Device, Instance, vk};
 use ash::vk::{PhysicalDevice};
 use cgmath::{Deg, point3, vec3};
-use crate::renderer::vulkan::buffer::VulkanAppBuffer;
+use crate::vulkan::buffer::VulkanAppBuffer;
 
 type Mat4 = cgmath::Matrix4<f32>;
 

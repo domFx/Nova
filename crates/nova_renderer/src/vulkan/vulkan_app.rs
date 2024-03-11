@@ -1,22 +1,22 @@
-use crate::renderer::vulkan::command_buffers::*;
-use crate::renderer::vulkan::command_pool::*;
-use crate::renderer::vulkan::descriptor_set_layout::*;
-use crate::renderer::vulkan::framebuffer::*;
-use crate::renderer::vulkan::instance::*;
-use crate::renderer::vulkan::logical_device::*;
-use crate::renderer::vulkan::physical_device::*;
-use crate::renderer::vulkan::pipeline::*;
-use crate::renderer::vulkan::queue_families::*;
-use crate::renderer::vulkan::render_pass::*;
-use crate::renderer::vulkan::swapchain::*;
-use crate::renderer::vulkan::surface::*;
-use crate::renderer::vulkan::index_buffer::*;
+use crate::vulkan::command_buffers::*;
+use crate::vulkan::command_pool::*;
+use crate::vulkan::descriptor_set_layout::*;
+use crate::vulkan::framebuffer::*;
+use crate::vulkan::instance::*;
+use crate::vulkan::logical_device::*;
+use crate::vulkan::physical_device::*;
+use crate::vulkan::pipeline::*;
+use crate::vulkan::queue_families::*;
+use crate::vulkan::render_pass::*;
+use crate::vulkan::swapchain::*;
+use crate::vulkan::surface::*;
+use crate::vulkan::index_buffer::*;
 
-use crate::renderer::vulkan::buffer::VulkanAppBuffer;
-use crate::renderer::vulkan::constants::{MAX_FRAMES_IN_FLIGHT, VALIDATION_ENABLED};
-use crate::renderer::vulkan::debug::{create_debug_info, VulkanAppDebug};
-use crate::renderer::vulkan::uniform_buffers::{create_uniform_buffers, update_uniform_buffer};
-use crate::renderer::vulkan::vertex::create_vertex_buffer;
+use crate::vulkan::buffer::VulkanAppBuffer;
+use crate::vulkan::constants::{MAX_FRAMES_IN_FLIGHT, VALIDATION_ENABLED};
+use crate::vulkan::debug::{create_debug_info, VulkanAppDebug};
+use crate::vulkan::uniform_buffers::{create_uniform_buffers, update_uniform_buffer};
+use crate::vulkan::vertex::create_vertex_buffer;
 
 use anyhow::*;
 use anyhow::{Result};
@@ -27,8 +27,8 @@ use ash::vk::{SurfaceKHR, PhysicalDevice, Queue, RenderPass, Framebuffer, Comman
 use std::time::Instant;
 use cgmath::Vector2;
 use raw_window_handle::{RawDisplayHandle, RawWindowHandle};
-use crate::renderer::vulkan::descriptor_pool::create_descriptor_pool;
-use crate::renderer::vulkan::descriptor_sets::create_descriptor_sets;
+use crate::vulkan::descriptor_pool::create_descriptor_pool;
+use crate::vulkan::descriptor_sets::create_descriptor_sets;
 
 pub struct VulkanApp {
     entry: Entry,

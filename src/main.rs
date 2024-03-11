@@ -1,6 +1,4 @@
 mod nova_engine;
-mod core;
-mod renderer;
 
 use nova_engine::NovaEngine;
 use pretty_env_logger;

@@ -4,27 +4,15 @@ version = "0.1.0"
 edition = "2021"
 
 [workspace]
-members = [ "crates/nova_core",
-    "crates/nova_math"
+members = [
+    "crates/nova_core",
+    "crates/nova_math",
+    "crates/nova_renderer"
 ]
 
-[target.'cfg(target_os = "macos")'.dependencies]
-cocoa = { version = "0.25" }
-core-graphics-types = "0.1.3"
-metal = { version = "0.27" }
-objc = { version = "0.2" }
-objc2 = "0.5.0"
-
 [dependencies]
-# Vulkan Renderer
-ash = "0.37.3"
-ash-window = "0.12.0"
-raw-window-handle = "0.6.0"
-winit = "0.29.8"
-anyhow = "1.0"
-thiserror = "1.0"
 log = "0.4.21"
 pretty_env_logger = "0.5.0"
-cgmath = "0.18.0"
 nova_core = {  path = "crates/nova_core", version = "0.1.0" }
 nova_math = {  path = "crates/nova_math", version = "0.1.0" }
+nova_renderer = {  path = "crates/nova_renderer", version = "0.1.0" }

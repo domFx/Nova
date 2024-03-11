@@ -2,8 +2,8 @@ use std::mem::size_of;
 use anyhow::Result;
 use ash::{Device, vk, Instance};
 use ash::vk::{CommandPool, PhysicalDevice, Queue};
-use crate::renderer::vulkan::buffer::VulkanAppBuffer;
-use crate::renderer::vulkan::vertex::{INDICES};
+use crate::vulkan::buffer::VulkanAppBuffer;
+use crate::vulkan::vertex::{INDICES};
 
 pub fn create_index_buffer(
     instance: &Instance,
