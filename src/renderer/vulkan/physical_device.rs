@@ -1,8 +1,8 @@
-use crate::utils::convert_vec_to_string;
 use crate::renderer::vulkan::constants::DEVICE_EXTENSIONS;
 use crate::renderer::vulkan::errors::SuitabilityError;
 use crate::renderer::vulkan::queue_families::QueueFamilyIndices;
 use crate::renderer::vulkan::swapchain::SwapchainSupport;
+use nova_core::utils::convert_vec_to_string;
 
 use std::collections::HashSet;
 use std::ffi::CStr;
