@@ -10,7 +10,6 @@ use crate::renderer::vulkan::queue_families::*;
 use crate::renderer::vulkan::render_pass::*;
 use crate::renderer::vulkan::swapchain::*;
 use crate::renderer::vulkan::surface::*;
-use crate::renderer::vulkan::vertex::*;
 use crate::renderer::vulkan::index_buffer::*;
 
 use crate::renderer::vulkan::buffer::VulkanAppBuffer;
