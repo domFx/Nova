@@ -24,14 +24,14 @@ impl Renderer {
         })
     }
 
-    pub fn render(&mut self, window_dimensions: cgmath::Vector2<f32>) -> Result<()> {
+    pub fn render(&mut self, window_dimensions: Vector2<f32>) -> Result<()> {
         unsafe {
             self.vulkan_renderer.render(window_dimensions)?;
         }
         Ok(())
     }
 
-    pub fn destroy(&self) {
-
+    pub fn destroy(&mut self) {
+        self.vulkan_renderer.destroy();
     }
 }

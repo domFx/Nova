@@ -7,7 +7,8 @@ edition = "2021"
 members = [
     "crates/nova_core",
     "crates/nova_math",
-    "crates/nova_renderer"
+    "crates/nova_renderer",
+    "crates/nova_system"
 ]
 
 [dependencies]

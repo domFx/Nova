@@ -1,10 +1,8 @@
 use std::ffi::c_void;
 use anyhow::anyhow;
 use ash::{Entry, Instance, vk};
-use ash::extensions::khr::Surface;
 use log::error;
 use raw_window_handle::{RawDisplayHandle, RawWindowHandle};
-use crate::window::NovaWindow;
 
 pub unsafe fn create_surface(
     raw_window_handle: RawWindowHandle,

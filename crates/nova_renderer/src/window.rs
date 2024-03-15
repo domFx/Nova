@@ -23,7 +23,7 @@ use winit::{
 /// Window functionality
 pub trait NovaWindow {
     /// Window Loop
-    fn run(&mut self, vulkan_app: &mut Renderer);
+    fn run(&mut self, renderer: &mut Renderer);
 
     /// Window Cleanup
     fn destroy(self);
@@ -113,7 +113,7 @@ impl NovaWindow for WinitWindow {
                         if !self.destroying && !self.minimized {
                             match self.last_window_size {
                                 Some(window_dimensions) => {
-                                    unsafe { render.render(window_dimensions).unwrap() };
+                                    render.render(window_dimensions).unwrap();
                                 },
                                 _ => {}
                             }
