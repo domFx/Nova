@@ -1,4 +1,4 @@
 pub mod input;
 pub mod utils;
-mod time;
-mod event;
+pub mod time;
+pub mod event;
