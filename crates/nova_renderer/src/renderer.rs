@@ -25,9 +25,8 @@ impl Renderer {
     }
 
     pub fn render(&mut self, window_dimensions: Vector2<f32>) -> Result<()> {
-        unsafe {
-            self.vulkan_renderer.render(window_dimensions)?;
-        }
+        self.vulkan_renderer.render(window_dimensions)?;
+
         Ok(())
     }
 
