@@ -19,6 +19,7 @@ impl NovaEngine {
         match renderer_result {
             Ok(renderer) => {
                 window.run(renderer);
+                renderer.destroy();
                 window.destroy();
             },
             Err(e) => error!("Error creating renderer {e:?}")
