@@ -96,7 +96,6 @@ impl NovaWindow for WinitWindow {
                     WindowEvent::CloseRequested => {
                         self.destroying = true;
                         elwt.exit();
-                        render.destroy();
                     },
                     WindowEvent::RedrawRequested => {
                         let now = Instant::now();

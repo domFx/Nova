@@ -27,10 +27,11 @@ use ash::vk::{SurfaceKHR, PhysicalDevice, Queue, RenderPass, Framebuffer, Comman
 use std::time::Instant;
 use cgmath::Vector2;
 use raw_window_handle::{RawDisplayHandle, RawWindowHandle};
+use crate::renderer_backend::RendererBackend;
 use crate::vulkan::descriptor_pool::create_descriptor_pool;
 use crate::vulkan::descriptor_sets::create_descriptor_sets;
 
-pub struct VulkanApp {
+pub struct VulkanRenderer {
     entry: Entry,
     instance: Instance,
     surface_loader: Surface,
@@ -64,7 +65,111 @@ pub struct VulkanApp {
     pub resized: bool
 }
 
-impl VulkanApp {
+impl RendererBackend for VulkanRenderer {
+    fn render(&mut self, window_dimensions: Vector2<f32>) -> Result<()> {
+        let in_flight_fence = self.in_flight_fences[self.frame];
+
+        unsafe {
+            self.logical_device.wait_for_fences(&[in_flight_fence], true, u64::MAX)?;
+
+            let result = self.swapchain.loader.acquire_next_image(
+                self.swapchain.swapchain,
+                u64::MAX,
+                self.image_available_semaphores[self.frame],
+                Fence::null(),
+            );
+
+            let image_index = match result {
+                VkResult::Ok((image_index, _)) => image_index as usize,
+                VkResult::Err(vk::Result::ERROR_OUT_OF_DATE_KHR) => return self.recreate_swapchain(window_dimensions),
+                VkResult::Err(e) => return Err(anyhow!(e))
+            };
+
+            let image_in_flight = self.images_in_flight[image_index];
+            if image_in_flight != Fence::null() {
+                self.logical_device.wait_for_fences(&[image_in_flight], true, u64::MAX)?;
+            }
+
+            self.images_in_flight[image_index] = in_flight_fence;
+
+            update_uniform_buffer(image_index, &self.uniform_buffers, self.swapchain.extent, &self.logical_device, &self.start)?;
+
+            let wait_semaphores = &[self.image_available_semaphores[self.frame]];
+            let wait_stages = &[vk::PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT];
+            let command_buffers = &[self.command_buffers[image_index]];
+            let signal_semaphores = &[self.render_finished_semaphores[self.frame]];
+            let submit_info = vk::SubmitInfo::builder()
+                .wait_semaphores(wait_semaphores)
+                .wait_dst_stage_mask(wait_stages)
+                .command_buffers(command_buffers)
+                .signal_semaphores(signal_semaphores)
+                .build();
+
+            self.logical_device.reset_fences(&[in_flight_fence])?;
+
+            self.logical_device.queue_submit(self.graphics_queue, &[submit_info], in_flight_fence)?;
+
+            let swapchains = &[self.swapchain.swapchain];
+            let image_indices = &[image_index as u32];
+            let present_info = vk::PresentInfoKHR::builder()
+                .wait_semaphores(signal_semaphores)
+                .swapchains(swapchains)
+                .image_indices(image_indices)
+                .build();
+
+            let result = self.swapchain.loader.queue_present(self.present_queue, &present_info);
+
+            let changed = match result {
+                VkResult::Ok(true) => true,
+                Err(vk::Result::ERROR_OUT_OF_DATE_KHR) => true,
+                _ => false
+            };
+
+            if self.resized || changed {
+                // debug!("Window resized resized: {:?} changed {:?}", self.resized, changed);
+                self.resized = false;
+                self.recreate_swapchain(window_dimensions)?;
+            } else if let Err(e) = result {
+                return Err(anyhow!(e));
+            }
+        }
+
+        self.frame = (self.frame + 1) % MAX_FRAMES_IN_FLIGHT;
+
+        Ok(())
+    }
+
+    fn destroy(&mut self) {
+        unsafe {
+            self.logical_device.device_wait_idle().unwrap();
+
+            self.destroy_swapchain();
+
+            self.logical_device.destroy_descriptor_set_layout(self.descriptor_set_layout, None);
+
+            self.in_flight_fences.iter().for_each(|f| self.logical_device.destroy_fence(*f, None));
+            self.render_finished_semaphores.iter().for_each(|s| self.logical_device.destroy_semaphore(*s, None));
+            self.image_available_semaphores.iter().for_each(|s| self.logical_device.destroy_semaphore(*s, None));
+
+            self.logical_device.destroy_buffer(self.vertex_buffer.buffer, None);
+            self.logical_device.free_memory(self.vertex_buffer.buffer_memory, None);
+            self.logical_device.destroy_buffer(self.index_buffer.buffer, None);
+            self.logical_device.free_memory(self.index_buffer.buffer_memory, None);
+
+            self.logical_device.destroy_command_pool(self.command_pool, None);
+            self.logical_device.destroy_device(None);
+            self.surface_loader.destroy_surface(self.surface, None);
+
+            if VALIDATION_ENABLED {
+                self.debug.debug_utils.destroy_debug_utils_messenger(self.debug.utils_messenger, None);
+            }
+
+            self.instance.destroy_instance(None);
+        }
+    }
+}
+
+impl VulkanRenderer {
     pub fn new(raw_window_handle: RawWindowHandle, raw_display_handle: RawDisplayHandle, window_dimensions: Vector2<f32>) -> Result<Self> {
         unsafe {
             let entry = Entry::load()?;
@@ -147,108 +252,6 @@ impl VulkanApp {
                 start,
                 resized: false
             })
-        }
-    }
-
-    pub fn render(&mut self, window_dimensions: Vector2<f32>) -> Result<()> {
-        let in_flight_fence = self.in_flight_fences[self.frame];
-
-        unsafe {
-            self.logical_device.wait_for_fences(&[in_flight_fence], true, u64::MAX)?;
-
-            let result = self.swapchain.loader.acquire_next_image(
-                self.swapchain.swapchain,
-                u64::MAX,
-                self.image_available_semaphores[self.frame],
-                Fence::null(),
-            );
-
-            let image_index = match result {
-                VkResult::Ok((image_index, _)) => image_index as usize,
-                VkResult::Err(vk::Result::ERROR_OUT_OF_DATE_KHR) => return self.recreate_swapchain(window_dimensions),
-                VkResult::Err(e) => return Err(anyhow!(e))
-            };
-
-            let image_in_flight = self.images_in_flight[image_index];
-            if image_in_flight != Fence::null() {
-                self.logical_device.wait_for_fences(&[image_in_flight], true, u64::MAX)?;
-            }
-
-            self.images_in_flight[image_index] = in_flight_fence;
-
-            update_uniform_buffer(image_index, &self.uniform_buffers, self.swapchain.extent, &self.logical_device, &self.start)?;
-
-            let wait_semaphores = &[self.image_available_semaphores[self.frame]];
-            let wait_stages = &[vk::PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT];
-            let command_buffers = &[self.command_buffers[image_index]];
-            let signal_semaphores = &[self.render_finished_semaphores[self.frame]];
-            let submit_info = vk::SubmitInfo::builder()
-                .wait_semaphores(wait_semaphores)
-                .wait_dst_stage_mask(wait_stages)
-                .command_buffers(command_buffers)
-                .signal_semaphores(signal_semaphores)
-                .build();
-
-            self.logical_device.reset_fences(&[in_flight_fence])?;
-
-            self.logical_device.queue_submit(self.graphics_queue, &[submit_info], in_flight_fence)?;
-
-            let swapchains = &[self.swapchain.swapchain];
-            let image_indices = &[image_index as u32];
-            let present_info = vk::PresentInfoKHR::builder()
-                .wait_semaphores(signal_semaphores)
-                .swapchains(swapchains)
-                .image_indices(image_indices)
-                .build();
-
-            let result = self.swapchain.loader.queue_present(self.present_queue, &present_info);
-
-            let changed = match result {
-                VkResult::Ok(true) => true,
-                Err(vk::Result::ERROR_OUT_OF_DATE_KHR) => true,
-                _ => false
-            };
-
-            if self.resized || changed {
-                // debug!("Window resized resized: {:?} changed {:?}", self.resized, changed);
-                self.resized = false;
-                self.recreate_swapchain(window_dimensions)?;
-            } else if let Err(e) = result {
-                return Err(anyhow!(e));
-            }
-        }
-
-        self.frame = (self.frame + 1) % MAX_FRAMES_IN_FLIGHT;
-
-        Ok(())
-    }
-
-    pub fn destroy(&mut self) {
-        unsafe {
-            self.logical_device.device_wait_idle().unwrap();
-
-            self.destroy_swapchain();
-
-            self.logical_device.destroy_descriptor_set_layout(self.descriptor_set_layout, None);
-
-            self.in_flight_fences.iter().for_each(|f| self.logical_device.destroy_fence(*f, None));
-            self.render_finished_semaphores.iter().for_each(|s| self.logical_device.destroy_semaphore(*s, None));
-            self.image_available_semaphores.iter().for_each(|s| self.logical_device.destroy_semaphore(*s, None));
-
-            self.logical_device.destroy_buffer(self.vertex_buffer.buffer, None);
-            self.logical_device.free_memory(self.vertex_buffer.buffer_memory, None);
-            self.logical_device.destroy_buffer(self.index_buffer.buffer, None);
-            self.logical_device.free_memory(self.index_buffer.buffer_memory, None);
-
-            self.logical_device.destroy_command_pool(self.command_pool, None);
-            self.logical_device.destroy_device(None);
-            self.surface_loader.destroy_surface(self.surface, None);
-
-            if VALIDATION_ENABLED {
-                self.debug.debug_utils.destroy_debug_utils_messenger(self.debug.utils_messenger, None);
-            }
-
-            self.instance.destroy_instance(None);
         }
     }
 
