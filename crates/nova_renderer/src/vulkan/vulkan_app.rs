@@ -252,43 +252,47 @@ impl VulkanApp {
         }
     }
 
-    pub unsafe fn destroy_swapchain(&mut self) {
-        self.logical_device.destroy_descriptor_pool(self.descriptor_pool, None);
-        self.uniform_buffers
-            .iter()
-            .for_each(|b| {
-                self.logical_device.destroy_buffer(b.buffer, None);
-                self.logical_device.free_memory(b.buffer_memory, None);
-            });
-        self.logical_device.free_command_buffers(self.command_pool, &self.command_buffers);
-        self.framebuffers
-            .iter()
-            .for_each(|f| self.logical_device.destroy_framebuffer(*f, None));
-        self.logical_device.destroy_pipeline(self.pipeline.pipeline, None);
-        self.logical_device.destroy_pipeline_layout(self.pipeline.pipeline_layout, None);
-        self.logical_device.destroy_render_pass(self.render_pass, None);
-        self.image_views
-            .iter()
-            .for_each(|v| self.logical_device.destroy_image_view(*v, None));
-        self.swapchain.loader.destroy_swapchain(self.swapchain.swapchain, None);
+    fn destroy_swapchain(&mut self) {
+        unsafe {
+            self.logical_device.destroy_descriptor_pool(self.descriptor_pool, None);
+            self.uniform_buffers
+                .iter()
+                .for_each(|b| {
+                    self.logical_device.destroy_buffer(b.buffer, None);
+                    self.logical_device.free_memory(b.buffer_memory, None);
+                });
+            self.logical_device.free_command_buffers(self.command_pool, &self.command_buffers);
+            self.framebuffers
+                .iter()
+                .for_each(|f| self.logical_device.destroy_framebuffer(*f, None));
+            self.logical_device.destroy_pipeline(self.pipeline.pipeline, None);
+            self.logical_device.destroy_pipeline_layout(self.pipeline.pipeline_layout, None);
+            self.logical_device.destroy_render_pass(self.render_pass, None);
+            self.image_views
+                .iter()
+                .for_each(|v| self.logical_device.destroy_image_view(*v, None));
+            self.swapchain.loader.destroy_swapchain(self.swapchain.swapchain, None);
+        }
     }
 
-    pub unsafe fn recreate_swapchain(&mut self, window_dimensions: Vector2<f32>) -> Result<()> {
-        self.logical_device.device_wait_idle().unwrap();
+    fn recreate_swapchain(&mut self, window_dimensions: Vector2<f32>) -> Result<()> {
+        unsafe {
+            self.logical_device.device_wait_idle().unwrap();
 
-        self.destroy_swapchain();
+            self.destroy_swapchain();
 
-        self.swapchain = VulkanAppSwapchain::get(window_dimensions, &self.instance, &self.logical_device, self.physical_device, &self.surface_loader, self.surface, &self.indices)?;
-        self.images = self.swapchain.loader.get_swapchain_images(self.swapchain.swapchain)?;
-        self.image_views = create_swapchain_image_views(&self.logical_device, &self.images, self.swapchain.format)?;
-        self.render_pass = create_render_pass(&self.instance, &self.logical_device, self.swapchain.format)?;
-        self.pipeline = create_pipeline(&self.logical_device, self.swapchain.extent, self.render_pass, self.descriptor_set_layout)?;
-        self.framebuffers = create_framebuffers(&self.logical_device, &self.image_views, self.render_pass, &self.swapchain.extent)?;
-        self.uniform_buffers = create_uniform_buffers(&self.instance, &self.logical_device, self.physical_device, &self.images)?;
-        self.descriptor_pool = create_descriptor_pool(&self.logical_device, &self.images)?;
-        self.descriptor_sets = create_descriptor_sets(&self.logical_device, self.descriptor_pool, self.descriptor_set_layout, &self.images, &self.uniform_buffers)?;
-        self.command_buffers = create_command_buffers(&self.logical_device, self.command_pool, self.swapchain.extent, self.render_pass, &self.framebuffers, &self.pipeline, self.vertex_buffer.buffer, self.index_buffer.buffer, &self.descriptor_sets)?;
-        self.images_in_flight.resize(self.images.len(), Fence::null());
+            self.swapchain = VulkanAppSwapchain::get(window_dimensions, &self.instance, &self.logical_device, self.physical_device, &self.surface_loader, self.surface, &self.indices)?;
+            self.images = self.swapchain.loader.get_swapchain_images(self.swapchain.swapchain)?;
+            self.image_views = create_swapchain_image_views(&self.logical_device, &self.images, self.swapchain.format)?;
+            self.render_pass = create_render_pass(&self.instance, &self.logical_device, self.swapchain.format)?;
+            self.pipeline = create_pipeline(&self.logical_device, self.swapchain.extent, self.render_pass, self.descriptor_set_layout)?;
+            self.framebuffers = create_framebuffers(&self.logical_device, &self.image_views, self.render_pass, &self.swapchain.extent)?;
+            self.uniform_buffers = create_uniform_buffers(&self.instance, &self.logical_device, self.physical_device, &self.images)?;
+            self.descriptor_pool = create_descriptor_pool(&self.logical_device, &self.images)?;
+            self.descriptor_sets = create_descriptor_sets(&self.logical_device, self.descriptor_pool, self.descriptor_set_layout, &self.images, &self.uniform_buffers)?;
+            self.command_buffers = create_command_buffers(&self.logical_device, self.command_pool, self.swapchain.extent, self.render_pass, &self.framebuffers, &self.pipeline, self.vertex_buffer.buffer, self.index_buffer.buffer, &self.descriptor_sets)?;
+            self.images_in_flight.resize(self.images.len(), Fence::null());
+        }
         Ok(())
     }
 }
