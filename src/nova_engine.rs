@@ -12,9 +12,7 @@ impl NovaEngine {
 
         let renderer_result = &mut Renderer::new(
             RendererType::Vulkan,
-            window.get_window_handle(),
-            window.get_raw_display_handle(),
-            window.get_window_dimensions()
+            &window
         );
 
         match renderer_result {

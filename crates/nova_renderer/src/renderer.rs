@@ -1,8 +1,10 @@
 use anyhow::Result;
+use ash::vk::Window;
 use cgmath::Vector2;
 use raw_window_handle::{RawDisplayHandle, RawWindowHandle};
 use crate::renderer_backend::RendererBackend;
 use crate::vulkan::vulkan_renderer::VulkanRenderer;
+use crate::window::NovaWindow;
 
 pub enum RendererType {
     Vulkan
@@ -10,23 +12,17 @@ pub enum RendererType {
 
 pub struct Renderer {
     pub resized: bool,
-    raw_window_handle: RawWindowHandle,
-    raw_display_handle: RawDisplayHandle,
-    window_dimensions: Vector2<f32>,
     renderer_backend: Box<dyn RendererBackend>
 }
 
 impl Renderer {
-    pub fn new(renderer_type: RendererType, raw_window_handle: RawWindowHandle, raw_display_handle: RawDisplayHandle, window_dimensions: Vector2<f32>) -> Result<Self> {
+    pub fn new(renderer_type: RendererType, window: &dyn NovaWindow) -> Result<Self> {
         let renderer_backend = match renderer_type {
-            RendererType::Vulkan => Box::new(VulkanRenderer::new(raw_window_handle, raw_display_handle, window_dimensions)?)
+            RendererType::Vulkan => Box::new(VulkanRenderer::new(window.get_window_handle(), window.get_raw_display_handle(), window.get_window_dimensions())?)
         };
 
         Ok(Self {
             resized: false,
-            raw_window_handle,
-            raw_display_handle,
-            window_dimensions,
             renderer_backend
         })
     }
