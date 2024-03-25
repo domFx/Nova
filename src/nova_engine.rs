@@ -4,6 +4,7 @@ use nova_renderer::renderer::{Renderer, RendererType};
 
 pub struct NovaEngine {
     window: dyn NovaWindow,
+    renderer: Renderer
 }
 
 impl NovaEngine {

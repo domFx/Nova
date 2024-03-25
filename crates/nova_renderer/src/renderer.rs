@@ -1,10 +1,9 @@
-use anyhow::Result;
-use ash::vk::Window;
-use cgmath::Vector2;
-use raw_window_handle::{RawDisplayHandle, RawWindowHandle};
 use crate::renderer_backend::RendererBackend;
 use crate::vulkan::vulkan_renderer::VulkanRenderer;
 use crate::window::NovaWindow;
+
+use anyhow::Result;
+use cgmath::Vector2;
 
 pub enum RendererType {
     Vulkan
