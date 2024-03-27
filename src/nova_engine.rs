@@ -3,7 +3,7 @@ use nova_renderer::window::{NovaWindow, get_window};
 use nova_renderer::renderer::{Renderer, RendererType};
 
 pub struct NovaEngine {
-    window: dyn NovaWindow,
+    window: Box<dyn NovaWindow>,
     renderer: Renderer
 }
 

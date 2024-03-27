@@ -4,3 +4,4 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+nova_math = {  path = "../nova_math", version = "0.1.0" }

@@ -739,6 +739,9 @@ dependencies = [
 [[package]]
 name = "nova_core"
 version = "0.1.0"
+dependencies = [
+ "nova_math",
+]
 
 [[package]]
 name = "nova_math"
