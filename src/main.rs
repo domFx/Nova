@@ -8,5 +8,5 @@ fn main() {
     // std::env::set_var("RUST_BACKTRACE", "full");
     pretty_env_logger::init();
 
-    NovaEngine::new();
+    NovaEngine::new().run();
 }

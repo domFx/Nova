@@ -1,8 +1,8 @@
 use std::time::{Duration, Instant};
 use nova_core::input::{INPUT_STATE, KeyboardKey, KeyboardKeyState, MouseButtonState};
+use nova_math::vector::vector2::Vector2;
 use crate::renderer::Renderer;
 
-use cgmath::Vector2;
 use log::{info};
 use raw_window_handle::{
     HasDisplayHandle,
@@ -26,13 +26,13 @@ pub trait NovaWindow {
     fn run(&mut self, renderer: &mut Renderer);
 
     /// Window Cleanup
-    fn destroy(self);
+    fn destroy(&self);
 
     fn get_raw_display_handle(&self) -> RawDisplayHandle;
 
     fn get_window_handle(&self) -> RawWindowHandle;
 
-    fn get_window_dimensions(&self) -> Vector2<f32>;
+    fn get_window_dimensions(&self) -> Vector2;
 }
 
 pub fn get_window() -> impl NovaWindow {
@@ -43,7 +43,7 @@ pub struct WinitWindow {
     event_loop: EventLoop<()>,
     window: winit::window::Window,
 
-    last_window_size: Option<Vector2<f32>>,
+    last_window_size: Option<Vector2>,
     minimized: bool,
     destroying: bool,
 }
@@ -191,7 +191,7 @@ impl NovaWindow for WinitWindow {
         });
     }
 
-    fn destroy(self) {
+    fn destroy(&self) {
         return
     }
 
@@ -203,7 +203,7 @@ impl NovaWindow for WinitWindow {
         self.window.raw_window_handle().unwrap()
     }
 
-    fn get_window_dimensions(&self) -> Vector2<f32> {
+    fn get_window_dimensions(&self) -> Vector2 {
         let inner_size = self.window.inner_size();
         let dimensions = Vector2::new(inner_size.width as f32, inner_size.height as f32);
         dimensions

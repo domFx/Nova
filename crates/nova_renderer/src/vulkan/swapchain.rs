@@ -1,9 +1,9 @@
 use crate::vulkan::queue_families::*;
+use nova_math::vector::vector2::Vector2;
 
 use ash::extensions::khr::{Surface, Swapchain};
 use ash::{Device, Instance, vk};
 use ash::vk::{Image, PhysicalDevice, SurfaceKHR, SwapchainKHR};
-use cgmath::Vector2;
 
 pub struct VulkanAppSwapchain {
     pub swapchain: SwapchainKHR,
@@ -14,7 +14,7 @@ pub struct VulkanAppSwapchain {
 
 impl VulkanAppSwapchain {
     pub unsafe fn get(
-        window_dimensions: Vector2<f32>,
+        window_dimensions: Vector2,
         instance: &Instance,
         logical_device: &Device,
         physical_device: PhysicalDevice,
@@ -127,7 +127,7 @@ fn get_swapchain_present_mode(present_modes: &[vk::PresentModeKHR]) -> vk::Prese
 
 // Get resolution of the swapchain images
 fn get_swapchain_extent(
-    window_dimensions: Vector2<f32>,
+    window_dimensions: Vector2,
     capabilities: vk::SurfaceCapabilitiesKHR) -> vk::Extent2D {
     if capabilities.current_extent.width != u32::MAX {
         capabilities.current_extent

@@ -15,8 +15,13 @@ use crate::vulkan::index_buffer::*;
 use crate::vulkan::buffer::VulkanAppBuffer;
 use crate::vulkan::constants::{MAX_FRAMES_IN_FLIGHT, VALIDATION_ENABLED};
 use crate::vulkan::debug::{create_debug_info, VulkanAppDebug};
+use crate::vulkan::descriptor_pool::create_descriptor_pool;
+use crate::vulkan::descriptor_sets::create_descriptor_sets;
 use crate::vulkan::uniform_buffers::{create_uniform_buffers, update_uniform_buffer};
 use crate::vulkan::vertex::create_vertex_buffer;
+use crate::renderer_backend::RendererBackend;
+
+use nova_math::vector::vector2::Vector2;
 
 use anyhow::*;
 use anyhow::{Result};
@@ -25,11 +30,7 @@ use ash::extensions::khr::{Surface};
 use ash::prelude::VkResult;
 use ash::vk::{SurfaceKHR, PhysicalDevice, Queue, RenderPass, Framebuffer, CommandPool, CommandBuffer, Fence, Semaphore, Image, DescriptorSetLayout, DescriptorPool, DescriptorSet};
 use std::time::Instant;
-use cgmath::Vector2;
 use raw_window_handle::{RawDisplayHandle, RawWindowHandle};
-use crate::renderer_backend::RendererBackend;
-use crate::vulkan::descriptor_pool::create_descriptor_pool;
-use crate::vulkan::descriptor_sets::create_descriptor_sets;
 
 pub struct VulkanRenderer {
     entry: Entry,
@@ -66,7 +67,7 @@ pub struct VulkanRenderer {
 }
 
 impl RendererBackend for VulkanRenderer {
-    fn render(&mut self, window_dimensions: Vector2<f32>) -> Result<()> {
+    fn render(&mut self, window_dimensions: Vector2) -> Result<()> {
         let in_flight_fence = self.in_flight_fences[self.frame];
 
         unsafe {
@@ -139,7 +140,7 @@ impl RendererBackend for VulkanRenderer {
         Ok(())
     }
 
-    fn destroy(&mut self) {
+    fn destroy(&self) {
         unsafe {
             self.logical_device.device_wait_idle().unwrap();
 
@@ -170,7 +171,7 @@ impl RendererBackend for VulkanRenderer {
 }
 
 impl VulkanRenderer {
-    pub fn new(raw_window_handle: RawWindowHandle, raw_display_handle: RawDisplayHandle, window_dimensions: Vector2<f32>) -> Result<Self> {
+    pub fn new(raw_window_handle: RawWindowHandle, raw_display_handle: RawDisplayHandle, window_dimensions: Vector2) -> Result<Self> {
         unsafe {
             let entry = Entry::load()?;
             let mut debug_info = create_debug_info();
@@ -255,7 +256,7 @@ impl VulkanRenderer {
         }
     }
 
-    fn destroy_swapchain(&mut self) {
+    fn destroy_swapchain(&self) {
         unsafe {
             self.logical_device.destroy_descriptor_pool(self.descriptor_pool, None);
             self.uniform_buffers
@@ -278,7 +279,7 @@ impl VulkanRenderer {
         }
     }
 
-    fn recreate_swapchain(&mut self, window_dimensions: Vector2<f32>) -> Result<()> {
+    fn recreate_swapchain(&mut self, window_dimensions: Vector2) -> Result<()> {
         unsafe {
             self.logical_device.device_wait_idle().unwrap();
 

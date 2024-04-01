@@ -1,85 +1,112 @@
-use std::any::Any;
-use std::collections::{HashMap, HashSet};
-
 use nova_math::vector::vector2::Vector2;
 
+use std::collections::{HashMap, HashSet};
+
 #[derive(Eq, PartialEq, Hash)]
-enum NovaSystemEventType {
+enum Event {
     WindowResize,
 }
 
-#[derive(Clone)]
-enum NovaSystemEventContext {
+#[derive(Clone, Copy)]
+enum EventContext {
     WindowResizeContext(Vector2)
 }
 
 #[derive(Default)]
-struct NovaSystemEvent {
-    events: HashMap<NovaSystemEventType, HashSet<fn(NovaSystemEventContext)>>
+pub struct SystemEvents {
+    events: HashMap<Event, HashSet<fn(EventContext)>>
 }
 
-impl NovaSystemEvent {
-    pub fn register_event(&mut self, event_type: NovaSystemEventType, callback: fn(NovaSystemEventContext)) {
-        if !self.events.contains_key(&event_type) {
-            self.events.insert(event_type, HashSet::from([callback]));
+impl SystemEvents {
+    pub fn register_event(&mut self, event: Event, callback: fn(EventContext)) {
+        if !self.events.contains_key(&event) {
+            self.events.insert(event, HashSet::from([callback]));
         } else {
-            self.events.get_mut(&event_type).unwrap().insert(callback);
+            self.events.get_mut(&event).unwrap().insert(callback);
         }
     }
 
-    // pub fn unregister_event(&mut self, event_type: EventType, callback: Callback) {
-    //     if self.events.contains_key(&event_type) {
-    //         let mut events = self.events.get_mut(&event_type).unwrap();
-    //         if events.contains(&callback) {
-    //             events.remove(&callback);
-    //         }
-    //     }
-    // }
-
-    pub fn fire_event(&self, event_type: NovaSystemEventType, event_context: NovaSystemEventContext) {
-        if self.events.contains_key(&event_type) {
-            let events = self.events.get(&event_type).unwrap();
-            events.iter().for_each(|callback| callback(event_context.clone()) )
+    pub fn unregister_event(&mut self, event: Event, callback: fn(EventContext)) {
+        if self.events.contains_key(&event) {
+            let events = self.events.get_mut(&event).unwrap();
+            if events.contains(&callback) {
+                events.remove(&callback);
+            }
         }
+    }
+
+    pub fn fire_event(&self, event: Event, event_context: EventContext) {
+        if self.events.contains_key(&event) {
+            let events = self.events.get(&event).unwrap();
+            events.iter().for_each(|callback| {
+                callback(event_context.clone())
+            });
+        }
+    }
+
+    pub(crate) fn get_event_registration_count(&self, event: Event) -> i32 {
+        self.events[&event].iter().count() as i32
     }
 }
 
 #[cfg(test)]
 mod event_tests {
     use nova_math::vector::vector2::Vector2;
-    use crate::event::{NovaSystemEventType, NovaSystemEvent, NovaSystemEventContext};
+    use crate::event::{Event, SystemEvents, EventContext};
 
+    /// Assert that registering a handler, firing an event and removing the handler works as expected
     #[test]
-    fn test_1() {
-        let mut handler = NovaSystemEvent::default();
+    fn register_handler() {
+        let mut handler = SystemEvents::default();
 
-        handler.register_event(NovaSystemEventType::WindowResize, callback_1);
-        handler.register_event(NovaSystemEventType::WindowResize, callback_2);
+        fn callback(context: EventContext) {
+            match context {
+                EventContext::WindowResizeContext(dimensions) => {
+                    assert_eq!(dimensions.x, 1f32);
+                    assert_eq!(dimensions.y, 1f32);
+                }
+            }
+        }
+
+        handler.register_event(Event::WindowResize, callback);
+        assert_eq!(handler.get_event_registration_count(Event::WindowResize), 1);
 
         let v1 = Vector2::new(1f32, 1f32);
-        handler.fire_event(NovaSystemEventType::WindowResize, NovaSystemEventContext::WindowResizeContext(v1));
+        handler.fire_event(Event::WindowResize, EventContext::WindowResizeContext(v1));
 
-        // handler.unregister_event(NovaSystemEventType::WindowResize, callback_1);
+        handler.unregister_event(Event::WindowResize, callback);
+        assert_eq!(handler.get_event_registration_count(Event::WindowResize), 0);
 
         let v2 = Vector2::new(5f32, 6f32);
-        handler.fire_event(NovaSystemEventType::WindowResize, NovaSystemEventContext::WindowResizeContext(v2));
+        handler.fire_event(Event::WindowResize, EventContext::WindowResizeContext(v2));
     }
 
-    fn callback_1(event_context: NovaSystemEventContext) {
-        match event_context {
-            NovaSystemEventContext::WindowResizeContext(dimensions) => {
-                assert!(true);
-                println!("Callback1 x: {} y: {}", dimensions.x, dimensions.y);
-            }
-        }
-    }
+    /// Assert that registering a handler twice only registers once, firing an event and removing the handler works as expected
+    #[test]
+    fn register_handler_twice() {
+        let mut handler = SystemEvents::default();
 
-    fn callback_2(event_context: NovaSystemEventContext) {
-        match event_context {
-            NovaSystemEventContext::WindowResizeContext(dimensions) => {
-                assert!(true);
-                println!("Callback2 x: {} y: {}", dimensions.x, dimensions.y);
+        fn callback_2(context: EventContext) {
+            match context {
+                EventContext::WindowResizeContext(dimensions) => {
+                    assert_eq!(dimensions.x, 1f32);
+                    assert_eq!(dimensions.y, 1f32);
+                }
             }
         }
+
+        handler.register_event(Event::WindowResize, callback_2);
+        handler.register_event(Event::WindowResize, callback_2);
+
+        assert_eq!(handler.get_event_registration_count(Event::WindowResize), 1);
+
+        let v1 = Vector2::new(1f32, 1f32);
+        handler.fire_event(Event::WindowResize, EventContext::WindowResizeContext(v1));
+
+        handler.unregister_event(Event::WindowResize, callback_2);
+        assert_eq!(handler.get_event_registration_count(Event::WindowResize), 0);
+
+        let v2 = Vector2::new(5f32, 6f32);
+        handler.fire_event(Event::WindowResize, EventContext::WindowResizeContext(v2));
     }
 }

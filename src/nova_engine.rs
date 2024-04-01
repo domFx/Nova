@@ -1,28 +1,39 @@
-use log::error;
+use nova_core::event::SystemEvents;
 use nova_renderer::window::{NovaWindow, get_window};
 use nova_renderer::renderer::{Renderer, RendererType};
 
 pub struct NovaEngine {
     window: Box<dyn NovaWindow>,
-    renderer: Renderer
+    renderer: Renderer,
+    system_event_handler: SystemEvents
 }
 
 impl NovaEngine {
-    pub fn new() {
-        let mut window = get_window();
+    pub fn new() -> Box<Self> {
+        let window = get_window();
 
-        let renderer_result = &mut Renderer::new(
+        let system_event_handler = SystemEvents::default();
+
+        let renderer = Renderer::new(
             RendererType::Vulkan,
             &window
-        );
+        ).expect("Expected valid renderer");
 
-        match renderer_result {
-            Ok(renderer) => {
-                window.run(renderer);
-                renderer.destroy();
-                window.destroy();
-            },
-            Err(e) => error!("Error creating renderer {e:?}")
-        }
+        Box::new(Self {
+            window: Box::new(window),
+            renderer,
+            system_event_handler
+        })
+    }
+
+    pub fn run(&mut self) {
+        self.window.run(&mut self.renderer);
+    }
+}
+
+impl Drop for NovaEngine {
+    fn drop(&mut self) {
+        self.renderer.destroy();
+        self.window.destroy();
     }
 }

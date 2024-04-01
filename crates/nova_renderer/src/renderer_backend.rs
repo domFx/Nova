@@ -1,8 +1,8 @@
 use anyhow::Result;
-use cgmath::Vector2;
+use nova_math::vector::vector2::Vector2;
 
 pub trait RendererBackend {
-    fn render(&mut self, window_dimensions: Vector2<f32>) -> Result<()>;
+    fn render(&mut self, window_dimensions: Vector2) -> Result<()>;
 
-    fn destroy(&mut self);
+    fn destroy(&self);
 }

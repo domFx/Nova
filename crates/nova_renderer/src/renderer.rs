@@ -1,9 +1,9 @@
 use crate::renderer_backend::RendererBackend;
 use crate::vulkan::vulkan_renderer::VulkanRenderer;
 use crate::window::NovaWindow;
+use nova_math::vector::vector2::Vector2;
 
 use anyhow::Result;
-use cgmath::Vector2;
 
 pub enum RendererType {
     Vulkan
@@ -26,13 +26,13 @@ impl Renderer {
         })
     }
 
-    pub fn render(&mut self, window_dimensions: Vector2<f32>) -> Result<()> {
+    pub fn render(&mut self, window_dimensions: Vector2) -> Result<()> {
         self.renderer_backend.render(window_dimensions)?;
 
         Ok(())
     }
 
-    pub fn destroy(&mut self) {
+    pub fn destroy(&self) {
         self.renderer_backend.destroy();
     }
 }
