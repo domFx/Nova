@@ -16,7 +16,9 @@ impl NovaEngine {
 
         let renderer = Renderer::new(
             RendererType::Vulkan,
-            &window
+            window.get_window_handle(),
+            window.get_raw_display_handle(),
+            window.get_window_dimensions()
         ).expect("Expected valid renderer");
 
         Box::new(Self {

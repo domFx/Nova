@@ -1,9 +1,9 @@
 use crate::renderer_backend::RendererBackend;
 use crate::vulkan::vulkan_renderer::VulkanRenderer;
-use crate::window::NovaWindow;
 use nova_math::vector::vector2::Vector2;
 
 use anyhow::Result;
+use raw_window_handle::{RawDisplayHandle, RawWindowHandle};
 
 pub enum RendererType {
     Vulkan
@@ -15,9 +15,14 @@ pub struct Renderer {
 }
 
 impl Renderer {
-    pub fn new(renderer_type: RendererType, window: &dyn NovaWindow) -> Result<Self> {
+    pub fn new(
+        renderer_type: RendererType,
+        window_handle: RawWindowHandle,
+        display_handle: RawDisplayHandle,
+        window_dimensions: Vector2
+    ) -> Result<Self> {
         let renderer_backend = match renderer_type {
-            RendererType::Vulkan => Box::new(VulkanRenderer::new(window.get_window_handle(), window.get_raw_display_handle(), window.get_window_dimensions())?)
+            RendererType::Vulkan => Box::new(VulkanRenderer::new(window_handle, display_handle, window_dimensions)?)
         };
 
         Ok(Self {
