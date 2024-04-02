@@ -741,6 +741,7 @@ name = "nova_core"
 version = "0.1.0"
 dependencies = [
  "nova_math",
+ "once_cell",
 ]
 
 [[package]]

@@ -31,6 +31,7 @@ use ash::prelude::VkResult;
 use ash::vk::{SurfaceKHR, PhysicalDevice, Queue, RenderPass, Framebuffer, CommandPool, CommandBuffer, Fence, Semaphore, Image, DescriptorSetLayout, DescriptorPool, DescriptorSet};
 use std::time::Instant;
 use raw_window_handle::{RawDisplayHandle, RawWindowHandle};
+use nova_core::event::{Event, EventContext, EventListener};
 
 pub struct VulkanRenderer {
     entry: Entry,
@@ -63,11 +64,13 @@ pub struct VulkanRenderer {
     index_buffer: VulkanAppBuffer,
     uniform_buffers: Vec<VulkanAppBuffer>,
     start: Instant,
-    pub resized: bool
+    window_dimensions: Vector2,
+    event_listener: Option<EventListener>,
+    pub resized: bool,
 }
 
 impl RendererBackend for VulkanRenderer {
-    fn render(&mut self, window_dimensions: Vector2) -> Result<()> {
+    fn render(&mut self, _: Vector2) -> Result<()> {
         let in_flight_fence = self.in_flight_fences[self.frame];
 
         unsafe {
@@ -82,7 +85,7 @@ impl RendererBackend for VulkanRenderer {
 
             let image_index = match result {
                 VkResult::Ok((image_index, _)) => image_index as usize,
-                VkResult::Err(vk::Result::ERROR_OUT_OF_DATE_KHR) => return self.recreate_swapchain(window_dimensions),
+                VkResult::Err(vk::Result::ERROR_OUT_OF_DATE_KHR) => return self.recreate_swapchain(self.window_dimensions),
                 VkResult::Err(e) => return Err(anyhow!(e))
             };
 
@@ -129,7 +132,7 @@ impl RendererBackend for VulkanRenderer {
             if self.resized || changed {
                 // debug!("Window resized resized: {:?} changed {:?}", self.resized, changed);
                 self.resized = false;
-                self.recreate_swapchain(window_dimensions)?;
+                self.recreate_swapchain(self.window_dimensions)?;
             } else if let Err(e) = result {
                 return Err(anyhow!(e));
             }
@@ -220,7 +223,7 @@ impl VulkanRenderer {
 
             let start = Instant::now();
 
-            Ok(Self {
+            let mut renderer = Self {
                 entry,
                 instance,
                 surface_loader,
@@ -251,8 +254,22 @@ impl VulkanRenderer {
                 index_buffer,
                 uniform_buffers,
                 start,
+                window_dimensions,
+                event_listener: None,
                 resized: false
-            })
+            };
+
+            // let mut dimensions: Vector2;
+            // let event_listener = EventListener::new(Event::WindowResize, |c| {
+            //     match c {
+            //         EventContext::WindowResizeContext(val) => {
+            //             renderer.window_dimensions = val;
+            //         }
+            //     }
+            // });
+
+
+            Ok(renderer)
         }
     }
 

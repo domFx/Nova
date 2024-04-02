@@ -19,6 +19,7 @@ use winit::{
     window::WindowBuilder,
     platform::run_on_demand::EventLoopExtRunOnDemand
 };
+use nova_core::event::{EventContext, fire_event};
 
 /// Window functionality
 pub trait NovaWindow {
@@ -133,6 +134,8 @@ impl NovaWindow for WinitWindow {
                                 self.last_window_size = Some(window_dimensions);
                             }
                         }
+
+                        fire_event(nova_core::event::Event::WindowResize, EventContext::WindowResizeContext(window_dimensions));
                     },
                     WindowEvent::KeyboardInput { event: key_event, is_synthetic: false, .. } => {
                         let keyboard_button_state = match key_event.state {
