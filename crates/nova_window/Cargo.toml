@@ -1,0 +1,13 @@
+[package]
+name = "nova_window"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+nova_core = {  path = "../nova_core", version = "0.1.0" }
+nova_math = {  path = "../nova_math", version = "0.1.0" }
+nova_renderer = {  path = "../nova_renderer", version = "0.1.0" }
+
+log = "0.4.21"
+raw-window-handle = "0.6.0"
+winit = "0.29.8"

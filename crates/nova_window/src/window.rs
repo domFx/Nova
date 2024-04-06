@@ -1,9 +1,9 @@
 use std::time::{Duration, Instant};
 use nova_core::input::{INPUT_STATE, KeyboardKey, KeyboardKeyState, MouseButtonState};
 use nova_math::vector::vector2::Vector2;
-use crate::renderer::Renderer;
-
+use nova_renderer::renderer::Renderer;
 use log::{info};
+
 use raw_window_handle::{
     HasDisplayHandle,
     HasRawWindowHandle,

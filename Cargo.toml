@@ -8,7 +8,8 @@ members = [
     "crates/nova_core",
     "crates/nova_math",
     "crates/nova_renderer",
-    "crates/nova_system"
+    "crates/nova_system",
+    "crates/nova_window"
 ]
 
 [dependencies]
@@ -17,3 +18,4 @@ pretty_env_logger = "0.5.0"
 nova_core = {  path = "crates/nova_core", version = "0.1.0" }
 nova_math = {  path = "crates/nova_math", version = "0.1.0" }
 nova_renderer = {  path = "crates/nova_renderer", version = "0.1.0" }
+nova_window = {  path = "crates/nova_window", version = "0.1.0" }
