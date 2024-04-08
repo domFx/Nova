@@ -3,7 +3,7 @@
 // Utilities
 use std::os::raw::c_char;
 
-// Converts an vec[i8] to string
+// Converts a vec[i8] to string
 pub fn convert_vec_to_string(vec: &Vec<i8>) -> String {
     vec.iter().filter(|&i| i > &0).map(|&c| c as u8 as char).collect()
 }
