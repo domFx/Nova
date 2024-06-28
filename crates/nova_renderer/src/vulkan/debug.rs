@@ -28,7 +28,7 @@ pub fn create_debug_info() -> vk::DebugUtilsMessengerCreateInfoEXT {
         p_next: std::ptr::null(),
         flags: vk::DebugUtilsMessengerCreateFlagsEXT::empty(),
         message_severity:
-        vk::DebugUtilsMessageSeverityFlagsEXT::VERBOSE |
+            vk::DebugUtilsMessageSeverityFlagsEXT::VERBOSE |
             vk::DebugUtilsMessageSeverityFlagsEXT::ERROR |
             // vk::DebugUtilsMessageSeverityFlagsEXT::INFO |
             vk::DebugUtilsMessageSeverityFlagsEXT::WARNING,
