@@ -10,4 +10,4 @@ nova_renderer = {  path = "../nova_renderer", version = "0.1.0" }
 
 log = "0.4.21"
 raw-window-handle = "0.6.0"
-winit = "0.29.8"
+winit = "0.29.15"
