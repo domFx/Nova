@@ -9,5 +9,5 @@ fn compile_shaders() {
         .arg("/C")
         .arg(".\\src\\shaders\\compile_shaders.bat")
         .status()
-        .unwrap_or_else(|e| panic!("{}", e));
+        .unwrap_or_else(|e| panic!("Error compiling shaders {}", e));
 }

@@ -1,3 +1,4 @@
 pub mod renderer;
-pub mod vulkan;
+mod vulkan;
 mod renderer_backend;
+pub mod texture;
