@@ -5,7 +5,7 @@ fn main() {
 }
 
 fn compile_shaders() {
-    let output = Command::new("cmd.exe")
+    Command::new("cmd.exe")
         .arg("/C")
         .arg(".\\src\\shaders\\compile_shaders.bat")
         .status()

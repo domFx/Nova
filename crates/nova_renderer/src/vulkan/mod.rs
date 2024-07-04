@@ -22,3 +22,4 @@ pub mod descriptor_set_layout;
 pub mod descriptor_pool;
 pub mod descriptor_sets;
 pub mod vulkan_renderer;
+pub mod text_image;

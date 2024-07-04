@@ -31,6 +31,16 @@ impl NovaEngine {
     pub fn run(&mut self) {
         self.window.run(&mut self.renderer);
     }
+
+    pub fn use_pretty_env_logger(&mut self) -> &mut NovaEngine {
+        pretty_env_logger::init();
+        self
+    }
+
+    pub fn set_log_level(&mut self, log_level: &str) -> &mut NovaEngine {
+        std::env::set_var("RUST_LOG", log_level);
+        self
+    }
 }
 
 impl Drop for NovaEngine {

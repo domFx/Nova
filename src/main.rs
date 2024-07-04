@@ -1,12 +1,9 @@
 mod nova_engine;
-
 use nova_engine::NovaEngine;
-use pretty_env_logger;
 
 fn main() {
-    std::env::set_var("RUST_LOG", "trace");
-    // std::env::set_var("RUST_BACKTRACE", "full");
-    pretty_env_logger::init();
-
-    NovaEngine::new().run();
+    NovaEngine::new()
+        .set_log_level("TRACE")
+        .use_pretty_env_logger()
+        .run();
 }

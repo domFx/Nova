@@ -197,6 +197,7 @@ impl VulkanRenderer {
             let pipeline = create_pipeline(&logical_device, swapchain.extent, render_pass, descriptor_set_layout)?;
             let framebuffers = create_framebuffers(&logical_device, &image_views, render_pass, &swapchain.extent)?;
             let command_pool = create_command_pool(&logical_device, &indices)?;
+            //
             let vertex_buffer = create_vertex_buffer(&instance, &logical_device, physical_device, graphics_queue, command_pool)?;
             let index_buffer = create_index_buffer(&instance, &logical_device, physical_device, graphics_queue, command_pool)?;
             let uniform_buffers = create_uniform_buffers(&instance, &logical_device, physical_device, &images)?;
