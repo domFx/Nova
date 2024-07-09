@@ -15,7 +15,6 @@ pub unsafe fn create_command_buffers(
     index_buffer: Buffer,
     descriptor_sets: &Vec<DescriptorSet>
 ) -> Result<Vec<CommandBuffer>> {
-
     let info = vk::CommandBufferAllocateInfo::builder()
         .command_pool(command_pool)
         .level(vk::CommandBufferLevel::PRIMARY)

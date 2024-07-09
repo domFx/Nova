@@ -1,9 +1,10 @@
+use crate::vulkan::buffer::VulkanAppBuffer;
+use crate::vulkan::vertex::{INDICES};
+
 use std::mem::size_of;
 use anyhow::Result;
 use ash::{Device, vk, Instance};
 use ash::vk::{CommandPool, PhysicalDevice, Queue};
-use crate::vulkan::buffer::VulkanAppBuffer;
-use crate::vulkan::vertex::{INDICES};
 
 pub fn create_index_buffer(
     instance: &Instance,
@@ -47,10 +48,7 @@ pub fn create_index_buffer(
 
     staging_buffer.copy_buffer(logical_device, index_buffer.buffer, size, graphics_queue, command_pool)?;
 
-    unsafe {
-        logical_device.destroy_buffer(staging_buffer.buffer, None);
-        logical_device.free_memory(staging_buffer.buffer_memory, None);
-    }
+    staging_buffer.destroy_buffer(logical_device);
 
     Ok(index_buffer)
 }
