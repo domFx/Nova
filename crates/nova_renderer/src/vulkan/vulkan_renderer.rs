@@ -149,8 +149,7 @@ impl RendererBackend for VulkanRenderer {
 
             self.destroy_swapchain();
 
-            self.logical_device.destroy_image(self.texture_image.texture_image, None);
-            self.logical_device.free_memory(self.texture_image.texture_image_memory, None);
+            self.texture_image.destroy_vulkan_image(&self.logical_device);
 
             self.logical_device.destroy_descriptor_set_layout(self.descriptor_set_layout, None);
 

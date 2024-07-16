@@ -1,11 +1,12 @@
 use crate::vulkan::queue_families::*;
+use crate::vulkan::text_image::create_image_view;
 use nova_math::vector::vector2::Vector2;
 
 use ash::extensions::khr::{Surface, Swapchain};
 use ash::{Device, Instance, vk};
 use ash::vk::{Image, PhysicalDevice, SurfaceKHR, SwapchainKHR};
 
-pub struct VulkanAppSwapchain {
+pub(crate) struct VulkanAppSwapchain {
     pub swapchain: SwapchainKHR,
     pub loader: Swapchain,
     pub format: vk::Format,
@@ -13,7 +14,7 @@ pub struct VulkanAppSwapchain {
 }
 
 impl VulkanAppSwapchain {
-    pub unsafe fn get(
+    pub(crate) unsafe fn get(
         window_dimensions: Vector2,
         instance: &Instance,
         logical_device: &Device,
@@ -71,39 +72,14 @@ impl VulkanAppSwapchain {
     }
 }
 
-pub unsafe fn create_swapchain_image_views(
-    device: &Device,
+pub(crate) unsafe fn create_swapchain_image_views(
+    logical_device: &Device,
     images: &Vec<Image>,
     format: vk::Format,
 ) -> anyhow::Result<Vec<vk::ImageView>> {
     let image_views = images
         .iter()
-        .map(|i| {
-            let components = vk::ComponentMapping::builder()
-                .r(vk::ComponentSwizzle::IDENTITY)
-                .g(vk::ComponentSwizzle::IDENTITY)
-                .b(vk::ComponentSwizzle::IDENTITY)
-                .a(vk::ComponentSwizzle::IDENTITY)
-                .build();
-
-            let subresource_range = vk::ImageSubresourceRange::builder()
-                .aspect_mask(vk::ImageAspectFlags::COLOR)
-                .base_mip_level(0)
-                .level_count(1)
-                .base_array_layer(0)
-                .layer_count(1)
-                .build();
-
-            let info = vk::ImageViewCreateInfo::builder()
-                .image(*i)
-                .view_type(vk::ImageViewType::TYPE_2D)
-                .format(format)
-                .components(components)
-                .subresource_range(subresource_range)
-                .build();
-
-            device.create_image_view(&info, None)
-        })
+        .map(|i| create_image_view(logical_device, *i, format))
         .collect::<Result<Vec<_>, _>>()?;
 
     Ok(image_views)

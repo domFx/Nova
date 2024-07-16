@@ -1,14 +1,23 @@
-use std::thread::AccessError;
-use ash::vk::{AccessFlags, Buffer, BufferImageCopy, BufferMemoryBarrier, CommandPool, DependencyFlags, DeviceMemory, DeviceSize, Extent3D, Format, Image, ImageAspectFlags, ImageCreateFlags, ImageLayout, ImageMemoryBarrier, ImageSubresource, ImageSubresourceLayers, ImageSubresourceRange, ImageTiling, ImageType, ImageUsageFlags, MemoryBarrier, MemoryPropertyFlags, Offset3D, PhysicalDevice, PipelineStageFlags, Queue, QUEUE_FAMILY_IGNORED, SampleCountFlags, SharingMode};
+use ash::vk::{AccessFlags, Buffer, BufferImageCopy, BufferMemoryBarrier, CommandPool, DependencyFlags, DeviceMemory, DeviceSize, Extent3D, Format, Image, ImageAspectFlags, ImageCreateFlags, ImageLayout, ImageMemoryBarrier, ImageSubresource, ImageSubresourceLayers, ImageSubresourceRange, ImageTiling, ImageType, ImageUsageFlags, ImageView, ImageViewCreateInfo, ImageViewType, MemoryBarrier, MemoryPropertyFlags, Offset3D, PhysicalDevice, PipelineStageFlags, Queue, QUEUE_FAMILY_IGNORED, SampleCountFlags, SharingMode};
 use anyhow::Result;
 use ash::{Device, Instance, vk};
-use log::LevelFilter::Off;
 use crate::vulkan::buffer::{begin_single_time_commands, end_single_time_commands, VulkanAppBuffer};
 use crate::vulkan::memory::get_memory_type_index;
 
 pub(crate) struct VulkanImage {
     pub(crate) texture_image: Image,
-    pub(crate) texture_image_memory: DeviceMemory
+    pub(crate) texture_image_memory: DeviceMemory,
+    pub(crate) texture_image_view: ImageView
+}
+
+impl VulkanImage {
+    pub(crate) fn destroy_vulkan_image(&self, logical_device: &Device) {
+        unsafe {
+            logical_device.destroy_image_view(self.texture_image_view, None);
+            logical_device.free_memory(self.texture_image_memory, None);
+            logical_device.destroy_image(self.texture_image, None);
+        }
+    }
 }
 
 pub(crate) fn create_texture_image(
@@ -76,10 +85,40 @@ pub(crate) fn create_texture_image(
 
         buffer.destroy_buffer(logical_device);
 
+        let texture_image_view = create_image_view(logical_device, texture_image, Format::R8G8B8A8_SRGB)?;
+
         Ok(VulkanImage {
             texture_image,
-            texture_image_memory
+            texture_image_memory,
+            texture_image_view
         })
+    }
+}
+
+pub(crate) fn create_image_view(
+    logical_device: &Device,
+    image: Image,
+    format: Format
+) -> Result<ImageView> {
+    let subresource_range = ImageSubresourceRange::builder()
+        .aspect_mask(ImageAspectFlags::COLOR)
+        .base_mip_level(0)
+        .level_count(1)
+        .base_array_layer(0)
+        .layer_count(1)
+        .build();
+
+    let info = ImageViewCreateInfo::builder()
+        .image(image)
+        .view_type(ImageViewType::TYPE_2D)
+        .format(format)
+        .subresource_range(subresource_range)
+        .build();
+
+    unsafe {
+        let image_view = logical_device.create_image_view(&info, None)?;
+
+        Ok(image_view)
     }
 }
 
