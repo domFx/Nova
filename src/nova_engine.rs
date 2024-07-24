@@ -1,6 +1,6 @@
 use nova_core::event::SystemEvents;
-use nova_window::window::{NovaWindow, get_window};
 use nova_renderer::renderer::{Renderer, RendererType};
+use nova_window::window::{NovaWindow, get_window};
 
 pub struct NovaEngine {
     window: Box<dyn NovaWindow>,

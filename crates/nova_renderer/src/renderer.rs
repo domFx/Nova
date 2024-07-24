@@ -1,5 +1,6 @@
 use crate::renderer_backend::RendererBackend;
 use crate::vulkan::vulkan_renderer::VulkanRenderer;
+
 use nova_math::vector::vector2::Vector2;
 
 use anyhow::Result;
@@ -19,10 +20,12 @@ impl Renderer {
         renderer_type: RendererType,
         window_handle: RawWindowHandle,
         display_handle: RawDisplayHandle,
-        window_dimensions: Vector2
+        window_dimensions: Vector2<u32>
     ) -> Result<Self> {
         let renderer_backend = match renderer_type {
-            RendererType::Vulkan => Box::new(VulkanRenderer::new(window_handle, display_handle, window_dimensions)?)
+            RendererType::Vulkan => {
+                Box::new(VulkanRenderer::new(window_handle, display_handle, window_dimensions)?)
+            }
         };
 
         Ok(Self {
@@ -31,7 +34,7 @@ impl Renderer {
         })
     }
 
-    pub fn render(&mut self, window_dimensions: Vector2) -> Result<()> {
+    pub fn render(&mut self, window_dimensions: Vector2<u32>) -> Result<()> {
         self.renderer_backend.render(window_dimensions)?;
 
         Ok(())

@@ -27,7 +27,7 @@ pub(crate) struct WinitWindow {
     event_loop: EventLoop<()>,
     window: winit::window::Window,
 
-    last_window_size: Option<Vector2>,
+    last_window_size: Option<Vector2<u32>>,
     minimized: bool,
     destroying: bool,
 }
@@ -41,7 +41,7 @@ impl WinitWindow {
         let window = WindowBuilder::new().build(&event_loop).unwrap();
 
         let inner_size= window.inner_size();
-        let last_window_size = Some(Vector2::new(inner_size.width as f32, inner_size.height as f32));
+        let last_window_size = Some(Vector2::new(inner_size.width, inner_size.height));
 
         Self {
             event_loop,
@@ -103,7 +103,7 @@ impl NovaWindow for WinitWindow {
                         }
                     },
                     WindowEvent::Resized(size) => {
-                        let window_dimensions = Vector2::new(size.width as f32, size.height as f32);
+                        let window_dimensions = Vector2::new(size.width, size.height);
                         match self.last_window_size {
                             None => self.last_window_size = Some(window_dimensions),
                             Some(_) => {
@@ -117,8 +117,6 @@ impl NovaWindow for WinitWindow {
                                 self.last_window_size = Some(window_dimensions);
                             }
                         }
-
-                        fire_event(nova_core::event::Event::WindowResize, EventContext::WindowResizeContext(window_dimensions));
                     },
                     WindowEvent::KeyboardInput { event: key_event, is_synthetic: false, .. } => {
                         let keyboard_button_state = match key_event.state {
@@ -189,11 +187,16 @@ impl NovaWindow for WinitWindow {
         self.window.raw_window_handle().unwrap()
     }
 
-    fn get_window_dimensions(&self) -> Vector2 {
+    fn get_window_dimensions(&self) -> Vector2<u32> {
         let inner_size = self.window.inner_size();
-        let dimensions = Vector2::new(inner_size.width as f32, inner_size.height as f32);
+        let dimensions = Vector2::new(inner_size.width, inner_size.height);
         dimensions
     }
+
+    fn get_window(&self) -> &winit::window::Window {
+        &self.window
+    }
+
 }
 
 fn parse_winit_key_code(key_code: KeyCode) -> Option<KeyboardKey> {

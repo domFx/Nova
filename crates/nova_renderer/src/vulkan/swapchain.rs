@@ -15,7 +15,7 @@ pub(crate) struct VulkanAppSwapchain {
 
 impl VulkanAppSwapchain {
     pub(crate) unsafe fn get(
-        window_dimensions: Vector2,
+        window_dimensions: Vector2<u32>,
         instance: &Instance,
         logical_device: &Device,
         physical_device: PhysicalDevice,
@@ -103,7 +103,7 @@ fn get_swapchain_present_mode(present_modes: &[vk::PresentModeKHR]) -> vk::Prese
 
 // Get resolution of the swapchain images
 fn get_swapchain_extent(
-    window_dimensions: Vector2,
+    window_dimensions: Vector2<u32>,
     capabilities: vk::SurfaceCapabilitiesKHR) -> vk::Extent2D {
     if capabilities.current_extent.width != u32::MAX {
         capabilities.current_extent

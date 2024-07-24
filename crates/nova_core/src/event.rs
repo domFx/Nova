@@ -13,7 +13,7 @@ pub enum Event {
 
 #[derive(Debug, Clone, Copy)]
 pub enum EventContext {
-    WindowResizeContext(Vector2)
+    // WindowResizeContext(Vector2)
 }
 
 #[derive(Default)]

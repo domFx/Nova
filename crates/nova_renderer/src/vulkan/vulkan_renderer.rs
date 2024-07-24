@@ -64,13 +64,13 @@ pub struct VulkanRenderer {
     index_buffer: VulkanAppBuffer,
     uniform_buffers: Vec<VulkanAppBuffer>,
     start: Instant,
-    window_dimensions: Vector2,
+    window_dimensions: Vector2<u32>,
     texture_image: VulkanImage,
     pub resized: bool,
 }
 
 impl RendererBackend for VulkanRenderer {
-    fn render(&mut self, _: Vector2) -> Result<()> {
+    fn render(&mut self, _: Vector2<u32>) -> Result<()> {
         let in_flight_fence = self.in_flight_fences[self.frame];
 
         unsafe {
@@ -176,7 +176,7 @@ impl RendererBackend for VulkanRenderer {
 }
 
 impl VulkanRenderer {
-    pub fn new(raw_window_handle: RawWindowHandle, raw_display_handle: RawDisplayHandle, window_dimensions: Vector2) -> Result<Self> {
+    pub fn new(raw_window_handle: RawWindowHandle, raw_display_handle: RawDisplayHandle, window_dimensions: Vector2<u32>) -> Result<Self> {
         unsafe {
             let entry = Entry::load()?;
             let mut debug_info = create_debug_info();
@@ -299,7 +299,7 @@ impl VulkanRenderer {
         }
     }
 
-    fn recreate_swapchain(&mut self, window_dimensions: Vector2) -> Result<()> {
+    fn recreate_swapchain(&mut self, window_dimensions: Vector2<u32>) -> Result<()> {
         unsafe {
             self.logical_device.device_wait_idle().unwrap();
 

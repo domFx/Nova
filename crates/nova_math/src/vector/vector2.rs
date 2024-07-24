@@ -1,53 +1,67 @@
+use std::ops::{ Add, Sub, Mul, Div };
 use crate::vector::vector3::Vector3;
 
 #[derive(Debug, Copy, Clone)]
-pub struct Vector2 {
-    pub x: f32,
-    pub y: f32
+pub struct Vector2<T> {
+    pub x: T,
+    pub y: T
 }
 
-impl Vector2 {
-    pub fn new(x: f32, y: f32) -> Self {
+impl<T> Vector2<T> where T: Default + Copy + Add<Output = T> + Sub<Output = T> + Mul<Output = T> + Div<Output = T> + PartialEq {
+    pub fn new(x: T, y: T) -> Self {
         Self { x, y }
     }
 
-    pub fn zero() -> Self {
-        Self { x: 0.0, y: 0.0 }
+    pub fn zero() -> Vector2<T> {
+        Self { x: T::default(), y: T::default() }
     }
 
-    pub fn add(&self, v2: &Vector2) -> Self {
+    pub fn add(&self, v2: &Vector2<T>) -> Self {
         Self {
             x: self.x + v2.x,
             y: self.y + v2.y
         }
     }
 
-    pub fn subtract(&self, v2: &Vector2) -> Self {
+    pub fn subtract(&self, v2: &Vector2<T>) -> Self {
         Self {
             x: self.x - v2.x,
             y: self.y - v2.y
         }
     }
 
-    pub fn multiply(&self, v2: &Vector2) -> Self {
+    pub fn multiply(&self, v2: &Vector2<T>) -> Self {
         Self {
             x: self.x * v2.x,
             y: self.y * v2.y
         }
     }
 
-    pub fn multiply_by_scalar(&self, scalar: f32) -> Self {
+    pub fn multiply_by_scalar(&self, scalar: T) -> Self {
         Self {
             x: self.x * scalar,
             y: self.y * scalar
         }
     }
 
-    pub fn divide(&self, v2: &Vector2) -> Self {
+    pub fn divide(&self, v2: &Vector2<T>) -> Self {
         Self {
             x: self.x / v2.x,
             y: self.y / v2.y
         }
+    }
+
+    pub fn equals(&self, v2: &Vector2<T>) -> bool {
+        self.x == v2.x && self.y == v2.y
+    }
+}
+
+impl Vector2<f32> {
+    pub fn normalize_in_place(&mut self) {
+        let normalized = self.normalize();
+
+        self.x = normalized.x;
+        self.y = normalized.y;
     }
 
     pub fn get_length_squared(&self) -> f32 {
@@ -58,8 +72,8 @@ impl Vector2 {
         f32::sqrt(self.get_length_squared())
     }
 
-    pub fn normalize(&self) -> Self {
-        let vector_length = self.get_length();
+    pub fn normalize(&self) -> Vector2<f32> {
+        let vector_length: f32 = self.get_length();
 
         Self {
             x: self.x / vector_length,
@@ -67,18 +81,7 @@ impl Vector2 {
         }
     }
 
-    pub fn normalize_in_place(&mut self) {
-        let normalized = self.normalize();
-
-        self.x = normalized.x;
-        self.y = normalized.y;
-    }
-
-    pub fn equals(&self, v2: &Vector2) -> bool {
-        self.x == v2.x && self.y == v2.y
-    }
-
-    pub fn get_distance(&self, v2: &Vector2) -> f32 {
+    pub fn get_distance(&self, v2: &Vector2<f32>) -> f32 {
         let difference = self.subtract(v2);
 
         difference.get_length()
@@ -221,5 +224,16 @@ mod vector2_tests {
         assert_eq!(v2.x, v1.x);
         assert_eq!(v2.y, v1.y);
         assert_eq!(v2.z, 0.0);
+    }
+
+    #[test]
+    fn test_zero() {
+        let v1: Vector2<u32> = Vector2::zero();
+
+        assert_eq!(v1.x, 0u32);
+
+        let v2: Vector2<f32> = Vector2::zero();
+
+        assert_eq!(v2.x, 0f32);
     }
 }
