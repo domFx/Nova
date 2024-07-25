@@ -1063,6 +1063,7 @@ dependencies = [
  "nova_math",
  "objc",
  "objc2 0.5.2",
+ "png",
  "raw-window-handle",
  "thiserror",
  "winit",

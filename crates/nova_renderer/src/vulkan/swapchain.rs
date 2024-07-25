@@ -1,5 +1,5 @@
 use crate::vulkan::queue_families::*;
-use crate::vulkan::text_image::create_image_view;
+use crate::vulkan::texture_image::create_image_view;
 use nova_math::vector::vector2::Vector2;
 
 use ash::extensions::khr::{Surface, Swapchain};

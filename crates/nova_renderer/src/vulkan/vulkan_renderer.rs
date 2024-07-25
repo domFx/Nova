@@ -11,7 +11,7 @@ use crate::vulkan::render_pass::*;
 use crate::vulkan::swapchain::*;
 use crate::vulkan::surface::*;
 use crate::vulkan::index_buffer::*;
-use crate::vulkan::text_image::*;
+use crate::vulkan::texture_image::*;
 
 use crate::vulkan::buffer::VulkanAppBuffer;
 use crate::vulkan::constants::{MAX_FRAMES_IN_FLIGHT, VALIDATION_ENABLED};
@@ -29,7 +29,7 @@ use anyhow::{Result};
 use ash::{Entry, Instance, Device, vk};
 use ash::extensions::khr::{Surface};
 use ash::prelude::VkResult;
-use ash::vk::{SurfaceKHR, PhysicalDevice, Queue, RenderPass, Framebuffer, CommandPool, CommandBuffer, Fence, Semaphore, Image, DescriptorSetLayout, DescriptorPool, DescriptorSet};
+use ash::vk::{SurfaceKHR, Framebuffer, CommandBuffer, Fence, Semaphore, Image, DescriptorSetLayout, DescriptorPool, DescriptorSet};
 use std::time::Instant;
 use raw_window_handle::{RawDisplayHandle, RawWindowHandle};
 
@@ -39,18 +39,18 @@ pub struct VulkanRenderer {
     surface_loader: Surface,
     logical_device: Device,
     debug: VulkanAppDebug,
-    physical_device: PhysicalDevice,
-    graphics_queue: Queue,
-    present_queue: Queue,
+    physical_device: vk::PhysicalDevice,
+    graphics_queue: vk::Queue,
+    present_queue: vk::Queue,
     surface: SurfaceKHR,
     swapchain: VulkanAppSwapchain,
     pipeline: VulkanAppPipeline,
     descriptor_set_layout: DescriptorSetLayout,
     descriptor_pool: DescriptorPool,
     descriptor_sets: Vec<DescriptorSet>,
-    render_pass: RenderPass,
+    render_pass: vk::RenderPass,
     framebuffers: Vec<Framebuffer>,
-    command_pool: CommandPool,
+    command_pool: vk::CommandPool,
     command_buffers: Vec<CommandBuffer>,
     image_available_semaphores: Vec<Semaphore>,
     render_finished_semaphores: Vec<Semaphore>,
@@ -66,6 +66,7 @@ pub struct VulkanRenderer {
     start: Instant,
     window_dimensions: Vector2<u32>,
     texture_image: VulkanImage,
+    sampler: vk::Sampler,
     pub resized: bool,
 }
 
@@ -149,6 +150,7 @@ impl RendererBackend for VulkanRenderer {
 
             self.destroy_swapchain();
 
+            self.logical_device.destroy_sampler(self.sampler, None);
             self.texture_image.destroy_vulkan_image(&self.logical_device);
 
             self.logical_device.destroy_descriptor_set_layout(self.descriptor_set_layout, None);
@@ -180,14 +182,12 @@ impl VulkanRenderer {
         unsafe {
             let entry = Entry::load()?;
             let mut debug_info = create_debug_info();
-            let instance
-                = create_instance(&entry, &mut debug_info)?;
+            let instance = create_instance(&entry, &mut debug_info)?;
             let debug = VulkanAppDebug::get(&entry, &instance, debug_info)?;
             let surface_loader = Surface::new(&entry, &instance);
             let surface = create_surface(raw_window_handle, raw_display_handle, &entry, &instance)?;
             let physical_device = pick_physical_device(&instance, &surface_loader, surface)?;
             let indices = QueueFamilyIndices::get(&instance, physical_device, surface, &surface_loader)?;
-
             let logical_device = create_logical_device(&entry, &instance, physical_device, &indices)?;
             let graphics_queue = logical_device.get_device_queue(indices.graphics, 0);
             let present_queue = logical_device.get_device_queue(indices.present, 0);
@@ -199,7 +199,8 @@ impl VulkanRenderer {
             let pipeline = create_pipeline(&logical_device, swapchain.extent, render_pass, descriptor_set_layout)?;
             let framebuffers = create_framebuffers(&logical_device, &image_views, render_pass, &swapchain.extent)?;
             let command_pool = create_command_pool(&logical_device, &indices)?;
-            let texture_image = create_texture_image(&instance, &logical_device, physical_device)?;
+            let texture_image = create_texture_image(&instance, &logical_device, physical_device, command_pool, graphics_queue)?;
+            let sampler = create_texture_sampler(&logical_device)?;
             let vertex_buffer = create_vertex_buffer(&instance, &logical_device, physical_device, graphics_queue, command_pool)?;
             let index_buffer = create_index_buffer(&instance, &logical_device, physical_device, graphics_queue, command_pool)?;
             let uniform_buffers = create_uniform_buffers(&instance, &logical_device, physical_device, &images)?;
@@ -259,17 +260,9 @@ impl VulkanRenderer {
                 start,
                 window_dimensions,
                 texture_image,
+                sampler,
                 resized: false
             };
-
-            // let mut dimensions: Vector2;
-            // let event_listener = EventListener::new(Event::WindowResize, |c| {
-            //     match c {
-            //         EventContext::WindowResizeContext(val) => {
-            //             renderer.window_dimensions = val;
-            //         }
-            //     }
-            // });
 
 
             Ok(renderer)

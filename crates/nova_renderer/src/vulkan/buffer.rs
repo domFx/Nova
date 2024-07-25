@@ -112,14 +112,15 @@ pub(crate) fn end_single_time_commands(
     unsafe {
         logical_device.end_command_buffer(command_buffer)?;
 
+        let command_buffers = &[command_buffer];
         let submit_info = vk::SubmitInfo::builder()
-            .command_buffers(&[command_buffer])
+            .command_buffers(command_buffers)
             .build();
 
         logical_device.queue_submit(graphics_queue, &[submit_info], vk::Fence::null())?;
         logical_device.queue_wait_idle(graphics_queue)?;
 
-        logical_device.free_command_buffers(command_pool, &[command_buffer]);
+        logical_device.free_command_buffers(command_pool, command_buffers);
     }
 
     Ok(())

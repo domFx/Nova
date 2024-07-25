@@ -39,7 +39,9 @@ pub unsafe fn create_logical_device(entry: &Entry, instance: &Instance, physical
         vec![]
     };
 
-    let features = vk::PhysicalDeviceFeatures::builder();
+    let features = vk::PhysicalDeviceFeatures::builder()
+        .sampler_anisotropy(true)
+        .build();
 
     let info = vk::DeviceCreateInfo::builder()
         .queue_create_infos(&queue_infos)
