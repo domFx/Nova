@@ -1,11 +1,9 @@
-use std::mem::size_of;
-use anyhow::{Result};
-use ash::{Instance, vk};
-use ash::Device;
-use ash::vk::{CommandPool, PhysicalDevice};
-
-use cgmath::{vec2, vec3};
 use crate::vulkan::buffer::VulkanAppBuffer;
+
+use anyhow::{Result};
+use ash::vk;
+use cgmath::{vec2, vec3};
+use std::mem::size_of;
 
 type Vec2 = cgmath::Vector2<f32>;
 type Vec3 = cgmath::Vector3<f32>;
@@ -14,12 +12,17 @@ type Vec3 = cgmath::Vector3<f32>;
 #[derive(Copy, Clone, Debug)]
 pub struct Vertex {
     pos: Vec2,
-    color: Vec3
+    color: Vec3,
+    tex_coord: Vec2
 }
 
 impl Vertex {
-    pub const fn new(pos: Vec2, color: Vec3) -> Self {
-        Self {pos, color}
+    pub const fn new(pos: Vec2, color: Vec3, tex_coord: Vec2) -> Self {
+        Self {
+            pos,
+            color,
+            tex_coord
+        }
     }
 
     pub fn binding_description() -> vk::VertexInputBindingDescription {
@@ -30,7 +33,7 @@ impl Vertex {
             .build()
     }
 
-    pub fn attribute_descriptions() -> [vk::VertexInputAttributeDescription; 2] {
+    pub fn attribute_descriptions() -> [vk::VertexInputAttributeDescription; 3] {
         let pos = vk::VertexInputAttributeDescription::builder()
             .binding(0)
             .location(0)
@@ -45,16 +48,23 @@ impl Vertex {
             .offset(size_of::<Vec2>() as u32)
             .build();
 
-        [pos, color]
+        let text_coord = vk::VertexInputAttributeDescription::builder()
+            .binding(0)
+            .location(2)
+            .format(vk::Format::R32G32_SFLOAT)
+            .offset(size_of::<Vec2>() as u32 + size_of::<Vec3>() as u32)
+            .build();
+
+        [pos, color, text_coord]
     }
 }
 
 pub unsafe fn create_vertex_buffer(
-    instance: &Instance,
-    logical_device: &Device,
-    physical_device: PhysicalDevice,
+    instance: &ash::Instance,
+    logical_device: &ash::Device,
+    physical_device: vk::PhysicalDevice,
     graphics_queue: vk::Queue,
-    command_pool: CommandPool
+    command_pool: vk::CommandPool
 ) -> Result<VulkanAppBuffer> {
     let size = (size_of::<Vertex>() * VERTICES.len()) as u64;
 
@@ -95,11 +105,11 @@ pub unsafe fn create_vertex_buffer(
     Ok(vertex_buffer)
 }
 
-pub static VERTICES: [Vertex; 4] = [
-    Vertex::new(vec2(-0.5, -0.5), vec3(1.0, 0.0, 0.0)),
-    Vertex::new(vec2(0.5, -0.5), vec3(0.0, 1.0, 0.0)),
-    Vertex::new(vec2(0.5, 0.5), vec3(0.0, 0.0, 1.0)),
-    Vertex::new(vec2(-0.5, 0.5), vec3(1.0, 1.0, 1.0))
+pub(crate) static VERTICES: [Vertex; 4] = [
+    Vertex::new(vec2(-0.5, -0.5), vec3(1.0, 0.0, 0.0), vec2(1.0, 0.0)),
+    Vertex::new(vec2(0.5, -0.5), vec3(0.0, 1.0, 0.0), vec2(0.0, 0.0)),
+    Vertex::new(vec2(0.5, 0.5), vec3(0.0, 0.0, 1.0), vec2(0.0, 1.0)),
+    Vertex::new(vec2(-0.5, 0.5), vec3(1.0, 1.0, 1.0), vec2(1.0, 1.0)),
 ];
 
 pub const INDICES: &[u16] = &[0, 1, 2, 2, 3, 0];

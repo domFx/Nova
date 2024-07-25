@@ -205,7 +205,7 @@ impl VulkanRenderer {
             let index_buffer = create_index_buffer(&instance, &logical_device, physical_device, graphics_queue, command_pool)?;
             let uniform_buffers = create_uniform_buffers(&instance, &logical_device, physical_device, &images)?;
             let descriptor_pool = create_descriptor_pool(&logical_device, &images)?;
-            let descriptor_sets = create_descriptor_sets(&logical_device, descriptor_pool, descriptor_set_layout, &images, &uniform_buffers)?;
+            let descriptor_sets = create_descriptor_sets(&logical_device, descriptor_pool, descriptor_set_layout, &images, &uniform_buffers, texture_image.texture_image_view, sampler)?;
             let command_buffers = create_command_buffers(&logical_device, command_pool, swapchain.extent, render_pass, &framebuffers, &pipeline, vertex_buffer.buffer, index_buffer.buffer, &descriptor_sets)?;
 
             let semaphore_info = vk::SemaphoreCreateInfo::builder();
@@ -306,7 +306,7 @@ impl VulkanRenderer {
             self.framebuffers = create_framebuffers(&self.logical_device, &self.image_views, self.render_pass, &self.swapchain.extent)?;
             self.uniform_buffers = create_uniform_buffers(&self.instance, &self.logical_device, self.physical_device, &self.images)?;
             self.descriptor_pool = create_descriptor_pool(&self.logical_device, &self.images)?;
-            self.descriptor_sets = create_descriptor_sets(&self.logical_device, self.descriptor_pool, self.descriptor_set_layout, &self.images, &self.uniform_buffers)?;
+            self.descriptor_sets = create_descriptor_sets(&self.logical_device, self.descriptor_pool, self.descriptor_set_layout, &self.images, &self.uniform_buffers, self.texture_image.texture_image_view, self.sampler)?;
             self.command_buffers = create_command_buffers(&self.logical_device, self.command_pool, self.swapchain.extent, self.render_pass, &self.framebuffers, &self.pipeline, self.vertex_buffer.buffer, self.index_buffer.buffer, &self.descriptor_sets)?;
             self.images_in_flight.resize(self.images.len(), Fence::null());
         }

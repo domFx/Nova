@@ -1,18 +1,23 @@
 use anyhow::Result;
-use ash::{Device, vk};
-use ash::vk::{DescriptorPool, Image};
+use ash::vk;
 
 pub fn create_descriptor_pool(
-    logical_device: &Device,
-    swapchain_images: &Vec<Image>
-) -> Result<DescriptorPool> {
-    let ubo_size = vk::DescriptorPoolSize::builder()
+    logical_device: &ash::Device,
+    swapchain_images: &Vec<vk::Image>
+) -> Result<vk::DescriptorPool> {
+    let uniform_buffer_size = vk::DescriptorPoolSize::builder()
         .ty(vk::DescriptorType::UNIFORM_BUFFER)
         .descriptor_count(swapchain_images.len() as u32)
         .build();
 
+    let sampler_size = vk::DescriptorPoolSize::builder()
+        .ty(vk::DescriptorType::COMBINED_IMAGE_SAMPLER)
+        .descriptor_count(swapchain_images.len() as u32)
+        .build();
+
+    let pool_sizes = &[uniform_buffer_size, sampler_size];
     let descriptor_pool_info = vk::DescriptorPoolCreateInfo::builder()
-        .pool_sizes(&[ubo_size])
+        .pool_sizes(pool_sizes)
         .max_sets(swapchain_images.len() as u32)
         .build();
 
