@@ -10,6 +10,7 @@ pub struct VulkanAppPipeline {
     pub pipeline_layout: PipelineLayout,
     pub pipeline: Pipeline
 }
+
 pub unsafe fn create_pipeline(
     device: &Device,
     extent: vk::Extent2D,

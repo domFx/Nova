@@ -1,9 +1,9 @@
-use std::mem::{size_of};
-use anyhow::Result;
-use ash::{Device, Instance, vk};
-use ash::vk::{PhysicalDevice};
-use cgmath::{Deg, point3, vec3};
 use crate::vulkan::buffer::VulkanAppBuffer;
+
+use anyhow::Result;
+use ash::vk;
+use cgmath::{Deg, point3, vec3};
+use std::mem::{size_of};
 
 type Mat4 = cgmath::Matrix4<f32>;
 
@@ -16,9 +16,9 @@ pub struct UniformBufferObject {
 }
 
 pub fn create_uniform_buffers(
-    instance: &Instance,
-    logical_device: &Device,
-    physical_device: PhysicalDevice,
+    instance: &ash::Instance,
+    logical_device: &ash::Device,
+    physical_device: vk::PhysicalDevice,
     swapchain_images: &Vec<vk::Image>
 ) -> Result<Vec<VulkanAppBuffer>> {
     let mut uniform_buffers = Vec::new();
@@ -43,7 +43,7 @@ pub fn update_uniform_buffer(
     image_index: usize,
     uniform_buffers: &Vec<VulkanAppBuffer>,
     extent: vk::Extent2D,
-    logical_device: &Device,
+    logical_device: &ash::Device,
     start: &std::time::Instant
 ) -> Result<()> {
     let time = start.elapsed().as_secs_f32();

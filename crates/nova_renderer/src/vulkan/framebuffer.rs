@@ -1,12 +1,11 @@
-use ash::{Device, vk};
-use ash::vk::{Extent2D, Framebuffer, ImageView, RenderPass};
+use ash::vk;
 use anyhow::Result;
 
 pub unsafe fn create_framebuffers(
-    device: &Device,
-    image_views: &Vec<ImageView>,
-    render_pass: RenderPass,
-    extent: &Extent2D) -> Result<Vec<Framebuffer>> {
+    device: &ash::Device,
+    image_views: &Vec<vk::ImageView>,
+    render_pass: vk::RenderPass,
+    extent: &vk::Extent2D) -> Result<Vec<vk::Framebuffer>> {
     let framebuffers =
         image_views
         .iter()

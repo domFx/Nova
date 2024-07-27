@@ -1,20 +1,20 @@
-use anyhow::Result;
-use ash::{Device, vk};
-use ash::vk::{Buffer, CommandBuffer, CommandPool, DescriptorSet, Extent2D, Framebuffer, RenderPass};
 use crate::vulkan::pipeline::VulkanAppPipeline;
-use crate::vulkan::vertex::{INDICES};
+use crate::vulkan::vertex::INDICES;
+
+use anyhow::Result;
+use ash::vk;
 
 pub unsafe fn create_command_buffers(
-    device: &Device,
-    command_pool: CommandPool,
-    extent: Extent2D,
-    render_pass: RenderPass,
-    framebuffers: &Vec<Framebuffer>,
+    device: &ash::Device,
+    command_pool: vk::CommandPool,
+    extent: vk::Extent2D,
+    render_pass: vk::RenderPass,
+    framebuffers: &Vec<vk::Framebuffer>,
     pipeline: &VulkanAppPipeline,
-    vertex_buffer: Buffer,
-    index_buffer: Buffer,
-    descriptor_sets: &Vec<DescriptorSet>
-) -> Result<Vec<CommandBuffer>> {
+    vertex_buffer: vk::Buffer,
+    index_buffer: vk::Buffer,
+    descriptor_sets: &Vec<vk::DescriptorSet>
+) -> Result<Vec<vk::CommandBuffer>> {
     let info = vk::CommandBufferAllocateInfo::builder()
         .command_pool(command_pool)
         .level(vk::CommandBufferLevel::PRIMARY)
