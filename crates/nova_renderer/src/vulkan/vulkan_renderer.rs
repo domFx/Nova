@@ -264,7 +264,6 @@ impl VulkanRenderer {
                 resized: false
             };
 
-
             Ok(renderer)
         }
     }

@@ -197,6 +197,9 @@ impl NovaWindow for WinitWindow {
         &self.window
     }
 
+    fn set_title(&self, title: &str) {
+        self.window.set_title(title);
+    }
 }
 
 fn parse_winit_key_code(key_code: KeyCode) -> Option<KeyboardKey> {

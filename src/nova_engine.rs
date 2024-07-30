@@ -11,6 +11,7 @@ pub struct NovaEngine {
 impl NovaEngine {
     pub fn new() -> Box<Self> {
         let window = get_window();
+        window.set_title("Nova Engine");
 
         let system_event_handler = SystemEvents::default();
 

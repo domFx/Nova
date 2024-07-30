@@ -25,6 +25,8 @@ pub trait NovaWindow {
     fn get_window_dimensions(&self) -> Vector2<u32>;
 
     fn get_window(&self) -> &winit::window::Window;
+
+    fn set_title(&self, title: &str);
 }
 
 pub fn get_window() -> impl NovaWindow {
