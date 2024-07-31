@@ -113,12 +113,12 @@ fn get_swapchain_extent(
             .width(clamp(
                 capabilities.min_image_extent.width,
                 capabilities.max_image_extent.width,
-                window_dimensions.x as u32,
+                window_dimensions.x,
             ))
             .height(clamp(
                 capabilities.min_image_extent.height,
                 capabilities.max_image_extent.height,
-                window_dimensions.y as u32,
+                window_dimensions.y,
             ))
             .build()
     }

@@ -83,6 +83,5 @@ pub fn update_uniform_buffer(
         logical_device.unmap_memory(uniform_buffers[image_index].buffer_memory);
     }
 
-
     Ok(())
 }

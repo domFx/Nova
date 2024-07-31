@@ -19,7 +19,7 @@ use crate::vulkan::debug::{create_debug_info, VulkanAppDebug};
 use crate::vulkan::descriptor_pool::create_descriptor_pool;
 use crate::vulkan::descriptor_sets::create_descriptor_sets;
 use crate::vulkan::uniform_buffers::{create_uniform_buffers, update_uniform_buffer};
-use crate::vulkan::vertex::create_vertex_buffer;
+use crate::vulkan::vertex::{create_vertex_buffer, INDICES};
 use crate::renderer_backend::RendererBackend;
 
 use nova_math::vector::vector2::Vector2;
@@ -54,7 +54,7 @@ pub struct VulkanRenderer {
     command_buffers: Vec<CommandBuffer>,
     image_available_semaphores: Vec<Semaphore>,
     render_finished_semaphores: Vec<Semaphore>,
-    frame: usize,
+    current_frame: usize,
     in_flight_fences: Vec<Fence>,
     images_in_flight: Vec<Fence>,
     indices: QueueFamilyIndices,
@@ -72,15 +72,13 @@ pub struct VulkanRenderer {
 
 impl RendererBackend for VulkanRenderer {
     fn render(&mut self, _: Vector2<u32>) -> Result<()> {
-        let in_flight_fence = self.in_flight_fences[self.frame];
-
         unsafe {
-            self.logical_device.wait_for_fences(&[in_flight_fence], true, u64::MAX)?;
+            self.logical_device.wait_for_fences(&[self.in_flight_fences[self.current_frame]], true, u64::MAX)?;
 
             let result = self.swapchain.loader.acquire_next_image(
                 self.swapchain.swapchain,
                 u64::MAX,
-                self.image_available_semaphores[self.frame],
+                self.image_available_semaphores[self.current_frame],
                 Fence::null(),
             );
 
@@ -90,19 +88,24 @@ impl RendererBackend for VulkanRenderer {
                 VkResult::Err(e) => return Err(anyhow!(e))
             };
 
-            let image_in_flight = self.images_in_flight[image_index];
-            if image_in_flight != Fence::null() {
-                self.logical_device.wait_for_fences(&[image_in_flight], true, u64::MAX)?;
-            }
-
-            self.images_in_flight[image_index] = in_flight_fence;
-
             update_uniform_buffer(image_index, &self.uniform_buffers, self.swapchain.extent, &self.logical_device, &self.start)?;
 
-            let wait_semaphores = &[self.image_available_semaphores[self.frame]];
+            self.logical_device.reset_fences(&[self.in_flight_fences[self.current_frame]])?;
+
+            self.logical_device.reset_command_buffer(self.command_buffers[self.current_frame], vk::CommandBufferResetFlags::empty())?;
+            self.record_command_buffer(self.command_buffers[self.current_frame], image_index)?;
+
+            // let image_in_flight = self.images_in_flight[image_index];
+            // if image_in_flight != Fence::null() {
+            //     self.logical_device.wait_for_fences(&[image_in_flight], true, u64::MAX)?;
+            // }
+            // self.images_in_flight[image_index] = in_flight_fence;
+
+
+            let wait_semaphores = &[self.image_available_semaphores[self.current_frame]];
             let wait_stages = &[vk::PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT];
-            let command_buffers = &[self.command_buffers[image_index]];
-            let signal_semaphores = &[self.render_finished_semaphores[self.frame]];
+            let command_buffers = &[self.command_buffers[self.current_frame]];
+            let signal_semaphores = &[self.render_finished_semaphores[self.current_frame]];
             let submit_info = vk::SubmitInfo::builder()
                 .wait_semaphores(wait_semaphores)
                 .wait_dst_stage_mask(wait_stages)
@@ -110,9 +113,7 @@ impl RendererBackend for VulkanRenderer {
                 .signal_semaphores(signal_semaphores)
                 .build();
 
-            self.logical_device.reset_fences(&[in_flight_fence])?;
-
-            self.logical_device.queue_submit(self.graphics_queue, &[submit_info], in_flight_fence)?;
+            self.logical_device.queue_submit(self.graphics_queue, &[submit_info], self.in_flight_fences[self.current_frame])?;
 
             let swapchains = &[self.swapchain.swapchain];
             let image_indices = &[image_index as u32];
@@ -139,7 +140,7 @@ impl RendererBackend for VulkanRenderer {
             }
         }
 
-        self.frame = (self.frame + 1) % MAX_FRAMES_IN_FLIGHT;
+        self.current_frame = (self.current_frame + 1) % MAX_FRAMES_IN_FLIGHT;
 
         Ok(())
     }
@@ -206,7 +207,7 @@ impl VulkanRenderer {
             let uniform_buffers = create_uniform_buffers(&instance, &logical_device, physical_device, &images)?;
             let descriptor_pool = create_descriptor_pool(&logical_device, &images)?;
             let descriptor_sets = create_descriptor_sets(&logical_device, descriptor_pool, descriptor_set_layout, &images, &uniform_buffers, texture_image.texture_image_view, sampler)?;
-            let command_buffers = create_command_buffers(&logical_device, command_pool, swapchain.extent, render_pass, &framebuffers, &pipeline, vertex_buffer.buffer, index_buffer.buffer, &descriptor_sets)?;
+            let command_buffers = create_command_buffers(&logical_device, command_pool, &framebuffers)?;
 
             let semaphore_info = vk::SemaphoreCreateInfo::builder();
             let fence_info = vk::FenceCreateInfo::builder()
@@ -248,7 +249,7 @@ impl VulkanRenderer {
                 command_buffers,
                 image_available_semaphores,
                 render_finished_semaphores,
-                frame: 0,
+                current_frame: 0,
                 in_flight_fences,
                 images_in_flight,
                 indices,
@@ -265,6 +266,57 @@ impl VulkanRenderer {
             };
 
             Ok(renderer)
+        }
+    }
+
+    pub fn record_command_buffer(
+        &self,
+        command_buffer: vk::CommandBuffer,
+        image_index: usize
+    ) -> Result<()> {
+        unsafe {
+            let info = vk::CommandBufferBeginInfo::builder()
+                .build();
+
+            self.logical_device.begin_command_buffer(command_buffer, &info)?;
+
+            let render_area = vk::Rect2D::builder()
+                .offset(vk::Offset2D { x: 0, y: 0 })
+                .extent(self.swapchain.extent)
+                .build();
+
+            let color_clear_value = vk::ClearValue {
+                color: vk::ClearColorValue {
+                    float32: [0.0, 0.0, 0.0, 1.0],
+                },
+            };
+
+            let clear_values = &[color_clear_value];
+            let info = vk::RenderPassBeginInfo::builder()
+                .render_pass(self.render_pass)
+                .framebuffer(self.framebuffers[image_index])
+                .render_area(render_area)
+                .clear_values(clear_values)
+                .build();
+
+            self.logical_device.cmd_begin_render_pass(command_buffer, &info, vk::SubpassContents::INLINE);
+            self.logical_device.cmd_bind_pipeline(command_buffer, vk::PipelineBindPoint::GRAPHICS, self.pipeline.pipeline);
+            self.logical_device.cmd_bind_vertex_buffers(command_buffer, 0, &[self.vertex_buffer.buffer], &[0]);
+            self.logical_device.cmd_bind_index_buffer(command_buffer, self.index_buffer.buffer, 0, vk::IndexType::UINT16);
+            self.logical_device.cmd_bind_descriptor_sets(
+                command_buffer,
+                vk::PipelineBindPoint::GRAPHICS,
+                self.pipeline.pipeline_layout,
+                0,
+                &[self.descriptor_sets[image_index]],
+                &[]);
+
+            self.logical_device.cmd_draw_indexed(command_buffer, INDICES.len() as u32, 1, 0, 0, 0);
+            self.logical_device.cmd_end_render_pass(command_buffer);
+
+            self.logical_device.end_command_buffer(command_buffer)?;
+
+            Ok(())
         }
     }
 
@@ -306,7 +358,7 @@ impl VulkanRenderer {
             self.uniform_buffers = create_uniform_buffers(&self.instance, &self.logical_device, self.physical_device, &self.images)?;
             self.descriptor_pool = create_descriptor_pool(&self.logical_device, &self.images)?;
             self.descriptor_sets = create_descriptor_sets(&self.logical_device, self.descriptor_pool, self.descriptor_set_layout, &self.images, &self.uniform_buffers, self.texture_image.texture_image_view, self.sampler)?;
-            self.command_buffers = create_command_buffers(&self.logical_device, self.command_pool, self.swapchain.extent, self.render_pass, &self.framebuffers, &self.pipeline, self.vertex_buffer.buffer, self.index_buffer.buffer, &self.descriptor_sets)?;
+            self.command_buffers = create_command_buffers(&self.logical_device, self.command_pool, &self.framebuffers)?;
             self.images_in_flight.resize(self.images.len(), Fence::null());
         }
         Ok(())
