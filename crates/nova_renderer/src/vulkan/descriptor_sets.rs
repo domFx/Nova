@@ -1,5 +1,6 @@
 use crate::vulkan::buffer::VulkanAppBuffer;
 use crate::vulkan::uniform_buffers::UniformBufferObject;
+use crate::vulkan::constants::MAX_FRAMES_IN_FLIGHT;
 
 use anyhow::Result;
 use ash::vk;
@@ -23,11 +24,17 @@ pub fn create_descriptor_sets(
     unsafe {
         let descriptor_sets = logical_device.allocate_descriptor_sets(&descriptor_set_allocator_info)?;
 
-        for i in 0..swapchain_images.len() {
+        for i in 0..MAX_FRAMES_IN_FLIGHT {
             let uniform_buffer_info = vk::DescriptorBufferInfo::builder()
                 .buffer(uniform_buffers[i].buffer)
                 .offset(0)
                 .range(size_of::<UniformBufferObject>() as u64)
+                .build();
+
+            let image_info = vk::DescriptorImageInfo::builder()
+                .image_layout(vk::ImageLayout::SHADER_READ_ONLY_OPTIMAL)
+                .image_view(texture_image_view)
+                .sampler(sampler)
                 .build();
 
             let uniform_buffer_write = vk::WriteDescriptorSet::builder()
@@ -38,18 +45,12 @@ pub fn create_descriptor_sets(
                 .buffer_info(&[uniform_buffer_info])
                 .build();
 
-            let sampler_info = vk::DescriptorImageInfo::builder()
-                .image_layout(vk::ImageLayout::SHADER_READ_ONLY_OPTIMAL)
-                .image_view(texture_image_view)
-                .sampler(sampler)
-                .build();
-
             let sampler_write = vk::WriteDescriptorSet::builder()
                 .dst_set(descriptor_sets[i])
                 .dst_binding(1)
                 .dst_array_element(0)
                 .descriptor_type(vk::DescriptorType::COMBINED_IMAGE_SAMPLER)
-                .image_info(&[sampler_info])
+                .image_info(&[image_info])
                 .build();
 
             logical_device.update_descriptor_sets(&[uniform_buffer_write, sampler_write], &[] as &[vk::CopyDescriptorSet]);

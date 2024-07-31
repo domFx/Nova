@@ -1,29 +1,28 @@
+use std::ffi::c_void;
 use crate::vulkan::buffer::VulkanAppBuffer;
+use crate::vulkan::constants::MAX_FRAMES_IN_FLIGHT;
 
 use anyhow::Result;
 use ash::vk;
-use cgmath::{Deg, point3, vec3};
+use cgmath::{Deg, Matrix4, point3, Rad, SquareMatrix, vec3};
 use std::mem::{size_of};
-
-type Mat4 = cgmath::Matrix4<f32>;
 
 #[repr(C)]
 #[derive(Copy, Clone, Debug)]
 pub struct UniformBufferObject {
-    model: Mat4,
-    view: Mat4,
-    proj: Mat4
+    model: Matrix4<f32>,
+    view: Matrix4<f32>,
+    proj: Matrix4<f32>
 }
 
 pub fn create_uniform_buffers(
     instance: &ash::Instance,
     logical_device: &ash::Device,
-    physical_device: vk::PhysicalDevice,
-    swapchain_images: &Vec<vk::Image>
+    physical_device: vk::PhysicalDevice
 ) -> Result<Vec<VulkanAppBuffer>> {
     let mut uniform_buffers = Vec::new();
 
-    for _ in 0..swapchain_images.len() {
+    for _ in 0..MAX_FRAMES_IN_FLIGHT {
         let vulkan_app_buffer = VulkanAppBuffer::new(
             instance,
             logical_device,
@@ -46,27 +45,40 @@ pub fn update_uniform_buffer(
     logical_device: &ash::Device,
     start: &std::time::Instant
 ) -> Result<()> {
-    let time = start.elapsed().as_secs_f32();
+    // let time = start.elapsed().as_secs_f32();
 
-    let model = Mat4::from_axis_angle(
-        vec3(0.0, 0.0, 1.0),
-        Deg(90.0) * time
-    );
+    let model = Matrix4::identity();
 
-    let view = Mat4::look_at_rh(
-        point3(2.0, 2.0, 2.0),
-        point3(0.0, 0.0, 0.0),
-        vec3(0.0, 0.0, 1.0)
-    );
+    // from_axis_angle(
+    //     vec3(0.0, 0.0, 1.0),
+    //     Deg(90.0)
+    // );
+    //
+    // let view = Matrix4::look_at_rh(
+    //     point3(0.0, 0.0, 1.0),
+    //     point3(0.0, 0.0, 0.0),
+    //     vec3(0.0, -1.0, 0.0)
+    // );
+    //
+    let view = Matrix4::identity();
 
-    let mut proj = cgmath::perspective(
-        Deg(45.0),
-        extent.width as f32 / extent.height as f32,
-        0.1,
-        10.0
-    );
+    let left = 0.0;
+    let right = extent.width as f32;
+    let bottom = 0.0;
+    let top = extent.height as f32;
+    let near = 0.0;
+    let far = 1.0;
 
-    proj[1][1] *= -1.0;
+    // let mut proj = cgmath::ortho(left, right, bottom, top, near, far);
+    let proj = Matrix4::identity();
+    // let mut proj = cgmath::perspective(
+    //     Deg(45.0),
+    //     extent.width as f32 / extent.height as f32,
+    //     0.1,
+    //     10.0
+    // );
+
+    // proj[1][1] *= -1.0;
 
     let ubo = UniformBufferObject { model, view, proj };
 
@@ -78,7 +90,7 @@ pub fn update_uniform_buffer(
             vk::MemoryMapFlags::empty()
         )?;
 
-        std::ptr::copy_nonoverlapping(&ubo, memory.cast(), 1);
+        std::ptr::copy_nonoverlapping(&ubo as *const UniformBufferObject, memory.cast(), 1);
 
         logical_device.unmap_memory(uniform_buffers[image_index].buffer_memory);
     }

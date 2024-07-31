@@ -86,19 +86,12 @@ impl RendererBackend for VulkanRenderer {
                 VkResult::Err(e) => return Err(anyhow!(e))
             };
 
-            update_uniform_buffer(image_index, &self.uniform_buffers, self.swapchain.extent, &self.logical_device, &self.start)?;
+            update_uniform_buffer(self.current_frame, &self.uniform_buffers, self.swapchain.extent, &self.logical_device, &self.start)?;
 
             self.logical_device.reset_fences(&[self.in_flight_fences[self.current_frame]])?;
 
             self.logical_device.reset_command_buffer(self.command_buffers[self.current_frame], vk::CommandBufferResetFlags::empty())?;
             self.record_command_buffer(self.command_buffers[self.current_frame], image_index)?;
-
-            // let image_in_flight = self.images_in_flight[image_index];
-            // if image_in_flight != Fence::null() {
-            //     self.logical_device.wait_for_fences(&[image_in_flight], true, u64::MAX)?;
-            // }
-            // self.images_in_flight[image_index] = in_flight_fence;
-
 
             let wait_semaphores = &[self.image_available_semaphores[self.current_frame]];
             let wait_stages = &[vk::PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT];
@@ -202,7 +195,7 @@ impl VulkanRenderer {
             let sampler = create_texture_sampler(&logical_device)?;
             let vertex_buffer = create_vertex_buffer(&instance, &logical_device, physical_device, graphics_queue, command_pool)?;
             let index_buffer = create_index_buffer(&instance, &logical_device, physical_device, graphics_queue, command_pool)?;
-            let uniform_buffers = create_uniform_buffers(&instance, &logical_device, physical_device, &images)?;
+            let uniform_buffers = create_uniform_buffers(&instance, &logical_device, physical_device)?;
             let descriptor_pool = create_descriptor_pool(&logical_device, &images)?;
             let descriptor_sets = create_descriptor_sets(&logical_device, descriptor_pool, descriptor_set_layout, &images, &uniform_buffers, texture_image.texture_image_view, sampler)?;
             let command_buffers = create_command_buffers(&logical_device, command_pool, &framebuffers)?;
@@ -226,7 +219,7 @@ impl VulkanRenderer {
 
             let start = Instant::now();
 
-            let mut renderer = Self {
+            let renderer = Self {
                 entry,
                 instance,
                 surface_loader,
@@ -306,7 +299,7 @@ impl VulkanRenderer {
                 vk::PipelineBindPoint::GRAPHICS,
                 self.pipeline.pipeline_layout,
                 0,
-                &[self.descriptor_sets[image_index]],
+                &[self.descriptor_sets[self.current_frame]],
                 &[]);
 
             self.logical_device.cmd_draw_indexed(command_buffer, INDICES.len() as u32, 1, 0, 0, 0);
@@ -353,7 +346,7 @@ impl VulkanRenderer {
             self.render_pass = create_render_pass(&self.instance, &self.logical_device, self.swapchain.format)?;
             self.pipeline = create_pipeline(&self.logical_device, self.swapchain.extent, self.render_pass, self.descriptor_set_layout)?;
             self.framebuffers = create_framebuffers(&self.logical_device, &self.image_views, self.render_pass, &self.swapchain.extent)?;
-            self.uniform_buffers = create_uniform_buffers(&self.instance, &self.logical_device, self.physical_device, &self.images)?;
+            self.uniform_buffers = create_uniform_buffers(&self.instance, &self.logical_device, self.physical_device)?;
             self.descriptor_pool = create_descriptor_pool(&self.logical_device, &self.images)?;
             self.descriptor_sets = create_descriptor_sets(&self.logical_device, self.descriptor_pool, self.descriptor_set_layout, &self.images, &self.uniform_buffers, self.texture_image.texture_image_view, self.sampler)?;
             self.command_buffers = create_command_buffers(&self.logical_device, self.command_pool, &self.framebuffers)?;

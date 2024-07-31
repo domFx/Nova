@@ -72,8 +72,9 @@ pub unsafe fn create_pipeline(
         .rasterizer_discard_enable(false)
         .polygon_mode(vk::PolygonMode::FILL)
         .line_width(1.0)
-        .cull_mode(vk::CullModeFlags::BACK)
-        .front_face(vk::FrontFace::COUNTER_CLOCKWISE)
+        .cull_mode(vk::CullModeFlags::NONE)
+        // .front_face(vk::FrontFace::COUNTER_CLOCKWISE)
+        .front_face(vk::FrontFace::CLOCKWISE)
         .depth_bias_enable(false)
         .build();
 
@@ -101,8 +102,19 @@ pub unsafe fn create_pipeline(
         .blend_constants([0.0, 0.0, 0.0, 0.0])
         .build();
 
+    // std::vector<VkDynamicState> dynamicStates = {
+    //     VK_DYNAMIC_STATE_VIEWPORT,
+    //     VK_DYNAMIC_STATE_SCISSOR
+    // };
+    let dynamic_states = vec![];
+    let dynamic_state_info = vk::PipelineDynamicStateCreateInfo::builder()
+        .dynamic_states(&dynamic_states)
+        .build();
+
     let layout_info = vk::PipelineLayoutCreateInfo::builder()
         .set_layouts(&[descriptor_set_layout])
+        // .set_layouts(&[])
+        .push_constant_ranges(&[])
         .build();
 
     let pipeline_layout = device.create_pipeline_layout(&layout_info, None)?;
@@ -119,6 +131,7 @@ pub unsafe fn create_pipeline(
         .layout(pipeline_layout)
         .render_pass(render_pass)
         .subpass(0)
+        .dynamic_state(&dynamic_state_info)
         .build();
 
     let pipeline = device.create_graphics_pipelines(vk::PipelineCache::null(), &[pipeline_info], None)
