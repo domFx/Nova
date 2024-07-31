@@ -24,41 +24,39 @@ use crate::renderer_backend::RendererBackend;
 
 use nova_math::vector::vector2::Vector2;
 
-use anyhow::*;
-use anyhow::{Result};
-use ash::{Entry, Instance, Device, vk};
+use anyhow::{anyhow, Result};
+use ash::vk;
 use ash::extensions::khr::{Surface};
 use ash::prelude::VkResult;
-use ash::vk::{SurfaceKHR, Framebuffer, CommandBuffer, Fence, Semaphore, Image, DescriptorSetLayout, DescriptorPool, DescriptorSet};
 use std::time::Instant;
 use raw_window_handle::{RawDisplayHandle, RawWindowHandle};
 
 pub struct VulkanRenderer {
-    entry: Entry,
-    instance: Instance,
+    entry: ash::Entry,
+    instance: ash::Instance,
     surface_loader: Surface,
-    logical_device: Device,
+    logical_device: ash::Device,
     debug: VulkanAppDebug,
     physical_device: vk::PhysicalDevice,
     graphics_queue: vk::Queue,
     present_queue: vk::Queue,
-    surface: SurfaceKHR,
+    surface: vk::SurfaceKHR,
     swapchain: VulkanAppSwapchain,
     pipeline: VulkanAppPipeline,
-    descriptor_set_layout: DescriptorSetLayout,
-    descriptor_pool: DescriptorPool,
-    descriptor_sets: Vec<DescriptorSet>,
+    descriptor_set_layout: vk::DescriptorSetLayout,
+    descriptor_pool: vk::DescriptorPool,
+    descriptor_sets: Vec<vk::DescriptorSet>,
     render_pass: vk::RenderPass,
-    framebuffers: Vec<Framebuffer>,
+    framebuffers: Vec<vk::Framebuffer>,
     command_pool: vk::CommandPool,
-    command_buffers: Vec<CommandBuffer>,
-    image_available_semaphores: Vec<Semaphore>,
-    render_finished_semaphores: Vec<Semaphore>,
+    command_buffers: Vec<vk::CommandBuffer>,
+    image_available_semaphores: Vec<vk::Semaphore>,
+    render_finished_semaphores: Vec<vk::Semaphore>,
     current_frame: usize,
-    in_flight_fences: Vec<Fence>,
-    images_in_flight: Vec<Fence>,
+    in_flight_fences: Vec<vk::Fence>,
+    images_in_flight: Vec<vk::Fence>,
     indices: QueueFamilyIndices,
-    images: Vec<Image>,
+    images: Vec<vk::Image>,
     image_views: Vec<vk::ImageView>,
     vertex_buffer: VulkanAppBuffer,
     index_buffer: VulkanAppBuffer,
@@ -79,7 +77,7 @@ impl RendererBackend for VulkanRenderer {
                 self.swapchain.swapchain,
                 u64::MAX,
                 self.image_available_semaphores[self.current_frame],
-                Fence::null(),
+                vk::Fence::null(),
             );
 
             let image_index = match result {
@@ -181,7 +179,7 @@ impl RendererBackend for VulkanRenderer {
 impl VulkanRenderer {
     pub fn new(raw_window_handle: RawWindowHandle, raw_display_handle: RawDisplayHandle, window_dimensions: Vector2<u32>) -> Result<Self> {
         unsafe {
-            let entry = Entry::load()?;
+            let entry = ash::Entry::load()?;
             let mut debug_info = create_debug_info();
             let instance = create_instance(&entry, &mut debug_info)?;
             let debug = VulkanAppDebug::get(&entry, &instance, debug_info)?;
@@ -224,7 +222,7 @@ impl VulkanRenderer {
                 in_flight_fences.push(logical_device.create_fence(&fence_info, None)?);
             }
 
-            let images_in_flight = images.iter().map(|_| Fence::null()).collect();
+            let images_in_flight = images.iter().map(|_| vk::Fence::null()).collect();
 
             let start = Instant::now();
 
@@ -359,7 +357,7 @@ impl VulkanRenderer {
             self.descriptor_pool = create_descriptor_pool(&self.logical_device, &self.images)?;
             self.descriptor_sets = create_descriptor_sets(&self.logical_device, self.descriptor_pool, self.descriptor_set_layout, &self.images, &self.uniform_buffers, self.texture_image.texture_image_view, self.sampler)?;
             self.command_buffers = create_command_buffers(&self.logical_device, self.command_pool, &self.framebuffers)?;
-            self.images_in_flight.resize(self.images.len(), Fence::null());
+            self.images_in_flight.resize(self.images.len(), vk::Fence::null());
         }
         Ok(())
     }
