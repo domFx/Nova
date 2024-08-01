@@ -1,5 +1,3 @@
-use crate::vulkan::vertex::INDICES;
-
 use anyhow::Result;
 use ash::vk;
 

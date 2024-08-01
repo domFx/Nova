@@ -292,8 +292,27 @@ impl VulkanRenderer {
 
             self.logical_device.cmd_begin_render_pass(command_buffer, &info, vk::SubpassContents::INLINE);
             self.logical_device.cmd_bind_pipeline(command_buffer, vk::PipelineBindPoint::GRAPHICS, self.pipeline.pipeline);
+
+            let viewport = vk::Viewport::builder()
+                .x(0.0)
+                .y(0.0)
+                .width(self.swapchain.extent.width as f32)
+                .height(self.swapchain.extent.height as f32)
+                .min_depth(0.0)
+                .max_depth(1.0)
+                .build();
+            self.logical_device.cmd_set_viewport(command_buffer, 0, &[viewport]);
+
+            let scissor = vk::Rect2D::builder()
+                .offset(vk::Offset2D { x: 0, y: 0 })
+                .extent(self.swapchain.extent)
+                .build();
+            self.logical_device.cmd_set_scissor(command_buffer, 0, &[scissor]);
+
             self.logical_device.cmd_bind_vertex_buffers(command_buffer, 0, &[self.vertex_buffer.buffer], &[0]);
+
             self.logical_device.cmd_bind_index_buffer(command_buffer, self.index_buffer.buffer, 0, vk::IndexType::UINT16);
+
             self.logical_device.cmd_bind_descriptor_sets(
                 command_buffer,
                 vk::PipelineBindPoint::GRAPHICS,

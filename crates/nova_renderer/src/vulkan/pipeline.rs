@@ -3,19 +3,18 @@ use crate::vulkan::vertex::Vertex;
 use std::ffi::CStr;
 
 use anyhow::Result;
-use ash::{Device, vk};
-use ash::vk::{DescriptorSetLayout, Pipeline, PipelineLayout, RenderPass};
+use ash::vk;
 
 pub struct VulkanAppPipeline {
-    pub pipeline_layout: PipelineLayout,
-    pub pipeline: Pipeline
+    pub pipeline_layout: vk::PipelineLayout,
+    pub pipeline: vk::Pipeline
 }
 
 pub unsafe fn create_pipeline(
-    device: &Device,
+    device: &ash::Device,
     extent: vk::Extent2D,
-    render_pass: RenderPass,
-    descriptor_set_layout: DescriptorSetLayout
+    render_pass: vk::RenderPass,
+    descriptor_set_layout: vk::DescriptorSetLayout
 ) -> Result<VulkanAppPipeline> {
     let vert = ash::util::read_spv(&mut std::fs::File::open("./src/shaders/vert.spv").unwrap()).unwrap();
     let frag = ash::util::read_spv(&mut std::fs::File::open("./src/shaders/frag.spv").unwrap()).unwrap();
@@ -46,25 +45,13 @@ pub unsafe fn create_pipeline(
         .topology(vk::PrimitiveTopology::TRIANGLE_LIST)
         .primitive_restart_enable(false);
 
-    let viewport = vk::Viewport::builder()
-        .x(0.0)
-        .y(0.0)
-        .width(extent.width as f32)
-        .height(extent.height as f32)
-        .min_depth(0.0)
-        .max_depth(1.0)
-        .build();
-
-    let scissor = vk::Rect2D::builder()
-        .offset(vk::Offset2D { x: 0, y: 0 })
-        .extent(extent)
-        .build();
-
-    let viewports = &[viewport];
-    let scissors = &[scissor];
+    // let viewports = &[viewport];
+    // let scissors = &[scissor];
     let viewport_state = vk::PipelineViewportStateCreateInfo::builder()
-        .viewports(viewports)
-        .scissors(scissors)
+        .viewport_count(1)
+        .scissor_count(1)
+        // .viewports(viewports)
+        // .scissors(scissors)
         .build();
 
     let rasterization_state = vk::PipelineRasterizationStateCreateInfo::builder()
@@ -102,18 +89,16 @@ pub unsafe fn create_pipeline(
         .blend_constants([0.0, 0.0, 0.0, 0.0])
         .build();
 
-    // std::vector<VkDynamicState> dynamicStates = {
-    //     VK_DYNAMIC_STATE_VIEWPORT,
-    //     VK_DYNAMIC_STATE_SCISSOR
-    // };
-    let dynamic_states = vec![];
+    let dynamic_states = vec![
+        vk::DynamicState::VIEWPORT,
+        vk::DynamicState::SCISSOR
+    ];
     let dynamic_state_info = vk::PipelineDynamicStateCreateInfo::builder()
         .dynamic_states(&dynamic_states)
         .build();
 
     let layout_info = vk::PipelineLayoutCreateInfo::builder()
         .set_layouts(&[descriptor_set_layout])
-        // .set_layouts(&[])
         .push_constant_ranges(&[])
         .build();
 
@@ -149,7 +134,7 @@ pub unsafe fn create_pipeline(
     })
 }
 
-unsafe fn create_shader_module(device: &Device, bytecode: &[u32]) -> Result<vk::ShaderModule> {
+unsafe fn create_shader_module(device: &ash::Device, bytecode: &[u32]) -> Result<vk::ShaderModule> {
     let info = vk::ShaderModuleCreateInfo::builder()
         .code(bytecode)
         .build();
