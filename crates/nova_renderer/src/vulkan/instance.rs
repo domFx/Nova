@@ -10,9 +10,9 @@ use log::info;
 
 pub unsafe fn create_instance(entry: &Entry, debug_info: &mut vk::DebugUtilsMessengerCreateInfoEXT) -> Result<Instance> {
     let app_info = vk::ApplicationInfo::builder()
-        .application_name(CString::new(WINDOW_TITLE).unwrap().as_c_str())
+        .application_name(CString::new(WINDOW_TITLE)?.as_c_str())
         .application_version(APPLICATION_VERSION)
-        .engine_name(CString::new(ENGINE_NAME).unwrap().as_c_str())
+        .engine_name(CString::new(ENGINE_NAME)?.as_c_str())
         .api_version(API_VERSION)
         .engine_version(ENGINE_VERSION)
         .build();
