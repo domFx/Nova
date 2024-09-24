@@ -1,53 +1,66 @@
-use std::ops::{ Add, Sub, Mul, Div };
 use crate::vector::vector3::Vector3;
+use std::ops::{Add, Div, Mul, Sub};
 
+#[repr(C)]
 #[derive(Debug, Copy, Clone)]
 pub struct Vector2<T> {
     pub x: T,
-    pub y: T
+    pub y: T,
 }
 
-impl<T> Vector2<T> where T: Default + Copy + Add<Output = T> + Sub<Output = T> + Mul<Output = T> + Div<Output = T> + PartialEq {
-    pub fn new(x: T, y: T) -> Self {
+impl<T> Vector2<T>
+where
+    T: Default
+        + Copy
+        + Add<Output = T>
+        + Sub<Output = T>
+        + Mul<Output = T>
+        + Div<Output = T>
+        + PartialEq,
+{
+    pub const fn new(x: T, y: T) -> Self {
         Self { x, y }
     }
 
     pub fn zero() -> Vector2<T> {
-        Self { x: T::default(), y: T::default() }
+        Self {
+            x: T::default(),
+            y: T::default(),
+        }
     }
 
     pub fn add(&self, v2: &Vector2<T>) -> Self {
         Self {
             x: self.x + v2.x,
-            y: self.y + v2.y
+            y: self.y + v2.y,
         }
     }
 
     pub fn subtract(&self, v2: &Vector2<T>) -> Self {
         Self {
             x: self.x - v2.x,
-            y: self.y - v2.y
+            y: self.y - v2.y,
         }
     }
 
     pub fn multiply(&self, v2: &Vector2<T>) -> Self {
         Self {
             x: self.x * v2.x,
-            y: self.y * v2.y
+            y: self.y * v2.y,
         }
     }
 
     pub fn multiply_by_scalar(&self, scalar: T) -> Self {
         Self {
             x: self.x * scalar,
-            y: self.y * scalar
+            y: self.y * scalar,
         }
     }
 
     pub fn divide(&self, v2: &Vector2<T>) -> Self {
         Self {
             x: self.x / v2.x,
-            y: self.y / v2.y
+            y: self.y / v2.y,
         }
     }
 
@@ -77,7 +90,7 @@ impl Vector2<f32> {
 
         Self {
             x: self.x / vector_length,
-            y: self.y / vector_length
+            y: self.y / vector_length,
         }
     }
 
@@ -175,8 +188,8 @@ mod vector2_tests {
 
         let v1_normalized = v1.normalize();
 
-        assert_eq!(v1_normalized.x, 3.0/5.0);
-        assert_eq!(v1_normalized.y, 4.0/5.0);
+        assert_eq!(v1_normalized.x, 3.0 / 5.0);
+        assert_eq!(v1_normalized.y, 4.0 / 5.0);
     }
 
     #[test]
@@ -185,8 +198,8 @@ mod vector2_tests {
 
         v1.normalize_in_place();
 
-        assert_eq!(v1.x, 3.0/5.0);
-        assert_eq!(v1.y, 4.0/5.0);
+        assert_eq!(v1.x, 3.0 / 5.0);
+        assert_eq!(v1.y, 4.0 / 5.0);
     }
 
     #[test]
