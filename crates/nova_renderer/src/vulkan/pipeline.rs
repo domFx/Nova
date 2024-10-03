@@ -7,17 +7,19 @@ use ash::vk;
 
 pub struct VulkanAppPipeline {
     pub pipeline_layout: vk::PipelineLayout,
-    pub pipeline: vk::Pipeline
+    pub pipeline: vk::Pipeline,
 }
 
 pub unsafe fn create_pipeline(
     device: &ash::Device,
-    extent: vk::Extent2D,
+    _extent: vk::Extent2D,
     render_pass: vk::RenderPass,
-    descriptor_set_layout: vk::DescriptorSetLayout
+    descriptor_set_layout: vk::DescriptorSetLayout,
 ) -> Result<VulkanAppPipeline> {
-    let vert = ash::util::read_spv(&mut std::fs::File::open("./src/shaders/vert.spv").unwrap()).unwrap();
-    let frag = ash::util::read_spv(&mut std::fs::File::open("./src/shaders/frag.spv").unwrap()).unwrap();
+    let vert =
+        ash::util::read_spv(&mut std::fs::File::open("./src/shaders/vert.spv").unwrap()).unwrap();
+    let frag =
+        ash::util::read_spv(&mut std::fs::File::open("./src/shaders/frag.spv").unwrap()).unwrap();
 
     let vertex_shader_module = create_shader_module(device, &vert[..])?;
     let fragment_shader_module = create_shader_module(device, &frag[..])?;
@@ -89,10 +91,7 @@ pub unsafe fn create_pipeline(
         .blend_constants([0.0, 0.0, 0.0, 0.0])
         .build();
 
-    let dynamic_states = vec![
-        vk::DynamicState::VIEWPORT,
-        vk::DynamicState::SCISSOR
-    ];
+    let dynamic_states = vec![vk::DynamicState::VIEWPORT, vk::DynamicState::SCISSOR];
     let dynamic_state_info = vk::PipelineDynamicStateCreateInfo::builder()
         .dynamic_states(&dynamic_states)
         .build();
@@ -119,7 +118,8 @@ pub unsafe fn create_pipeline(
         .dynamic_state(&dynamic_state_info)
         .build();
 
-    let pipeline = device.create_graphics_pipelines(vk::PipelineCache::null(), &[pipeline_info], None)
+    let pipeline = device
+        .create_graphics_pipelines(vk::PipelineCache::null(), &[pipeline_info], None)
         .expect("Unable to create graphics pipeline")
         .pop()
         .unwrap();
@@ -130,14 +130,12 @@ pub unsafe fn create_pipeline(
 
     Ok(VulkanAppPipeline {
         pipeline_layout,
-        pipeline
+        pipeline,
     })
 }
 
 unsafe fn create_shader_module(device: &ash::Device, bytecode: &[u32]) -> Result<vk::ShaderModule> {
-    let info = vk::ShaderModuleCreateInfo::builder()
-        .code(bytecode)
-        .build();
+    let info = vk::ShaderModuleCreateInfo::builder().code(bytecode).build();
 
     let shader_module = device.create_shader_module(&info, None)?;
 

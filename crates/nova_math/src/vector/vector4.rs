@@ -1,45 +1,54 @@
 use crate::vector::vector3::Vector3;
 
-pub struct Vector4 {
-    pub x: f32,
-    pub y: f32,
-    pub z: f32,
-    pub w: f32
+#[repr(C)]
+#[derive(Debug, Copy, Clone)]
+pub struct Vector4<T> {
+    pub x: T,
+    pub y: T,
+    pub z: T,
+    pub w: T,
 }
 
-impl Vector4 {
-    pub fn new(x: f32, y: f32, z: f32, w: f32) -> Self {
+impl<T> Vector4<T> {
+    pub const fn new(x: T, y: T, z: T, w: T) -> Self {
         Self { x, y, z, w }
     }
+}
 
+impl Vector4<f32> {
     pub fn zero() -> Self {
-        Self { x: 0.0, y: 0.0, z: 0.0, w: 0.0 }
+        Self {
+            x: 0.0,
+            y: 0.0,
+            z: 0.0,
+            w: 0.0,
+        }
     }
 
-    pub fn add(&self, v2: &Vector4) -> Self {
+    pub fn add(&self, v2: &Vector4<f32>) -> Self {
         Self {
             x: self.x + v2.x,
             y: self.y + v2.y,
             z: self.z + v2.z,
-            w: self.w + v2.w
+            w: self.w + v2.w,
         }
     }
 
-    pub fn subtract(&self, v2: &Vector4) -> Self {
+    pub fn subtract(&self, v2: &Vector4<f32>) -> Self {
         Self {
             x: self.x - v2.x,
             y: self.y - v2.y,
             z: self.z - v2.z,
-            w: self.w - v2.w
+            w: self.w - v2.w,
         }
     }
 
-    pub fn multiply(&self, v2: &Vector4) -> Self {
+    pub fn multiply(&self, v2: &Vector4<f32>) -> Self {
         Self {
             x: self.x * v2.x,
             y: self.y * v2.y,
             z: self.z * v2.z,
-            w: self.w * v2.w
+            w: self.w * v2.w,
         }
     }
 
@@ -48,16 +57,16 @@ impl Vector4 {
             x: self.x * scalar,
             y: self.y * scalar,
             z: self.z * scalar,
-            w: self.w * scalar
+            w: self.w * scalar,
         }
     }
 
-    pub fn divide(&self, v2: &Vector4) -> Self {
+    pub fn divide(&self, v2: &Vector4<f32>) -> Self {
         Self {
             x: self.x / v2.x,
             y: self.y / v2.y,
             z: self.z / v2.z,
-            w: self.w / v2.w
+            w: self.w / v2.w,
         }
     }
 
@@ -76,7 +85,7 @@ impl Vector4 {
             x: self.x / length,
             y: self.y / length,
             z: self.z / length,
-            w: self.w / length
+            w: self.w / length,
         }
     }
 
@@ -89,11 +98,11 @@ impl Vector4 {
         self.w = normalized.w;
     }
 
-    pub fn equals(&self, v2: &Vector4) -> bool {
+    pub fn equals(&self, v2: &Vector4<f32>) -> bool {
         (self.x == v2.x) && (self.y == v2.y) && (self.z == v2.z) && (self.w == v2.w)
     }
 
-    pub fn dot_product(&self, v2: &Vector4) -> f32 {
+    pub fn dot_product(&self, v2: &Vector4<f32>) -> f32 {
         let mut dot_product = 0.0;
 
         dot_product += self.x * v2.x;
@@ -104,14 +113,20 @@ impl Vector4 {
         dot_product
     }
 
-    pub fn to_vector3(&self) -> Vector3 {
+    pub fn to_vector3(&self) -> Vector3<f32> {
         Vector3::new(self.x, self.y, self.z)
     }
 }
 
 pub fn vector_4_dot_product(
-    ax: f32, ay: f32, az: f32, aw: f32,
-    bx: f32, by: f32, bz: f32, bw: f32
+    ax: f32,
+    ay: f32,
+    az: f32,
+    aw: f32,
+    bx: f32,
+    by: f32,
+    bz: f32,
+    bw: f32,
 ) -> f32 {
     let mut dot_product = 0.0;
 
@@ -130,7 +145,7 @@ mod vector4_tests {
     #[test]
     fn test_add() {
         let v1 = Vector4::new(1.0, 2.0, 3.0, 4.0);
-        let v2 = Vector4::new(1.0, 2.0,  3.0, 4.0);
+        let v2 = Vector4::new(1.0, 2.0, 3.0, 4.0);
 
         let v3 = v1.add(&v2);
 
@@ -262,4 +277,3 @@ mod vector4_tests {
         assert_eq!(dot_product, 16.0)
     }
 }
-

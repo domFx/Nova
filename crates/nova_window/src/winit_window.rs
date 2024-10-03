@@ -1,26 +1,22 @@
 use crate::window::NovaWindow;
-use nova_core::event::{EventContext, fire_event};
-use nova_core::input::{INPUT_STATE, KeyboardKey, KeyboardKeyState, MouseButtonState};
+use nova_core::event::{fire_event, EventContext};
+use nova_core::input::{KeyboardKey, KeyboardKeyState, MouseButtonState, INPUT_STATE};
 use nova_math::vector::vector2::Vector2;
 use nova_renderer::renderer::Renderer;
 
+use log::info;
 use std::time::{Duration, Instant};
-use log::{info};
 
 use raw_window_handle::{
-    HasDisplayHandle,
-    HasRawWindowHandle,
-    HasWindowHandle,
-    RawDisplayHandle,
-    RawWindowHandle,
-    WindowHandle
+    HasDisplayHandle, HasRawWindowHandle, HasWindowHandle, RawDisplayHandle, RawWindowHandle,
+    WindowHandle,
 };
 use winit::{
-    event::{Event, WindowEvent, ElementState, MouseButton},
-    event_loop::{EventLoop, ControlFlow},
+    event::{ElementState, Event, MouseButton, WindowEvent},
+    event_loop::{ControlFlow, EventLoop},
     keyboard::{KeyCode, PhysicalKey},
+    platform::run_on_demand::EventLoopExtRunOnDemand,
     window::WindowBuilder,
-    platform::run_on_demand::EventLoopExtRunOnDemand
 };
 
 pub(crate) struct WinitWindow {
@@ -40,7 +36,7 @@ impl WinitWindow {
         let event_loop = EventLoop::new().unwrap();
         let window = WindowBuilder::new().build(&event_loop).unwrap();
 
-        let inner_size= window.inner_size();
+        let inner_size = window.inner_size();
         let last_window_size = Some(Vector2::new(inner_size.width, inner_size.height));
 
         Self {
@@ -49,7 +45,7 @@ impl WinitWindow {
 
             last_window_size,
             destroying,
-            minimized
+            minimized,
         }
     }
 }
@@ -75,18 +71,20 @@ impl NovaWindow for WinitWindow {
                     } else {
                         self.window.request_redraw();
                     }
-                },
+                }
                 Event::WindowEvent { event, .. } => match event {
                     WindowEvent::CloseRequested => {
                         self.destroying = true;
                         elwt.exit();
-                    },
+                    }
                     WindowEvent::RedrawRequested => {
                         let now = Instant::now();
                         frame_counter += 1;
                         last_frame_time = now;
 
-                        if fps_counter_time.elapsed().as_secs_f32() >= Duration::from_secs(1).as_secs_f32() {
+                        if fps_counter_time.elapsed().as_secs_f32()
+                            >= Duration::from_secs(1).as_secs_f32()
+                        {
                             fps = (frame_counter as f32) / fps_counter_time.elapsed().as_secs_f32();
                             fps_counter_time = now;
                             frame_counter = 0;
@@ -97,11 +95,11 @@ impl NovaWindow for WinitWindow {
                             match self.last_window_size {
                                 Some(window_dimensions) => {
                                     render.render(window_dimensions).unwrap();
-                                },
+                                }
                                 _ => {}
                             }
                         }
-                    },
+                    }
                     WindowEvent::Resized(size) => {
                         let window_dimensions = Vector2::new(size.width, size.height);
                         match self.last_window_size {
@@ -117,58 +115,84 @@ impl NovaWindow for WinitWindow {
                                 self.last_window_size = Some(window_dimensions);
                             }
                         }
-                    },
-                    WindowEvent::KeyboardInput { event: key_event, is_synthetic: false, .. } => {
+                    }
+                    WindowEvent::KeyboardInput {
+                        event: key_event,
+                        is_synthetic: false,
+                        ..
+                    } => {
                         let keyboard_button_state = match key_event.state {
                             ElementState::Pressed => KeyboardKeyState::Pressed,
-                            ElementState::Released => KeyboardKeyState::Released
+                            ElementState::Released => KeyboardKeyState::Released,
                         };
 
                         let key = match key_event.physical_key {
                             PhysicalKey::Code(key_code) => parse_winit_key_code(key_code),
-                            PhysicalKey::Unidentified(_) => None
+                            PhysicalKey::Unidentified(_) => None,
                         };
 
                         if let Some(keyboard_key) = key {
-
                             // TODO: Remove this, temp for quick debug
                             if keyboard_key == KeyboardKey::Escape {
                                 elwt.exit()
                             } else {
                                 // Pass to input system
-                                INPUT_STATE.lock().unwrap().keyboard_state.set_key_state(keyboard_key, keyboard_button_state);
+                                INPUT_STATE
+                                    .lock()
+                                    .unwrap()
+                                    .keyboard_state
+                                    .set_key_state(keyboard_key, keyboard_button_state);
                             }
 
-                            println!("Pressed keys {:?}", INPUT_STATE.lock().unwrap().keyboard_state.get_pressed_keys());
+                            println!(
+                                "Pressed keys {:?}",
+                                INPUT_STATE
+                                    .lock()
+                                    .unwrap()
+                                    .keyboard_state
+                                    .get_pressed_keys()
+                            );
                         } else {
                             info!("Unable to parse key {:?}", key_event.physical_key)
                         }
-                    },
-                    WindowEvent::MouseInput { state,  button, ..  } => {
+                    }
+                    WindowEvent::MouseInput { state, button, .. } => {
                         let mouse_button_state = match state {
                             ElementState::Pressed => MouseButtonState::Pressed,
-                            ElementState::Released => MouseButtonState::Released
+                            ElementState::Released => MouseButtonState::Released,
                         };
 
                         let mouse_button = match button {
                             MouseButton::Right => Some(nova_core::input::MouseButton::RightButton),
                             MouseButton::Left => Some(nova_core::input::MouseButton::LeftButton),
-                            MouseButton::Middle => Some(nova_core::input::MouseButton::MiddleButton),
+                            MouseButton::Middle => {
+                                Some(nova_core::input::MouseButton::MiddleButton)
+                            }
                             MouseButton::Back => None,
                             MouseButton::Forward => None,
                             MouseButton::Other(_) => None,
                         };
 
                         if let Some(button) = mouse_button {
-                            INPUT_STATE.lock().unwrap().mouse_state.set_mouse_state(button, mouse_button_state);
+                            INPUT_STATE
+                                .lock()
+                                .unwrap()
+                                .mouse_state
+                                .set_mouse_state(button, mouse_button_state);
 
-                            println!("Pressed mouse buttons {:?}", INPUT_STATE.lock().unwrap().mouse_state.get_pressed_buttons());
-
+                            println!(
+                                "Pressed mouse buttons {:?}",
+                                INPUT_STATE
+                                    .lock()
+                                    .unwrap()
+                                    .mouse_state
+                                    .get_pressed_buttons()
+                            );
                         } else {
                             info!("Unable to parse mouse button {:?}", button)
                         }
                     }
-                    _ => ()
+                    _ => (),
                 },
                 _ => (),
             }
@@ -176,7 +200,7 @@ impl NovaWindow for WinitWindow {
     }
 
     fn destroy(&self) {
-        return
+        return;
     }
 
     fn get_raw_display_handle(&self) -> RawDisplayHandle {
@@ -398,8 +422,6 @@ fn parse_winit_key_code(key_code: KeyCode) -> Option<KeyboardKey> {
         // KeyCode::F33 => todo!(),
         // KeyCode::F34 => todo!(),
         // KeyCode::F35 => todo!(),
-        _ => {
-            None
-        }
+        _ => None,
     }
 }

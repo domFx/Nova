@@ -1,24 +1,23 @@
-use std::ffi::c_void;
 use crate::vulkan::buffer::VulkanAppBuffer;
 use crate::vulkan::constants::MAX_FRAMES_IN_FLIGHT;
 
 use anyhow::Result;
 use ash::vk;
-use cgmath::{Deg, Matrix4, point3, Rad, SquareMatrix, vec3};
-use std::mem::{size_of};
+use cgmath::{Matrix4, SquareMatrix};
+use std::mem::size_of;
 
 #[repr(C)]
 #[derive(Copy, Clone, Debug)]
 pub struct UniformBufferObject {
     model: Matrix4<f32>,
     view: Matrix4<f32>,
-    proj: Matrix4<f32>
+    proj: Matrix4<f32>,
 }
 
 pub fn create_uniform_buffers(
     instance: &ash::Instance,
     logical_device: &ash::Device,
-    physical_device: vk::PhysicalDevice
+    physical_device: vk::PhysicalDevice,
 ) -> Result<Vec<VulkanAppBuffer>> {
     let mut uniform_buffers = Vec::new();
 
@@ -29,7 +28,7 @@ pub fn create_uniform_buffers(
             physical_device,
             size_of::<UniformBufferObject>() as u64,
             vk::BufferUsageFlags::UNIFORM_BUFFER,
-            vk::MemoryPropertyFlags::HOST_COHERENT | vk::MemoryPropertyFlags::HOST_VISIBLE
+            vk::MemoryPropertyFlags::HOST_COHERENT | vk::MemoryPropertyFlags::HOST_VISIBLE,
         )?;
 
         uniform_buffers.push(vulkan_app_buffer);
@@ -43,7 +42,7 @@ pub fn update_uniform_buffer(
     uniform_buffers: &Vec<VulkanAppBuffer>,
     extent: vk::Extent2D,
     logical_device: &ash::Device,
-    start: &std::time::Instant
+    start: &std::time::Instant,
 ) -> Result<()> {
     // let time = start.elapsed().as_secs_f32();
 
@@ -87,7 +86,7 @@ pub fn update_uniform_buffer(
             uniform_buffers[image_index].buffer_memory,
             0,
             size_of::<UniformBufferObject>() as u64,
-            vk::MemoryMapFlags::empty()
+            vk::MemoryMapFlags::empty(),
         )?;
 
         std::ptr::copy_nonoverlapping(&ubo as *const UniformBufferObject, memory.cast(), 1);

@@ -1,14 +1,14 @@
-use std::ffi::c_void;
 use anyhow::anyhow;
-use ash::{Entry, Instance, vk};
+use ash::{vk, Entry, Instance};
 use log::error;
 use raw_window_handle::{RawDisplayHandle, RawWindowHandle};
+use std::ffi::c_void;
 
 pub unsafe fn create_surface(
     raw_window_handle: RawWindowHandle,
     raw_display_handle: RawDisplayHandle,
     entry: &Entry,
-    instance: &Instance
+    instance: &Instance,
 ) -> anyhow::Result<vk::SurfaceKHR> {
     match (raw_display_handle, raw_window_handle) {
         #[cfg(target_os = "windows")]
@@ -32,14 +32,14 @@ pub unsafe fn create_surface(
             let surface = win32_surface.create_win32_surface(&info, None).unwrap();
 
             Ok(surface)
-        },
+        }
         #[cfg(target_os = "macos")]
         (RawDisplayHandle::AppKit(_), RawWindowHandle::AppKit(window)) => {
             use ash::extensions::ext::MetalSurface;
-            use cocoa::appkit::{NSView};
-            use cocoa::{base::id as cocoa_id};
+            use cocoa::appkit::NSView;
+            use cocoa::base::id as cocoa_id;
             use metal::{MetalLayer, MetalLayerRef};
-            use objc::runtime::{YES};
+            use objc::runtime::YES;
 
             let ns_view_ptr = window.ns_view.as_ptr();
 
@@ -61,7 +61,7 @@ pub unsafe fn create_surface(
 
             let surface = metal_surface.create_metal_surface(&info, None)?;
             Ok(surface)
-        },
+        }
         _ => {
             error!("Raw window handle not implemented");
             Err(anyhow!("Missing valid physical device."))

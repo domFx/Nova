@@ -2,13 +2,7 @@ use crate::winit_window::WinitWindow;
 use nova_math::vector::vector2::Vector2;
 use nova_renderer::renderer::Renderer;
 
-use raw_window_handle::{
-    RawDisplayHandle,
-    RawWindowHandle,
-};
-use winit::{
-    platform::run_on_demand::EventLoopExtRunOnDemand
-};
+use raw_window_handle::{RawDisplayHandle, RawWindowHandle};
 
 /// Window functionality
 pub trait NovaWindow {

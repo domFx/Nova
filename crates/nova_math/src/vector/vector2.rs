@@ -100,7 +100,7 @@ impl Vector2<f32> {
         difference.get_length()
     }
 
-    pub fn to_vector3(&self) -> Vector3 {
+    pub fn to_vector3(&self) -> Vector3<f32> {
         Vector3::new(self.x, self.y, 0.0)
     }
 }

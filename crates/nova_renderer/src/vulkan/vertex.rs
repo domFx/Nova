@@ -2,23 +2,21 @@ use crate::vulkan::buffer::VulkanAppBuffer;
 
 use anyhow::Result;
 use ash::vk;
-use cgmath::vec3;
 use nova_math::vector::vector2::Vector2;
+use nova_math::vector::vector3::Vector3;
+use nova_math::vector::vector4::Vector4;
 use std::mem::size_of;
-
-type Vec2 = nova_math::vector::vector2::Vector2<f32>;
-type Vec3 = cgmath::Vector3<f32>;
 
 #[repr(C)]
 #[derive(Copy, Clone, Debug)]
 pub struct Vertex {
-    pos: Vec2,
-    color: Vec3,
-    tex_coord: Vec2,
+    pos: Vector2<f32>,
+    color: Vector4<f32>,
+    tex_coord: Vector2<f32>,
 }
 
 impl Vertex {
-    pub const fn new(pos: Vec2, color: Vec3, tex_coord: Vec2) -> Self {
+    pub const fn new(pos: Vector2<f32>, color: Vector4<f32>, tex_coord: Vector2<f32>) -> Self {
         Self {
             pos,
             color,
@@ -46,14 +44,14 @@ impl Vertex {
             .binding(0)
             .location(1)
             .format(vk::Format::R32G32B32_SFLOAT)
-            .offset(size_of::<Vec2>() as u32)
+            .offset(size_of::<Vector2<f32>>() as u32)
             .build();
 
         let text_coord = vk::VertexInputAttributeDescription::builder()
             .binding(0)
             .location(2)
             .format(vk::Format::R32G32_SFLOAT)
-            .offset(size_of::<Vec2>() as u32 + size_of::<Vec3>() as u32)
+            .offset(size_of::<Vector2<f32>>() as u32 + size_of::<Vector3<f32>>() as u32)
             .build();
 
         [pos, color, text_coord]
@@ -115,22 +113,22 @@ pub unsafe fn create_vertex_buffer(
 pub(crate) static VERTICES: [Vertex; 4] = [
     Vertex::new(
         Vector2::new(-0.5, -0.5),
-        vec3(1.0, 0.0, 0.0),
+        Vector4::new(1.0, 0.0, 0.0, 1.0),
         Vector2::new(1.0, 0.0),
     ),
     Vertex::new(
         Vector2::new(0.5, -0.5),
-        vec3(0.0, 1.0, 0.0),
+        Vector4::new(1.0, 0.0, 0.0, 1.0),
         Vector2::new(0.0, 0.0),
     ),
     Vertex::new(
         Vector2::new(0.5, 0.5),
-        vec3(0.0, 0.0, 1.0),
+        Vector4::new(1.0, 0.0, 0.0, 1.0),
         Vector2::new(0.0, 1.0),
     ),
     Vertex::new(
         Vector2::new(-0.5, 0.5),
-        vec3(1.0, 1.0, 1.0),
+        Vector4::new(1.0, 0.0, 0.0, 1.0),
         Vector2::new(1.0, 1.0),
     ),
 ];

@@ -1,41 +1,49 @@
 use crate::vector::vector4::Vector4;
 
-pub struct Vector3 {
-    pub x: f32,
-    pub y: f32,
-    pub z: f32
+#[repr(C)]
+#[derive(Debug, Clone, Copy)]
+pub struct Vector3<T> {
+    pub x: T,
+    pub y: T,
+    pub z: T,
 }
 
-impl Vector3 {
-    pub fn new(x: f32, y: f32, z: f32) -> Self {
+impl<T> Vector3<T> {
+    pub const fn new(x: T, y: T, z: T) -> Self {
         Self { x, y, z }
     }
+}
 
+impl Vector3<f32> {
     pub fn zero() -> Self {
-        Self { x: 0.0, y: 0.0, z: 0.0 }
+        Self {
+            x: 0.0,
+            y: 0.0,
+            z: 0.0,
+        }
     }
 
-    pub fn add(&self, v2: &Vector3) -> Self {
+    pub fn add(&self, v2: &Vector3<f32>) -> Self {
         Self {
             x: self.x + v2.x,
             y: self.y + v2.y,
-            z: self.z + v2.z
+            z: self.z + v2.z,
         }
     }
 
-    pub fn subtract(&self, v2: &Vector3) -> Self {
+    pub fn subtract(&self, v2: &Vector3<f32>) -> Self {
         Self {
             x: self.x - v2.x,
             y: self.y - v2.y,
-            z: self.z - v2.z
+            z: self.z - v2.z,
         }
     }
 
-    pub fn multiply(&self, v2: &Vector3) -> Self {
+    pub fn multiply(&self, v2: &Vector3<f32>) -> Self {
         Self {
             x: self.x * v2.x,
             y: self.y * v2.y,
-            z: self.z * v2.z
+            z: self.z * v2.z,
         }
     }
 
@@ -47,11 +55,11 @@ impl Vector3 {
         }
     }
 
-    pub fn divide(&self, v2: &Vector3) -> Self {
+    pub fn divide(&self, v2: &Vector3<f32>) -> Self {
         Self {
             x: self.x / v2.x,
             y: self.y / v2.y,
-            z: self.z / v2.z
+            z: self.z / v2.z,
         }
     }
 
@@ -81,11 +89,11 @@ impl Vector3 {
         self.z = normalized.z;
     }
 
-    pub fn equals(&self, v2: &Vector3) -> bool {
+    pub fn equals(&self, v2: &Vector3<f32>) -> bool {
         (self.x == v2.x) && (self.y == v2.y) && (self.z == v2.z)
     }
 
-    pub fn dot_product(&self, v2: &Vector3) -> f32 {
+    pub fn dot_product(&self, v2: &Vector3<f32>) -> f32 {
         let mut dot_product = 0.0;
 
         dot_product += self.x * v2.x;
@@ -95,21 +103,21 @@ impl Vector3 {
         dot_product
     }
 
-    pub fn cross_product(&self, v2: &Vector3) -> Self {
+    pub fn cross_product(&self, v2: &Vector3<f32>) -> Self {
         Self {
             x: (self.y * v2.z) - (self.z * v2.y),
             y: (self.z * v2.x) - (self.x * v2.z),
-            z: (self.x * v2.y) - (self.y * v2.x)
+            z: (self.x * v2.y) - (self.y * v2.x),
         }
     }
 
-    pub fn get_distance(&self, v2: &Vector3) -> f32 {
+    pub fn get_distance(&self, v2: &Vector3<f32>) -> f32 {
         let difference = self.subtract(v2);
 
         difference.get_length()
     }
 
-    pub fn to_vector4(&self) -> Vector4 {
+    pub fn to_vector4(&self) -> Vector4<f32> {
         Vector4::new(self.x, self.y, self.z, 0.0)
     }
 }
@@ -121,7 +129,7 @@ mod vector3_tests {
     #[test]
     fn test_add() {
         let v1 = Vector3::new(1.0, 2.0, 3.0);
-        let v2 = Vector3::new(1.0, 2.0,  3.0);
+        let v2 = Vector3::new(1.0, 2.0, 3.0);
 
         let v3 = v1.add(&v2);
 
