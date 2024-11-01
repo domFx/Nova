@@ -12,19 +12,18 @@ pub struct VulkanAppPipeline {
 }
 
 impl VulkanAppPipeline {
-    pub fn new(
+    pub(crate) fn new(
         device: &ash::Device,
         _extent: vk::Extent2D,
         render_pass: vk::RenderPass,
         descriptor_set_layout: vk::DescriptorSetLayout,
     ) -> Result<VulkanAppPipeline> {
         let vert =
-            ash::util::read_spv(&mut std::fs::File::open("./src/shaders/vert.spv").unwrap()).unwrap();
+            ash::util::read_spv(&mut std::fs::File::open("./src/shaders/vert.spv")?)?;
         let frag =
-            ash::util::read_spv(&mut std::fs::File::open("./src/shaders/frag.spv").unwrap()).unwrap();
+            ash::util::read_spv(&mut std::fs::File::open("./src/shaders/frag.spv")?)?;
 
         unsafe {
-
             let vertex_shader_module = create_shader_module(device, &vert[..])?;
             let fragment_shader_module = create_shader_module(device, &frag[..])?;
 
@@ -136,6 +135,13 @@ impl VulkanAppPipeline {
                 pipeline_layout,
                 pipeline,
             })
+        }
+    }
+
+    pub(crate) fn destroy(&self, device: &ash::Device) {
+        unsafe {
+            device.destroy_pipeline(self.pipeline, None);
+            device.destroy_pipeline_layout(self.pipeline_layout, None);
         }
     }
 }

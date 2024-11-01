@@ -363,8 +363,7 @@ impl VulkanRenderer {
             self.framebuffers
                 .iter()
                 .for_each(|f| self.logical_device.destroy_framebuffer(*f, None));
-            self.logical_device.destroy_pipeline(self.pipeline.pipeline, None);
-            self.logical_device.destroy_pipeline_layout(self.pipeline.pipeline_layout, None);
+            self.pipeline.destroy(&self.logical_device);
             self.logical_device.destroy_render_pass(self.render_pass, None);
             self.image_views
                 .iter()
