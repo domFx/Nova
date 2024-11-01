@@ -191,7 +191,7 @@ impl VulkanRenderer {
             let image_views =  create_swapchain_image_views(&logical_device, &images, swapchain.format)?;
             let render_pass = create_render_pass(&instance, &logical_device, swapchain.format)?;
             let descriptor_set_layout = create_descriptor_set_layout(&logical_device)?;
-            let pipeline = create_pipeline(&logical_device, swapchain.extent, render_pass, descriptor_set_layout)?;
+            let pipeline = VulkanAppPipeline::new(&logical_device, swapchain.extent, render_pass, descriptor_set_layout)?;
             let framebuffers = create_framebuffers(&logical_device, &image_views, render_pass, &swapchain.extent)?;
             let command_pool = create_command_pool(&logical_device, &indices)?;
             let texture_image = create_texture_image(&instance, &logical_device, physical_device, command_pool, graphics_queue)?;
@@ -383,7 +383,7 @@ impl VulkanRenderer {
             self.images = self.swapchain.loader.get_swapchain_images(self.swapchain.swapchain)?;
             self.image_views = create_swapchain_image_views(&self.logical_device, &self.images, self.swapchain.format)?;
             self.render_pass = create_render_pass(&self.instance, &self.logical_device, self.swapchain.format)?;
-            self.pipeline = create_pipeline(&self.logical_device, self.swapchain.extent, self.render_pass, self.descriptor_set_layout)?;
+            self.pipeline = VulkanAppPipeline::new(&self.logical_device, self.swapchain.extent, self.render_pass, self.descriptor_set_layout)?;
             self.framebuffers = create_framebuffers(&self.logical_device, &self.image_views, self.render_pass, &self.swapchain.extent)?;
             self.uniform_buffers = create_uniform_buffers(&self.instance, &self.logical_device, self.physical_device)?;
             self.descriptor_pool = create_descriptor_pool(&self.logical_device, &self.images)?;

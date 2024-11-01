@@ -1,6 +1,6 @@
 /// Vulkan Utility Functions
 
-/// Single Time Commands
+/// Single Time Commands Utils
 /// Begin and end single time command
 pub(crate) mod single_time_commands {
     use ash::vk;
@@ -52,3 +52,22 @@ pub(crate) mod single_time_commands {
     }
 }
 
+/// Shader Utils
+pub(crate) mod shader {
+    use ash::vk;
+
+    pub(crate) fn create_shader_module(
+        device: &ash::Device,
+        bytecode: &[u32]
+    ) -> anyhow::Result<vk::ShaderModule> {
+        let info = vk::ShaderModuleCreateInfo::builder()
+            .code(bytecode)
+            .build();
+
+        unsafe {
+            let shader_module = device.create_shader_module(&info, None)?;
+
+            Ok(shader_module)
+        }
+    }
+}
