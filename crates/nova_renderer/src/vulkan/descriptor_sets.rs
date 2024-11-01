@@ -6,7 +6,7 @@ use anyhow::Result;
 use ash::vk;
 use std::mem::size_of;
 
-pub fn create_descriptor_sets(
+pub(crate) fn create_descriptor_sets(
     logical_device: &ash::Device,
     descriptor_pool: vk::DescriptorPool,
     descriptor_set_layout: vk::DescriptorSetLayout,

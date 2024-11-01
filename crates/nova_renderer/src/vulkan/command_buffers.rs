@@ -1,7 +1,7 @@
 use anyhow::Result;
 use ash::vk;
 
-pub fn create_command_buffers(
+pub(crate) fn create_command_buffers(
     device: &ash::Device,
     command_pool: vk::CommandPool,
     framebuffers: &Vec<vk::Framebuffer>,

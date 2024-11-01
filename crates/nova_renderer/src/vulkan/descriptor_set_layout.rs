@@ -1,6 +1,6 @@
 use ash::vk;
 
-pub fn create_descriptor_set_layout(
+pub(crate) fn create_descriptor_set_layout(
     logical_device: &ash::Device
 ) -> anyhow::Result<vk::DescriptorSetLayout> {
     let uniform_buffer_set_layout_binding = vk::DescriptorSetLayoutBinding::builder()

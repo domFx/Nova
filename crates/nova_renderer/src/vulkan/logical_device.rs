@@ -54,4 +54,3 @@ pub unsafe fn create_logical_device(entry: &Entry, instance: &Instance, physical
 
     Ok(device)
 }
-

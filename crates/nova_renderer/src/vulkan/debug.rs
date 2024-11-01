@@ -11,14 +11,17 @@ pub struct VulkanAppDebug {
 }
 
 impl VulkanAppDebug {
-    pub unsafe fn get(entry: &Entry, instance: &Instance, debug_info: vk::DebugUtilsMessengerCreateInfoEXT) -> Result<Self> {
+    pub(crate) fn get(entry: &Entry, instance: &Instance, debug_info: vk::DebugUtilsMessengerCreateInfoEXT) -> Result<Self> {
         let debug_utils = DebugUtils::new(&entry, &instance);
-        let utils_messenger = debug_utils.create_debug_utils_messenger(&debug_info, None)?;
 
-        Ok(Self{
-            debug_utils,
-            utils_messenger
-        })
+        unsafe {
+            let utils_messenger = debug_utils.create_debug_utils_messenger(&debug_info, None)?;
+
+            Ok(Self{
+                debug_utils,
+                utils_messenger
+            })
+        }
     }
 }
 

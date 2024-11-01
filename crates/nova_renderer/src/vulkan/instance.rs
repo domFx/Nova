@@ -8,7 +8,7 @@ use anyhow::Result;
 use ash::{Entry, Instance, vk};
 use log::info;
 
-pub unsafe fn create_instance(entry: &Entry, debug_info: &mut vk::DebugUtilsMessengerCreateInfoEXT) -> Result<Instance> {
+pub(crate) fn create_instance(entry: &Entry, debug_info: &mut vk::DebugUtilsMessengerCreateInfoEXT) -> Result<Instance> {
     let app_info = vk::ApplicationInfo::builder()
         .application_name(CString::new(WINDOW_TITLE)?.as_c_str())
         .application_version(APPLICATION_VERSION)
@@ -23,7 +23,7 @@ pub unsafe fn create_instance(entry: &Entry, debug_info: &mut vk::DebugUtilsMess
         let available_layers = entry
             .enumerate_instance_layer_properties()?
             .iter()
-            .map(|l| CStr::from_ptr(l.layer_name.as_ptr()))
+            .map(|l| unsafe { CStr::from_ptr(l.layer_name.as_ptr()) })
             .collect::<HashSet<_>>();
 
         let mut valid_layers = true;
@@ -78,8 +78,10 @@ pub unsafe fn create_instance(entry: &Entry, debug_info: &mut vk::DebugUtilsMess
         instance_info = instance_info.push_next(debug_info);
     }
 
-    let instance: Instance = entry
-        .create_instance(&instance_info, None)?;
+    unsafe {
+        let instance: Instance = entry
+            .create_instance(&instance_info, None)?;
 
-    Ok(instance)
+        Ok(instance)
+    }
 }

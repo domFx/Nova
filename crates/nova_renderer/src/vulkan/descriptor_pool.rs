@@ -1,7 +1,7 @@
 use anyhow::Result;
 use ash::vk;
 
-pub fn create_descriptor_pool(
+pub(crate) fn create_descriptor_pool(
     logical_device: &ash::Device,
     swapchain_images: &Vec<vk::Image>
 ) -> Result<vk::DescriptorPool> {

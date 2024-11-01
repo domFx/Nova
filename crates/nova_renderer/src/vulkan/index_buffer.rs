@@ -6,7 +6,7 @@ use ash::vk::{CommandPool, PhysicalDevice, Queue};
 use ash::{vk, Device, Instance};
 use std::mem::size_of;
 
-pub fn create_index_buffer(
+pub(crate) fn create_index_buffer(
     instance: &Instance,
     logical_device: &Device,
     physical_device: PhysicalDevice,

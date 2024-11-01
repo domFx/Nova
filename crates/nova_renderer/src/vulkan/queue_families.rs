@@ -35,7 +35,7 @@ impl QueueFamilyIndices {
         if let (Some(graphics), Some(present)) = (graphics, present) {
             Ok(Self { graphics, present })
         } else {
-            Err(anyhow!(SuitabilityError("Missing required queue families")))
+            Err(anyhow!(VulkanSuitabilityError("Missing required queue families")))
         }
     }
 }

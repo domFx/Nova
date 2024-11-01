@@ -2,4 +2,4 @@ use thiserror::Error;
 
 #[derive(Debug, Error)]
 #[error("{0}.")]
-pub struct SuitabilityError(pub &'static str);
+pub(crate) struct VulkanSuitabilityError(pub &'static str);
