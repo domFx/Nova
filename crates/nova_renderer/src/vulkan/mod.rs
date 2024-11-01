@@ -25,3 +25,4 @@ pub(crate) mod vulkan_renderer;
 pub(crate) mod texture_image;
 pub(crate) mod push_constant;
 pub(crate) mod vulkan_render_command;
+pub(crate) mod utils;

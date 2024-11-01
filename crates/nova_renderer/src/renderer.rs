@@ -7,7 +7,6 @@ use nova_math::vector::vector2::Vector2;
 use nova_math::vector::vector4::Vector4;
 
 use anyhow::Result;
-use log::debug;
 use raw_window_handle::{RawDisplayHandle, RawWindowHandle};
 
 /// Core Renderable Object
