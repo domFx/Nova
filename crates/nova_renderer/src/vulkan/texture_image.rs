@@ -1,4 +1,4 @@
-use crate::vulkan::buffer::{begin_single_time_commands, end_single_time_commands, VulkanAppBuffer};
+use crate::vulkan::vulkan_buffer::{begin_single_time_commands, end_single_time_commands, VulkanAppBuffer};
 use crate::vulkan::memory::get_memory_type_index;
 
 use ash::vk;

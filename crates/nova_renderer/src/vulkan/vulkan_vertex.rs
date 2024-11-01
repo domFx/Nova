@@ -1,4 +1,5 @@
-use crate::vulkan::buffer::VulkanAppBuffer;
+use crate::vulkan::vulkan_buffer::VulkanAppBuffer;
+use crate::vertex::Vertex;
 
 use anyhow::Result;
 use ash::vk;
@@ -7,23 +8,7 @@ use nova_math::vector::vector3::Vector3;
 use nova_math::vector::vector4::Vector4;
 use std::mem::size_of;
 
-#[repr(C)]
-#[derive(Copy, Clone, Debug)]
-pub struct Vertex {
-    pos: Vector2<f32>,
-    color: Vector4<f32>,
-    tex_coord: Vector2<f32>,
-}
-
 impl Vertex {
-    pub const fn new(pos: Vector2<f32>, color: Vector4<f32>, tex_coord: Vector2<f32>) -> Self {
-        Self {
-            pos,
-            color,
-            tex_coord,
-        }
-    }
-
     pub fn binding_description() -> vk::VertexInputBindingDescription {
         vk::VertexInputBindingDescription::builder()
             .binding(0)

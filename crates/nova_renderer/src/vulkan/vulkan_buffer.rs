@@ -1,22 +1,21 @@
 use crate::vulkan::memory::get_memory_type_index;
 
 use anyhow::Result;
-use ash::{Device, Instance, vk};
-use ash::vk::{Buffer, BufferUsageFlags, CommandBuffer, CommandPool, DeviceMemory, DeviceSize, MemoryPropertyFlags, PhysicalDevice, Queue};
+use ash::vk;
 
 pub(crate) struct VulkanAppBuffer {
-    pub(crate) buffer: Buffer,
-    pub(crate) buffer_memory: DeviceMemory
+    pub(crate) buffer: vk::Buffer,
+    pub(crate) buffer_memory: vk::DeviceMemory
 }
 
 impl VulkanAppBuffer {
     pub(crate) fn new(
-        instance: &Instance,
-        logical_device: &Device,
-        physical_device: PhysicalDevice,
-        size: DeviceSize,
-        usage: BufferUsageFlags,
-        properties: MemoryPropertyFlags
+        instance: &ash::Instance,
+        logical_device: &ash::Device,
+        physical_device: vk::PhysicalDevice,
+        size: vk::DeviceSize,
+        usage: vk::BufferUsageFlags,
+        properties: vk::MemoryPropertyFlags
     ) -> Result<VulkanAppBuffer> {
         let buffer_info = vk::BufferCreateInfo::builder()
             .size(size)
@@ -50,7 +49,25 @@ impl VulkanAppBuffer {
         }
     }
 
-    pub(crate) fn destroy_buffer(&self, logical_device: &Device) {
+    pub(crate) fn new_staging_buffer(
+        instance: &ash::Instance,
+        logical_device: &ash::Device,
+        physical_device: vk::PhysicalDevice,
+        size: vk::DeviceSize
+    ) -> Result<Self> {
+        let vulkan_buffer = Self::new(
+            instance,
+            logical_device,
+            physical_device,
+            size,
+            vk::BufferUsageFlags::TRANSFER_SRC,
+            vk::MemoryPropertyFlags::HOST_COHERENT | vk::MemoryPropertyFlags::HOST_VISIBLE,
+        )?;
+
+        Ok(vulkan_buffer)
+    }
+
+    pub(crate) fn destroy_buffer(&self, logical_device: &ash::Device) {
         unsafe {
             logical_device.destroy_buffer(self.buffer, None);
             logical_device.free_memory(self.buffer_memory, None);
@@ -59,11 +76,11 @@ impl VulkanAppBuffer {
 
     pub(crate) fn copy_buffer(
         &self,
-        logical_device: &Device,
-        destination: Buffer,
-        size: DeviceSize,
-        graphics_queue: Queue,
-        command_pool: CommandPool
+        logical_device: &ash::Device,
+        destination: vk::Buffer,
+        size: vk::DeviceSize,
+        graphics_queue: vk::Queue,
+        command_pool: vk::CommandPool
     ) -> Result<()> {
         let command_buffer = begin_single_time_commands(logical_device, command_pool)?;
 
@@ -82,9 +99,9 @@ impl VulkanAppBuffer {
 }
 
 pub(crate) fn begin_single_time_commands(
-    logical_device: &Device,
-    command_pool: CommandPool
-) -> Result<CommandBuffer> {
+    logical_device: &ash::Device,
+    command_pool: vk::CommandPool
+) -> Result<vk::CommandBuffer> {
     let buffer_allocation_info = vk::CommandBufferAllocateInfo::builder()
         .level(vk::CommandBufferLevel::PRIMARY)
         .command_pool(command_pool)
@@ -104,10 +121,10 @@ pub(crate) fn begin_single_time_commands(
 }
 
 pub(crate) fn end_single_time_commands(
-    logical_device: &Device,
-    graphics_queue: Queue,
-    command_pool: CommandPool,
-    command_buffer: CommandBuffer
+    logical_device: &ash::Device,
+    graphics_queue: vk::Queue,
+    command_pool: vk::CommandPool,
+    command_buffer: vk::CommandBuffer
 ) -> Result<()> {
     unsafe {
         logical_device.end_command_buffer(command_buffer)?;

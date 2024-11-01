@@ -1,5 +1,5 @@
-use crate::vulkan::buffer::VulkanAppBuffer;
-use crate::vulkan::vertex::INDICES;
+use crate::vulkan::vulkan_buffer::VulkanAppBuffer;
+use crate::vulkan::vulkan_vertex::INDICES;
 
 use anyhow::Result;
 use ash::vk::{CommandPool, PhysicalDevice, Queue};

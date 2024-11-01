@@ -3,7 +3,7 @@ use anyhow::Result;
 use ash::{Device, Instance, vk};
 use ash::vk::PhysicalDevice;
 
-pub unsafe fn get_memory_type_index(
+pub(crate) unsafe fn get_memory_type_index(
     instance: &Instance,
     physical_device: PhysicalDevice,
     properties: vk::MemoryPropertyFlags,

@@ -1,4 +1,4 @@
-use crate::vulkan::vertex::Vertex;
+use crate::vertex::Vertex;
 
 use std::ffi::CStr;
 

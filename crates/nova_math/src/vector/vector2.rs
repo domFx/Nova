@@ -2,7 +2,7 @@ use crate::vector::vector3::Vector3;
 use std::ops::{Add, Div, Mul, Sub};
 
 #[repr(C)]
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Copy, Clone, Default)]
 pub struct Vector2<T> {
     pub x: T,
     pub y: T,

@@ -1,4 +1,4 @@
-use crate::vulkan::buffer::VulkanAppBuffer;
+use crate::vulkan::vulkan_buffer::VulkanAppBuffer;
 use crate::vulkan::constants::MAX_FRAMES_IN_FLIGHT;
 
 use anyhow::Result;

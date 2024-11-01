@@ -13,13 +13,14 @@ use crate::vulkan::surface::*;
 use crate::vulkan::index_buffer::*;
 use crate::vulkan::texture_image::*;
 
-use crate::vulkan::buffer::VulkanAppBuffer;
+use crate::vulkan::vulkan_buffer::VulkanAppBuffer;
 use crate::vulkan::constants::{MAX_FRAMES_IN_FLIGHT, VALIDATION_ENABLED};
 use crate::vulkan::debug::{create_debug_info, VulkanAppDebug};
 use crate::vulkan::descriptor_pool::create_descriptor_pool;
 use crate::vulkan::descriptor_sets::create_descriptor_sets;
 use crate::vulkan::uniform_buffers::{create_uniform_buffers, update_uniform_buffer};
-use crate::vulkan::vertex::{create_vertex_buffer, INDICES};
+use crate::vulkan::vulkan_vertex::{create_vertex_buffer, INDICES};
+use crate::vulkan::vulkan_render_command::VulkanRenderCommand;
 use crate::renderer_backend::RendererBackend;
 
 use nova_math::vector::vector2::Vector2;
@@ -30,6 +31,8 @@ use ash::extensions::khr::{Surface};
 use ash::prelude::VkResult;
 use std::time::Instant;
 use raw_window_handle::{RawDisplayHandle, RawWindowHandle};
+use crate::render_command::RenderCommand;
+use crate::vulkan::memory::get_memory_type_index;
 
 pub struct VulkanRenderer {
     entry: ash::Entry,
@@ -258,6 +261,23 @@ impl VulkanRenderer {
 
             Ok(renderer)
         }
+    }
+
+    pub fn get_2d_render_command(&self) -> Result<()> {
+                                        // Result<Box<impl RenderCommand + use<'_>>> {
+        let info = vk::CommandBufferBeginInfo::builder()
+            .build();
+
+        let render_command = Box::new(VulkanRenderCommand::new(
+            &self.logical_device,
+            &self.instance,
+            self.physical_device,
+            self.command_pool,
+            self.graphics_queue
+        ));
+
+        // Ok(render_command)
+        Ok(())
     }
 
     pub fn record_command_buffer(
