@@ -3,12 +3,14 @@ use crate::vulkan::platform::required_extension_names;
 
 use std::collections::HashSet;
 use std::ffi::{CStr, CString};
-use anyhow::anyhow;
-use anyhow::Result;
-use ash::{Entry, Instance, vk};
+use anyhow::{anyhow, Result};
+use ash::vk;
 use log::info;
 
-pub(crate) fn create_instance(entry: &Entry, debug_info: &mut vk::DebugUtilsMessengerCreateInfoEXT) -> Result<Instance> {
+pub(crate) fn create_instance(
+    entry: &ash::Entry,
+    debug_info: &mut vk::DebugUtilsMessengerCreateInfoEXT
+) -> Result<ash::Instance> {
     let app_info = vk::ApplicationInfo::builder()
         .application_name(CString::new(WINDOW_TITLE)?.as_c_str())
         .application_version(APPLICATION_VERSION)
@@ -65,7 +67,6 @@ pub(crate) fn create_instance(entry: &Entry, debug_info: &mut vk::DebugUtilsMess
         extensions.push(vk::KhrGetPhysicalDeviceProperties2Fn::name().as_ptr());
         extensions.push(vk::KhrPortabilityEnumerationFn::name().as_ptr());
         vk::InstanceCreateFlags::ENUMERATE_PORTABILITY_KHR
-        // vk::InstanceCreateFlags::empty()
     };
 
     let mut instance_info = vk::InstanceCreateInfo::builder()
@@ -79,7 +80,7 @@ pub(crate) fn create_instance(entry: &Entry, debug_info: &mut vk::DebugUtilsMess
     }
 
     unsafe {
-        let instance: Instance = entry
+        let instance: ash::Instance = entry
             .create_instance(&instance_info, None)?;
 
         Ok(instance)

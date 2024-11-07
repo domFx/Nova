@@ -2,16 +2,15 @@ use crate::vulkan::vulkan_buffer::VulkanAppBuffer;
 use crate::vulkan::vulkan_vertex::INDICES;
 
 use anyhow::Result;
-use ash::vk::{CommandPool, PhysicalDevice, Queue};
-use ash::{vk, Device, Instance};
+use ash::vk;
 use std::mem::size_of;
 
 pub(crate) fn create_index_buffer(
-    instance: &Instance,
-    logical_device: &Device,
-    physical_device: PhysicalDevice,
-    graphics_queue: Queue,
-    command_pool: CommandPool,
+    instance: &ash::Instance,
+    logical_device: &ash::Device,
+    physical_device: vk::PhysicalDevice,
+    graphics_queue: vk::Queue,
+    command_pool: vk::CommandPool,
 ) -> Result<VulkanAppBuffer> {
     let size = (size_of::<u16>() * INDICES.len()) as u64;
 

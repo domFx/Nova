@@ -1,15 +1,16 @@
 use crate::vulkan::vulkan_buffer::VulkanAppBuffer;
 use crate::vertex::Vertex;
 
-use anyhow::Result;
-use ash::vk;
 use nova_math::vector::vector2::Vector2;
 use nova_math::vector::vector3::Vector3;
 use nova_math::vector::vector4::Vector4;
+
+use anyhow::Result;
+use ash::vk;
 use std::mem::size_of;
 
 impl Vertex {
-    pub fn binding_description() -> vk::VertexInputBindingDescription {
+    pub(crate) fn binding_description() -> vk::VertexInputBindingDescription {
         vk::VertexInputBindingDescription::builder()
             .binding(0)
             .stride(size_of::<Vertex>() as u32)
@@ -17,7 +18,7 @@ impl Vertex {
             .build()
     }
 
-    pub fn attribute_descriptions() -> [vk::VertexInputAttributeDescription; 3] {
+    pub(crate) fn attribute_descriptions() -> [vk::VertexInputAttributeDescription; 3] {
         let pos = vk::VertexInputAttributeDescription::builder()
             .binding(0)
             .location(0)
@@ -43,7 +44,7 @@ impl Vertex {
     }
 }
 
-pub unsafe fn create_vertex_buffer(
+pub(crate) fn create_vertex_buffer(
     instance: &ash::Instance,
     logical_device: &ash::Device,
     physical_device: vk::PhysicalDevice,
@@ -61,16 +62,19 @@ pub unsafe fn create_vertex_buffer(
         vk::MemoryPropertyFlags::HOST_COHERENT | vk::MemoryPropertyFlags::HOST_VISIBLE,
     )?;
 
-    let memory = logical_device.map_memory(
-        staging_buffer.buffer_memory,
-        0,
-        size,
-        vk::MemoryMapFlags::empty(),
-    )?;
+    unsafe {
+        let memory = logical_device.map_memory(
+            staging_buffer.buffer_memory,
+            0,
+            size,
+            vk::MemoryMapFlags::empty(),
+        )?;
 
-    std::ptr::copy_nonoverlapping(VERTICES.as_ptr(), memory.cast(), VERTICES.len());
+        std::ptr::copy_nonoverlapping(VERTICES.as_ptr(), memory.cast(), VERTICES.len());
 
-    logical_device.unmap_memory(staging_buffer.buffer_memory);
+        logical_device.unmap_memory(staging_buffer.buffer_memory);
+    }
+
 
     let vertex_buffer = VulkanAppBuffer::new(
         instance,
@@ -89,8 +93,10 @@ pub unsafe fn create_vertex_buffer(
         command_pool,
     )?;
 
-    logical_device.destroy_buffer(staging_buffer.buffer, None);
-    logical_device.free_memory(staging_buffer.buffer_memory, None);
+    unsafe {
+        logical_device.destroy_buffer(staging_buffer.buffer, None);
+        logical_device.free_memory(staging_buffer.buffer_memory, None);
+    }
 
     Ok(vertex_buffer)
 }

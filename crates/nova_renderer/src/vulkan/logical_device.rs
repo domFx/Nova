@@ -1,10 +1,14 @@
 use crate::vulkan::constants::{DEVICE_EXTENSIONS, PORTABILITY_MACOS_VERSION, VALIDATION_ENABLED, VALIDATION_LAYERS};
 use crate::vulkan::queue_families::QueueFamilyIndices;
 
-use ash::{Device, Entry, Instance, vk};
-use ash::vk::{KhrPortabilitySubsetFn, PhysicalDevice};
+use ash::vk;
 
-pub unsafe fn create_logical_device(entry: &Entry, instance: &Instance, physical_device: PhysicalDevice, indices: &QueueFamilyIndices) -> anyhow::Result<Device> {
+pub(crate) fn create_logical_device(
+    entry: &ash::Entry,
+    instance: &ash::Instance,
+    physical_device: vk::PhysicalDevice,
+    indices: &QueueFamilyIndices
+) -> anyhow::Result<ash::Device> {
     let mut unique_indices = std::collections::HashSet::new();
     unique_indices.insert(indices.graphics);
     unique_indices.insert(indices.present);
@@ -26,7 +30,7 @@ pub unsafe fn create_logical_device(entry: &Entry, instance: &Instance, physical
         .collect::<Vec<_>>();
 
     if cfg!(target_os = "macos") && entry.try_enumerate_instance_version()?.unwrap() >= PORTABILITY_MACOS_VERSION {
-        let portability = KhrPortabilitySubsetFn::name();
+        let portability = vk::KhrPortabilitySubsetFn::name();
         extensions.push(portability.as_ptr());
     }
 
@@ -50,7 +54,9 @@ pub unsafe fn create_logical_device(entry: &Entry, instance: &Instance, physical
         .enabled_features(&features)
         .build();
 
-    let device = instance.create_device(physical_device, &info, None)?;
+    unsafe {
+        let device = instance.create_device(physical_device, &info, None)?;
 
-    Ok(device)
+        Ok(device)
+    }
 }

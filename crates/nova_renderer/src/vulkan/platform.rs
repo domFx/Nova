@@ -9,7 +9,7 @@ use ash::extensions::mvk::MacOSSurface;
 #[cfg(all(unix, not(target_os = "macos"), not(target_os="android")))]
 use ash::extensions::khr::XlibSurface;
 
-pub fn required_extension_names() -> Vec<*const i8> {
+pub(crate) fn required_extension_names() -> Vec<*const i8> {
     #[cfg(target_os = "windows")]
     return vec![
         Surface::name().as_ptr(),

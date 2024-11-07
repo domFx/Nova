@@ -2,6 +2,8 @@ use crate::vulkan::constants::DEVICE_EXTENSIONS;
 use crate::vulkan::errors::VulkanSuitabilityError;
 use crate::vulkan::queue_families::QueueFamilyIndices;
 use crate::vulkan::swapchain::SwapchainSupport;
+use crate::renderer::RendererType::Vulkan;
+
 use nova_core::utils::convert_vec_to_string;
 
 use std::collections::HashSet;
@@ -9,16 +11,14 @@ use std::ffi::CStr;
 
 use anyhow::{Result, anyhow};
 use ash::extensions::khr::Surface;
-use ash::{Instance, vk};
-use ash::vk::{PhysicalDevice, SurfaceKHR};
+use ash::vk;
 use log::{info, warn};
-use crate::renderer::RendererType::Vulkan;
 
 pub(crate) fn pick_physical_device(
-    instance: &Instance,
+    instance: &ash::Instance,
     surface_loader: &Surface,
-    surface: SurfaceKHR
-) -> Result<PhysicalDevice> {
+    surface: vk::SurfaceKHR
+) -> Result<vk::PhysicalDevice> {
     unsafe {
         for physical_device in instance.enumerate_physical_devices()? {
             let properties = instance.get_physical_device_properties(physical_device);
@@ -37,7 +37,12 @@ pub(crate) fn pick_physical_device(
     Err(anyhow!(VulkanSuitabilityError("Missing valid physical device.")))
 }
 
-fn check_physical_device(instance: &Instance, surface_loader: &Surface, surface: SurfaceKHR, physical_device: PhysicalDevice) -> Result<()> {
+fn check_physical_device(
+    instance: &ash::Instance,
+    surface_loader: &Surface,
+    surface: vk::SurfaceKHR,
+    physical_device: vk::PhysicalDevice
+) -> Result<()> {
     unsafe {
         QueueFamilyIndices::get(instance, physical_device, surface, &surface_loader)?;
         check_physical_device_extensions(instance, physical_device)?;
@@ -57,7 +62,10 @@ fn check_physical_device(instance: &Instance, surface_loader: &Surface, surface:
     }
 }
 
-fn check_physical_device_extensions(instance: &Instance, physical_device: PhysicalDevice) -> Result<()> {
+fn check_physical_device_extensions(
+    instance: &ash::Instance,
+    physical_device: vk::PhysicalDevice
+) -> Result<()> {
     unsafe {
         let extensions = instance
             .enumerate_device_extension_properties(physical_device)?

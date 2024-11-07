@@ -1,10 +1,12 @@
 use crate::vulkan::queue_families::QueueFamilyIndices;
 
-use ash::{Device,vk};
-use ash::vk::{CommandPool};
+use ash::vk;
 use anyhow::Result;
 
-pub(crate) fn create_command_pool(device: &Device, indices: &QueueFamilyIndices) -> Result<CommandPool> {
+pub(crate) fn create_command_pool(
+    device: &ash::Device,
+    indices: &QueueFamilyIndices
+) -> Result<vk::CommandPool> {
     let info = vk::CommandPoolCreateInfo::builder()
         .flags(vk::CommandPoolCreateFlags::RESET_COMMAND_BUFFER)
         .queue_family_index(indices.graphics)
