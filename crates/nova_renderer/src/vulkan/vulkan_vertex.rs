@@ -51,52 +51,17 @@ pub(crate) fn create_vertex_buffer(
     graphics_queue: vk::Queue,
     command_pool: vk::CommandPool,
 ) -> Result<VulkanAppBuffer> {
-    let size = (size_of::<Vertex>() * VERTICES.len()) as u64;
-
-    let staging_buffer = VulkanAppBuffer::new(
-        instance,
+    let vertex_buffer = VulkanAppBuffer::new_staged(
+        VERTICES.as_ptr(),
+        VERTICES.len(),
         logical_device,
-        physical_device,
-        size,
-        vk::BufferUsageFlags::TRANSFER_SRC,
-        vk::MemoryPropertyFlags::HOST_COHERENT | vk::MemoryPropertyFlags::HOST_VISIBLE,
-    )?;
-
-    unsafe {
-        let memory = logical_device.map_memory(
-            staging_buffer.buffer_memory,
-            0,
-            size,
-            vk::MemoryMapFlags::empty(),
-        )?;
-
-        std::ptr::copy_nonoverlapping(VERTICES.as_ptr(), memory.cast(), VERTICES.len());
-
-        logical_device.unmap_memory(staging_buffer.buffer_memory);
-    }
-
-
-    let vertex_buffer = VulkanAppBuffer::new(
         instance,
-        logical_device,
         physical_device,
-        size,
+        graphics_queue,
+        command_pool,
         vk::BufferUsageFlags::TRANSFER_DST | vk::BufferUsageFlags::VERTEX_BUFFER,
         vk::MemoryPropertyFlags::DEVICE_LOCAL,
     )?;
-
-    staging_buffer.copy_buffer(
-        logical_device,
-        vertex_buffer.buffer,
-        size,
-        graphics_queue,
-        command_pool,
-    )?;
-
-    unsafe {
-        logical_device.destroy_buffer(staging_buffer.buffer, None);
-        logical_device.free_memory(staging_buffer.buffer_memory, None);
-    }
 
     Ok(vertex_buffer)
 }

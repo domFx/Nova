@@ -35,50 +35,7 @@ impl<'a> VulkanRenderCommand<'a> {
 
 impl RenderCommand for VulkanRenderCommand<'_> {
     fn bind_vertex_buffer(&self, vertex_buffer: Vec<Vertex>) -> Result<()> {
-        let size = (size_of::<Vertex>() * vertex_buffer.len()) as u64;
-
-        unsafe {
-            let staging_buffer = VulkanAppBuffer::new_staging_buffer(
-                self.instance,
-                self.logical_device,
-                self.physical_device,
-                size
-            )?;
-
-            let memory = self.logical_device.map_memory(
-                staging_buffer.buffer_memory,
-                0,
-                size,
-                vk::MemoryMapFlags::empty(),
-            )?;
-
-            std::ptr::copy_nonoverlapping(vertex_buffer.as_ptr(), memory.cast(), vertex_buffer.len());
-
-            self.logical_device.unmap_memory(staging_buffer.buffer_memory);
-
-            let vertex_buffer = VulkanAppBuffer::new(
-                self.instance,
-                self.logical_device,
-                self.physical_device,
-                size,
-                vk::BufferUsageFlags::TRANSFER_DST | vk::BufferUsageFlags::VERTEX_BUFFER,
-                vk::MemoryPropertyFlags::DEVICE_LOCAL,
-            )?;
-
-            staging_buffer.copy_buffer(
-                self.logical_device,
-                vertex_buffer.buffer,
-                size,
-                self.graphics_queue,
-                self.command_pool,
-            )?;
-
-            self.logical_device.destroy_buffer(staging_buffer.buffer, None);
-            self.logical_device.free_memory(staging_buffer.buffer_memory, None);
-
-            // self.logical_device.cmd_bind_vertex_buffers(self.command_buffer, 0, &vec![], &vec![]);
-        }
-
+        // let buffer = VulkanAppBuffer::new_buffer()?;
         Ok(())
     }
 
