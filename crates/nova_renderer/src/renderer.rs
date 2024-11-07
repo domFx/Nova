@@ -1,5 +1,5 @@
 use crate::vulkan::vulkan_renderer::VulkanRenderer;
-use crate::{renderer_backend::RendererBackend};
+use crate::renderer_backend::RendererBackend;
 use crate::transform::Transform;
 use crate::vertex::Vertex;
 
