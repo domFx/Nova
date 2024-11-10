@@ -263,21 +263,16 @@ impl VulkanRenderer {
         }
     }
 
-    pub fn get_2d_render_command(&self) -> Result<()> {
-                                        // Result<Box<impl RenderCommand + use<'_>>> {
-        let info = vk::CommandBufferBeginInfo::builder()
-            .build();
-
-        let render_command = Box::new(VulkanRenderCommand::new(
+    pub fn get_2d_render_command(&self) -> Result<VulkanRenderCommand> {
+        let render_command = VulkanRenderCommand::new(
             &self.logical_device,
             &self.instance,
             self.physical_device,
             self.command_pool,
             self.graphics_queue
-        ));
+        )?;
 
-        // Ok(render_command)
-        Ok(())
+        Ok(render_command)
     }
 
     pub fn record_command_buffer(

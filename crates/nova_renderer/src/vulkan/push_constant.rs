@@ -9,11 +9,12 @@ pub(crate) struct PushConstant {
 }
 
 pub(crate) fn create_push_constant() -> Result<()> {
-    let push_constant_range = vk::PushConstantRange::builder()
-        .stage_flags(vk::ShaderStageFlags::VERTEX | vk::ShaderStageFlags::FRAGMENT)
-        .offset(0)
-        .size(size_of::<PushConstant>() as u32)
-        .build();
+    // let push_constant_range = vk::PushConstantRange::builder()
+    //     .stage_flags(vk::ShaderStageFlags::VERTEX | vk::ShaderStageFlags::FRAGMENT)
+    //     .offset(0)
+    //     .size(size_of::<PushConstant>() as u32)
+    //     .build();
 
+    todo!("Implement push constants");
     Ok(())
 }
