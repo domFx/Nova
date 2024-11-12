@@ -1,11 +1,11 @@
 use std::ffi::{c_void, CStr};
 use anyhow::Result;
 use ash::vk;
-use ash::extensions::ext::DebugUtils;
+use ash::ext::debug_utils;
 use log::{debug, error, info, warn};
 
 pub(crate) struct VulkanAppDebug {
-    pub debug_utils: DebugUtils,
+    pub debug_utils: debug_utils::Instance,
     pub utils_messenger: vk::DebugUtilsMessengerEXT
 }
 
@@ -15,7 +15,7 @@ impl VulkanAppDebug {
         instance: &ash::Instance,
         debug_info: vk::DebugUtilsMessengerCreateInfoEXT
     ) -> Result<Self> {
-        let debug_utils = DebugUtils::new(&entry, &instance);
+        let debug_utils = debug_utils::Instance::new(&entry, &instance);
 
         unsafe {
             let utils_messenger = debug_utils.create_debug_utils_messenger(&debug_info, None)?;
@@ -28,24 +28,23 @@ impl VulkanAppDebug {
     }
 }
 
-pub(crate) fn create_debug_info() -> vk::DebugUtilsMessengerCreateInfoEXT {
-    vk::DebugUtilsMessengerCreateInfoEXT {
-        s_type: vk::StructureType::DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT,
-        p_next: std::ptr::null(),
-        flags: vk::DebugUtilsMessengerCreateFlagsEXT::empty(),
-        message_severity:
+pub(crate) fn create_debug_info() -> vk::DebugUtilsMessengerCreateInfoEXT<'static> {
+    vk::DebugUtilsMessengerCreateInfoEXT::default()
+        .flags(vk::DebugUtilsMessengerCreateFlagsEXT::empty())
+        .message_severity(
             vk::DebugUtilsMessageSeverityFlagsEXT::VERBOSE |
             vk::DebugUtilsMessageSeverityFlagsEXT::ERROR |
             // vk::DebugUtilsMessageSeverityFlagsEXT::INFO |
             vk::DebugUtilsMessageSeverityFlagsEXT::WARNING,
-        message_type:
+        )
+        .message_type(
             vk::DebugUtilsMessageTypeFlagsEXT::GENERAL |
             vk::DebugUtilsMessageTypeFlagsEXT::VALIDATION |
             vk::DebugUtilsMessageTypeFlagsEXT::PERFORMANCE ,
-        // vk::DebugUtilsMessageTypeFlagsEXT::DEVICE_ADDRESS_BINDING,
-        pfn_user_callback: Some(vulkan_debug_callback),
-        p_user_data: std::ptr::null_mut()
-    }
+            // vk::DebugUtilsMessageTypeFlagsEXT::DEVICE_ADDRESS_BINDING,
+        )
+        .pfn_user_callback(Some(vulkan_debug_callback))
+        .user_data(std::ptr::null_mut())
 }
 
 extern "system" fn vulkan_debug_callback(

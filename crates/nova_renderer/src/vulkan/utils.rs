@@ -9,15 +9,13 @@ pub(crate) mod single_time_commands {
         logical_device: &ash::Device,
         command_pool: vk::CommandPool
     ) -> anyhow::Result<vk::CommandBuffer> {
-        let buffer_allocation_info = vk::CommandBufferAllocateInfo::builder()
+        let buffer_allocation_info = vk::CommandBufferAllocateInfo::default()
             .level(vk::CommandBufferLevel::PRIMARY)
             .command_pool(command_pool)
-            .command_buffer_count(1)
-            .build();
+            .command_buffer_count(1);
 
-        let buffer_begin_info = vk::CommandBufferBeginInfo::builder()
-            .flags(vk::CommandBufferUsageFlags::ONE_TIME_SUBMIT)
-            .build();
+        let buffer_begin_info = vk::CommandBufferBeginInfo::default()
+            .flags(vk::CommandBufferUsageFlags::ONE_TIME_SUBMIT);
 
         unsafe {
             let command_buffer = logical_device.allocate_command_buffers(&buffer_allocation_info)?[0];
@@ -38,9 +36,8 @@ pub(crate) mod single_time_commands {
             logical_device.end_command_buffer(command_buffer)?;
 
             let command_buffers = &[command_buffer];
-            let submit_info = vk::SubmitInfo::builder()
-                .command_buffers(command_buffers)
-                .build();
+            let submit_info = vk::SubmitInfo::default()
+                .command_buffers(command_buffers);
 
             logical_device.queue_submit(graphics_queue, &[submit_info], vk::Fence::null())?;
             logical_device.queue_wait_idle(graphics_queue)?;
@@ -60,9 +57,8 @@ pub(crate) mod shader {
         device: &ash::Device,
         bytecode: &[u32]
     ) -> anyhow::Result<vk::ShaderModule> {
-        let info = vk::ShaderModuleCreateInfo::builder()
-            .code(bytecode)
-            .build();
+        let info = vk::ShaderModuleCreateInfo::default()
+            .code(bytecode);
 
         unsafe {
             let shader_module = device.create_shader_module(&info, None)?;

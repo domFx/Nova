@@ -27,17 +27,15 @@ use nova_math::vector::vector2::Vector2;
 
 use anyhow::{anyhow, Result};
 use ash::vk;
-use ash::extensions::khr::{Surface};
+use ash::khr;
 use ash::prelude::VkResult;
 use std::time::Instant;
 use raw_window_handle::{RawDisplayHandle, RawWindowHandle};
-use crate::render_command::RenderCommand;
-use crate::vulkan::memory::get_memory_type_index;
 
 pub struct VulkanRenderer {
     entry: ash::Entry,
     instance: ash::Instance,
-    surface_loader: Surface,
+    surface_loader: khr::surface::Instance,
     logical_device: ash::Device,
     debug: VulkanAppDebug,
     physical_device: vk::PhysicalDevice,
@@ -100,22 +98,20 @@ impl RendererBackend for VulkanRenderer {
             let wait_stages = &[vk::PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT];
             let command_buffers = &[self.command_buffers[self.current_frame]];
             let signal_semaphores = &[self.render_finished_semaphores[self.current_frame]];
-            let submit_info = vk::SubmitInfo::builder()
+            let submit_info = vk::SubmitInfo::default()
                 .wait_semaphores(wait_semaphores)
                 .wait_dst_stage_mask(wait_stages)
                 .command_buffers(command_buffers)
-                .signal_semaphores(signal_semaphores)
-                .build();
+                .signal_semaphores(signal_semaphores);
 
             self.logical_device.queue_submit(self.graphics_queue, &[submit_info], self.in_flight_fences[self.current_frame])?;
 
             let swapchains = &[self.swapchain.swapchain];
             let image_indices = &[image_index as u32];
-            let present_info = vk::PresentInfoKHR::builder()
+            let present_info = vk::PresentInfoKHR::default()
                 .wait_semaphores(signal_semaphores)
                 .swapchains(swapchains)
-                .image_indices(image_indices)
-                .build();
+                .image_indices(image_indices);
 
             let result = self.swapchain.loader.queue_present(self.present_queue, &present_info);
 
@@ -179,7 +175,7 @@ impl VulkanRenderer {
             let mut debug_info = create_debug_info();
             let instance = create_instance(&entry, &mut debug_info)?;
             let debug = VulkanAppDebug::get(&entry, &instance, debug_info)?;
-            let surface_loader = Surface::new(&entry, &instance);
+            let surface_loader = khr::surface::Instance::new(&entry, &instance);
             let surface = create_surface(raw_window_handle, raw_display_handle, &entry, &instance)?;
             let physical_device = pick_physical_device(&instance, &surface_loader, surface)?;
             let indices = QueueFamilyIndices::get(&instance, physical_device, surface, &surface_loader)?;
@@ -203,10 +199,9 @@ impl VulkanRenderer {
             let descriptor_sets = create_descriptor_sets(&logical_device, descriptor_pool, descriptor_set_layout, &images, &uniform_buffers, texture_image.texture_image_view, sampler)?;
             let command_buffers = create_command_buffers(&logical_device, command_pool, &framebuffers)?;
 
-            let semaphore_info = vk::SemaphoreCreateInfo::builder();
-            let fence_info = vk::FenceCreateInfo::builder()
-                .flags(vk::FenceCreateFlags::SIGNALED)
-                .build();
+            let semaphore_info = vk::SemaphoreCreateInfo::default();
+            let fence_info = vk::FenceCreateInfo::default()
+                .flags(vk::FenceCreateFlags::SIGNALED);
 
             let mut image_available_semaphores = Vec::new();
             let mut render_finished_semaphores = Vec::new();
@@ -281,15 +276,13 @@ impl VulkanRenderer {
         image_index: usize
     ) -> Result<()> {
         unsafe {
-            let info = vk::CommandBufferBeginInfo::builder()
-                .build();
+            let info = vk::CommandBufferBeginInfo::default();
 
             self.logical_device.begin_command_buffer(command_buffer, &info)?;
 
-            let render_area = vk::Rect2D::builder()
+            let render_area = vk::Rect2D::default()
                 .offset(vk::Offset2D { x: 0, y: 0 })
-                .extent(self.swapchain.extent)
-                .build();
+                .extent(self.swapchain.extent);
 
             let color_clear_value = vk::ClearValue {
                 color: vk::ClearColorValue {
@@ -298,30 +291,29 @@ impl VulkanRenderer {
             };
 
             let clear_values = &[color_clear_value];
-            let info = vk::RenderPassBeginInfo::builder()
+            let info = vk::RenderPassBeginInfo::default()
                 .render_pass(self.render_pass)
                 .framebuffer(self.framebuffers[image_index])
                 .render_area(render_area)
-                .clear_values(clear_values)
-                .build();
+                .clear_values(clear_values);
 
             self.logical_device.cmd_begin_render_pass(command_buffer, &info, vk::SubpassContents::INLINE);
             self.logical_device.cmd_bind_pipeline(command_buffer, vk::PipelineBindPoint::GRAPHICS, self.pipeline.pipeline);
 
-            let viewport = vk::Viewport::builder()
+            let viewport = vk::Viewport::default()
                 .x(0.0)
                 .y(0.0)
                 .width(self.swapchain.extent.width as f32)
                 .height(self.swapchain.extent.height as f32)
                 .min_depth(0.0)
-                .max_depth(1.0)
-                .build();
+                .max_depth(1.0);
+
             self.logical_device.cmd_set_viewport(command_buffer, 0, &[viewport]);
 
-            let scissor = vk::Rect2D::builder()
+            let scissor = vk::Rect2D::default()
                 .offset(vk::Offset2D { x: 0, y: 0 })
-                .extent(self.swapchain.extent)
-                .build();
+                .extent(self.swapchain.extent);
+
             self.logical_device.cmd_set_scissor(command_buffer, 0, &[scissor]);
 
             self.logical_device.cmd_bind_vertex_buffers(command_buffer, 0, &[self.vertex_buffer.buffer], &[0]);

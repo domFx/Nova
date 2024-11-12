@@ -6,11 +6,10 @@ pub(crate) fn create_command_buffers(
     command_pool: vk::CommandPool,
     framebuffers: &Vec<vk::Framebuffer>,
 ) -> Result<Vec<vk::CommandBuffer>> {
-    let info = vk::CommandBufferAllocateInfo::builder()
+    let info = vk::CommandBufferAllocateInfo::default()
         .command_pool(command_pool)
         .level(vk::CommandBufferLevel::PRIMARY)
-        .command_buffer_count(framebuffers.len() as u32)
-        .build();
+        .command_buffer_count(framebuffers.len() as u32);
 
     unsafe {
         let command_buffers = device.allocate_command_buffers(&info)?;

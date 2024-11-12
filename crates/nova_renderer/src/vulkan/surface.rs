@@ -2,7 +2,6 @@ use anyhow::anyhow;
 use ash::{vk, Entry, Instance};
 use log::error;
 use raw_window_handle::{RawDisplayHandle, RawWindowHandle};
-use std::ffi::c_void;
 
 pub unsafe fn create_surface(
     raw_window_handle: RawWindowHandle,
@@ -13,23 +12,22 @@ pub unsafe fn create_surface(
     match (raw_display_handle, raw_window_handle) {
         #[cfg(target_os = "windows")]
         (RawDisplayHandle::Windows(_), RawWindowHandle::Win32(win32_window_handle)) => {
-            use ash::extensions::khr::Win32Surface;
+            use ash::khr;
 
-            let hinstance_ptr: *const c_void = match win32_window_handle.hinstance {
-                Some(hinstance) => hinstance.get() as *const c_void,
-                None => std::ptr::null(),
+            let hinstance_ptr = match win32_window_handle.hinstance {
+                Some(hinstance) => hinstance.get(),
+                None => 0,
             };
 
-            let hwnd_ptr: *const c_void = win32_window_handle.hwnd.get() as *const c_void;
+            let hwnd = win32_window_handle.hwnd.get();
 
-            let info = vk::Win32SurfaceCreateInfoKHR::builder()
+            let info = vk::Win32SurfaceCreateInfoKHR::default()
                 .hinstance(hinstance_ptr)
-                .hwnd(hwnd_ptr)
-                .build();
+                .hwnd(hwnd);
 
-            let win32_surface = Win32Surface::new(entry, instance);
+            let win32_surface = khr::win32_surface::Instance::new(entry, instance);
 
-            let surface = win32_surface.create_win32_surface(&info, None).unwrap();
+            let surface = win32_surface.create_win32_surface(&info, None)?;
 
             Ok(surface)
         }

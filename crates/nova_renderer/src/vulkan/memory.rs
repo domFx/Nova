@@ -25,15 +25,14 @@ pub(crate) fn get_device_memory(
     physical_device: vk::PhysicalDevice,
     requirements: vk::MemoryRequirements) -> Result<vk::DeviceMemory> {
 
-    let memory_info = vk::MemoryAllocateInfo::builder()
+    let memory_info = vk::MemoryAllocateInfo::default()
         .allocation_size(requirements.size)
         .memory_type_index(get_memory_type_index(
             instance,
             physical_device,
             vk::MemoryPropertyFlags::HOST_COHERENT | vk::MemoryPropertyFlags::HOST_VISIBLE,
             requirements
-        )?)
-        .build();
+        )?);
 
     unsafe {
         let device_memory = logical_device.allocate_memory(&memory_info, None)?;

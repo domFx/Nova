@@ -2,6 +2,7 @@ use crate::vulkan::constants::{DEVICE_EXTENSIONS, PORTABILITY_MACOS_VERSION, VAL
 use crate::vulkan::queue_families::QueueFamilyIndices;
 
 use ash::vk;
+use ash::vk::KHR_PORTABILITY_SUBSET_NAME;
 
 pub(crate) fn create_logical_device(
     entry: &ash::Entry,
@@ -17,10 +18,9 @@ pub(crate) fn create_logical_device(
     let queue_infos = unique_indices
         .iter()
         .map(|i| {
-            vk::DeviceQueueCreateInfo::builder()
+            vk::DeviceQueueCreateInfo::default()
                 .queue_family_index(*i)
                 .queue_priorities(queue_priorities)
-                .build()
         })
         .collect::<Vec<_>>();
 
@@ -29,9 +29,11 @@ pub(crate) fn create_logical_device(
         .map(|e| e.as_ptr())
         .collect::<Vec<_>>();
 
-    if cfg!(target_os = "macos") && entry.try_enumerate_instance_version()?.unwrap() >= PORTABILITY_MACOS_VERSION {
-        let portability = vk::KhrPortabilitySubsetFn::name();
-        extensions.push(portability.as_ptr());
+    unsafe {
+        if cfg!(target_os = "macos") && entry.try_enumerate_instance_version()?.unwrap() >= PORTABILITY_MACOS_VERSION {
+            let portability = KHR_PORTABILITY_SUBSET_NAME;
+            extensions.push(portability.as_ptr());
+        }
     }
 
     let layers: Vec<*const i8> = if VALIDATION_ENABLED {
@@ -43,16 +45,14 @@ pub(crate) fn create_logical_device(
         vec![]
     };
 
-    let features = vk::PhysicalDeviceFeatures::builder()
-        .sampler_anisotropy(true)
-        .build();
+    let features = vk::PhysicalDeviceFeatures::default()
+        .sampler_anisotropy(true);
 
-    let info = vk::DeviceCreateInfo::builder()
+    let info = vk::DeviceCreateInfo::default()
         .queue_create_infos(&queue_infos)
         .enabled_layer_names(&layers)
         .enabled_extension_names(&extensions)
-        .enabled_features(&features)
-        .build();
+        .enabled_features(&features);
 
     unsafe {
         let device = instance.create_device(physical_device, &info, None)?;

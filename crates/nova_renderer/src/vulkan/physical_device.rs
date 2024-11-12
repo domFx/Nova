@@ -2,7 +2,6 @@ use crate::vulkan::constants::DEVICE_EXTENSIONS;
 use crate::vulkan::errors::VulkanSuitabilityError;
 use crate::vulkan::queue_families::QueueFamilyIndices;
 use crate::vulkan::swapchain::SwapchainSupport;
-use crate::renderer::RendererType::Vulkan;
 
 use nova_core::utils::convert_vec_to_string;
 
@@ -10,13 +9,12 @@ use std::collections::HashSet;
 use std::ffi::CStr;
 
 use anyhow::{Result, anyhow};
-use ash::extensions::khr::Surface;
-use ash::vk;
+use ash::{khr,vk};
 use log::{info, warn};
 
 pub(crate) fn pick_physical_device(
     instance: &ash::Instance,
-    surface_loader: &Surface,
+    surface_loader: &khr::surface::Instance,
     surface: vk::SurfaceKHR
 ) -> Result<vk::PhysicalDevice> {
     unsafe {
@@ -39,7 +37,7 @@ pub(crate) fn pick_physical_device(
 
 fn check_physical_device(
     instance: &ash::Instance,
-    surface_loader: &Surface,
+    surface_loader: &khr::surface::Instance,
     surface: vk::SurfaceKHR,
     physical_device: vk::PhysicalDevice
 ) -> Result<()> {
@@ -70,7 +68,7 @@ fn check_physical_device_extensions(
         let extensions = instance
             .enumerate_device_extension_properties(physical_device)?
             .iter()
-            .map(|e| unsafe { CStr::from_ptr(e.extension_name.as_ptr()) })
+            .map(|e| CStr::from_ptr(e.extension_name.as_ptr()) )
             .collect::<HashSet<_>>();
 
         if DEVICE_EXTENSIONS.iter().all(|e| extensions.contains(e)) {

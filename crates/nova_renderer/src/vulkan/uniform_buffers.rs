@@ -40,9 +40,9 @@ pub fn create_uniform_buffers(
 pub fn update_uniform_buffer(
     image_index: usize,
     uniform_buffers: &Vec<VulkanAppBuffer>,
-    extent: vk::Extent2D,
+    _extent: vk::Extent2D,
     logical_device: &ash::Device,
-    start: &std::time::Instant,
+    _start: &std::time::Instant,
 ) -> Result<()> {
     // let time = start.elapsed().as_secs_f32();
 
@@ -61,12 +61,12 @@ pub fn update_uniform_buffer(
     //
     let view = Matrix4::identity();
 
-    let left = 0.0;
-    let right = extent.width as f32;
-    let bottom = 0.0;
-    let top = extent.height as f32;
-    let near = 0.0;
-    let far = 1.0;
+    // let left = 0.0;
+    // let right = extent.width as f32;
+    // let bottom = 0.0;
+    // let top = extent.height as f32;
+    // let near = 0.0;
+    // let far = 1.0;
 
     // let mut proj = cgmath::ortho(left, right, bottom, top, near, far);
     let proj = Matrix4::identity();

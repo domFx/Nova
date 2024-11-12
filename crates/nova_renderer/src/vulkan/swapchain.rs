@@ -2,13 +2,12 @@ use crate::vulkan::queue_families::*;
 use crate::vulkan::texture_image::create_image_view;
 use nova_math::vector::vector2::Vector2;
 
-use ash::extensions::khr::{Surface, Swapchain};
-use ash::{Device, Instance, vk};
+use ash::{Device, Instance, vk, khr};
 use ash::vk::{Image, PhysicalDevice, SurfaceKHR, SwapchainKHR};
 
 pub(crate) struct VulkanAppSwapchain {
     pub swapchain: SwapchainKHR,
-    pub loader: Swapchain,
+    pub loader: khr::swapchain::Device,
     pub format: vk::Format,
     pub extent: vk::Extent2D,
 }
@@ -19,11 +18,11 @@ impl VulkanAppSwapchain {
         instance: &Instance,
         logical_device: &Device,
         physical_device: PhysicalDevice,
-        surface_loader: &Surface,
+        surface_loader: &khr::surface::Instance,
         surface: SurfaceKHR,
         indices: &QueueFamilyIndices) -> anyhow::Result<Self> {
 
-        let swapchain_loader = Swapchain::new(instance, logical_device);
+        let swapchain_loader = khr::swapchain::Device::new(instance, logical_device);
         let swapchain_support = SwapchainSupport::get(&surface_loader, physical_device, surface)?;
 
         let surface_format = get_swapchain_surface_format(&swapchain_support.formats);
@@ -44,7 +43,7 @@ impl VulkanAppSwapchain {
             vk::SharingMode::EXCLUSIVE
         };
 
-        let info = vk::SwapchainCreateInfoKHR::builder()
+        let info = vk::SwapchainCreateInfoKHR::default()
             .surface(surface)
             .min_image_count(image_count)
             .image_format(surface_format.format)
@@ -58,8 +57,7 @@ impl VulkanAppSwapchain {
             .composite_alpha(vk::CompositeAlphaFlagsKHR::OPAQUE)
             .present_mode(present_mode)
             .clipped(true)
-            .old_swapchain(SwapchainKHR::null())
-            .build();
+            .old_swapchain(SwapchainKHR::null());
 
         let swapchain = swapchain_loader.create_swapchain(&info, None)?;
 
@@ -109,7 +107,7 @@ fn get_swapchain_extent(
         capabilities.current_extent
     } else {
         let clamp = |min: u32, max: u32, v: u32| min.max(max.min(v));
-        vk::Extent2D::builder()
+        vk::Extent2D::default()
             .width(clamp(
                 capabilities.min_image_extent.width,
                 capabilities.max_image_extent.width,
@@ -120,7 +118,6 @@ fn get_swapchain_extent(
                 capabilities.max_image_extent.height,
                 window_dimensions.y,
             ))
-            .build()
     }
 }
 
@@ -134,7 +131,7 @@ pub struct SwapchainSupport {
 
 impl SwapchainSupport {
     pub unsafe fn get(
-        surface_loader: &Surface,
+        surface_loader: &khr::surface::Instance,
         physical_device: PhysicalDevice,
         surface: SurfaceKHR
     ) -> anyhow::Result<Self> {

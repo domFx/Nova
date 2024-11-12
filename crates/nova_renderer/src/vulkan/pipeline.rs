@@ -27,39 +27,31 @@ impl VulkanAppPipeline {
             let vertex_shader_module = create_shader_module(device, &vert[..])?;
             let fragment_shader_module = create_shader_module(device, &frag[..])?;
 
-            let vertex_stage = vk::PipelineShaderStageCreateInfo::builder()
+            let vertex_stage = vk::PipelineShaderStageCreateInfo::default()
                 .stage(vk::ShaderStageFlags::VERTEX)
                 .module(vertex_shader_module)
-                .name(CStr::from_bytes_with_nul_unchecked(b"main\0"))
-                .build();
+                .name(CStr::from_bytes_with_nul_unchecked(b"main\0"));
 
-            let frag_stage = vk::PipelineShaderStageCreateInfo::builder()
+            let frag_stage = vk::PipelineShaderStageCreateInfo::default()
                 .stage(vk::ShaderStageFlags::FRAGMENT)
                 .module(fragment_shader_module)
-                .name(CStr::from_bytes_with_nul_unchecked(b"main\0"))
-                .build();
+                .name(CStr::from_bytes_with_nul_unchecked(b"main\0"));
 
             let binding_descriptions = &[Vertex::binding_description()];
             let attribute_descriptions = Vertex::attribute_descriptions();
-            let vertex_input_state = vk::PipelineVertexInputStateCreateInfo::builder()
+            let vertex_input_state = vk::PipelineVertexInputStateCreateInfo::default()
                 .vertex_binding_descriptions(binding_descriptions)
-                .vertex_attribute_descriptions(&attribute_descriptions)
-                .build();
+                .vertex_attribute_descriptions(&attribute_descriptions);
 
-            let input_assembly_state = vk::PipelineInputAssemblyStateCreateInfo::builder()
+            let input_assembly_state = vk::PipelineInputAssemblyStateCreateInfo::default()
                 .topology(vk::PrimitiveTopology::TRIANGLE_LIST)
                 .primitive_restart_enable(false);
 
-            // let viewports = &[viewport];
-            // let scissors = &[scissor];
-            let viewport_state = vk::PipelineViewportStateCreateInfo::builder()
+            let viewport_state = vk::PipelineViewportStateCreateInfo::default()
                 .viewport_count(1)
-                .scissor_count(1)
-                // .viewports(viewports)
-                // .scissors(scissors)
-                .build();
+                .scissor_count(1);
 
-            let rasterization_state = vk::PipelineRasterizationStateCreateInfo::builder()
+            let rasterization_state = vk::PipelineRasterizationStateCreateInfo::default()
                 .depth_clamp_enable(false)
                 .rasterizer_discard_enable(false)
                 .polygon_mode(vk::PolygonMode::FILL)
@@ -67,47 +59,42 @@ impl VulkanAppPipeline {
                 .cull_mode(vk::CullModeFlags::NONE)
                 // .front_face(vk::FrontFace::COUNTER_CLOCKWISE)
                 .front_face(vk::FrontFace::CLOCKWISE)
-                .depth_bias_enable(false)
-                .build();
+                .depth_bias_enable(false);
 
-            let multisample_state = vk::PipelineMultisampleStateCreateInfo::builder()
+            let multisample_state = vk::PipelineMultisampleStateCreateInfo::default()
                 .sample_shading_enable(false)
-                .rasterization_samples(vk::SampleCountFlags::TYPE_1)
-                .build();
+                .rasterization_samples(vk::SampleCountFlags::TYPE_1);
 
-            let attachment = vk::PipelineColorBlendAttachmentState::builder()
+            let attachment = vk::PipelineColorBlendAttachmentState::default()
                 .color_write_mask(vk::ColorComponentFlags::RGBA)
-                .blend_enable(false)
+                .blend_enable(false);
                 // .src_color_blend_factor(vk::BlendFactor::ONE)
                 // .dst_color_blend_factor(vk::BlendFactor::ZERO)
                 // .color_blend_op(vk::BlendOp::ADD)
                 // .src_alpha_blend_factor(vk::BlendFactor::ONE)
                 // .dst_alpha_blend_factor(vk::BlendFactor::ZERO)
                 // .alpha_blend_op(vk::BlendOp::ADD)
-                .build();
 
             let attachments = &[attachment];
-            let color_blend_state = vk::PipelineColorBlendStateCreateInfo::builder()
+            let color_blend_state = vk::PipelineColorBlendStateCreateInfo::default()
                 .logic_op_enable(false)
                 .logic_op(vk::LogicOp::COPY)
                 .attachments(attachments)
-                .blend_constants([0.0, 0.0, 0.0, 0.0])
-                .build();
+                .blend_constants([0.0, 0.0, 0.0, 0.0]);
 
             let dynamic_states = vec![vk::DynamicState::VIEWPORT, vk::DynamicState::SCISSOR];
-            let dynamic_state_info = vk::PipelineDynamicStateCreateInfo::builder()
-                .dynamic_states(&dynamic_states)
-                .build();
+            let dynamic_state_info = vk::PipelineDynamicStateCreateInfo::default()
+                .dynamic_states(&dynamic_states);
 
-            let layout_info = vk::PipelineLayoutCreateInfo::builder()
-                .set_layouts(&[descriptor_set_layout])
-                .push_constant_ranges(&[])
-                .build();
+            let layouts = &[descriptor_set_layout];
+            let layout_info = vk::PipelineLayoutCreateInfo::default()
+                .set_layouts(layouts)
+                .push_constant_ranges(&[]);
 
             let pipeline_layout = device.create_pipeline_layout(&layout_info, None)?;
 
             let stages = &[vertex_stage, frag_stage];
-            let pipeline_info = vk::GraphicsPipelineCreateInfo::builder()
+            let pipeline_info = vk::GraphicsPipelineCreateInfo::default()
                 .stages(stages)
                 .vertex_input_state(&vertex_input_state)
                 .input_assembly_state(&input_assembly_state)
@@ -118,8 +105,7 @@ impl VulkanAppPipeline {
                 .layout(pipeline_layout)
                 .render_pass(render_pass)
                 .subpass(0)
-                .dynamic_state(&dynamic_state_info)
-                .build();
+                .dynamic_state(&dynamic_state_info);
 
             let pipeline = device
                 .create_graphics_pipelines(vk::PipelineCache::null(), &[pipeline_info], None)

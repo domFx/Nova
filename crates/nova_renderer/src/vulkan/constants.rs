@@ -1,5 +1,5 @@
 use std::ffi::CStr;
-use ash::vk::KhrSwapchainFn;
+use ash::vk;
 
 pub(crate) const VALIDATION_ENABLED: bool = cfg!(debug_assertions);
 pub(crate) const ENGINE_NAME: &'static str = "Nova Engine";
@@ -14,7 +14,7 @@ pub(crate) const VALIDATION_LAYERS: &[&CStr] = &[
 ];
 
 pub(crate) const DEVICE_EXTENSIONS: &[&CStr] = &[
-    KhrSwapchainFn::name()
+    vk::KHR_SWAPCHAIN_NAME
 ];
 
 pub(crate) const MAX_FRAMES_IN_FLIGHT: usize = 2;

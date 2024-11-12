@@ -13,13 +13,12 @@ pub(crate) fn create_framebuffers(
             .iter()
             .map(|i| {
                 let attachments = &[*i];
-                let create_info = vk::FramebufferCreateInfo::builder()
+                let create_info = vk::FramebufferCreateInfo::default()
                     .render_pass(render_pass)
                     .attachments(attachments)
                     .width(extent.width)
                     .height(extent.height)
-                    .layers(1)
-                    .build();
+                    .layers(1);
 
                 device.create_framebuffer(&create_info, None)
             })

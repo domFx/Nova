@@ -1,8 +1,7 @@
 use crate::vulkan::errors::*;
 
 use anyhow::anyhow;
-use ash::vk;
-use ash::extensions::khr::Surface;
+use ash::{khr,vk};
 
 #[derive(Copy, Clone, Debug)]
 pub(crate) struct QueueFamilyIndices {
@@ -14,7 +13,7 @@ impl QueueFamilyIndices {
         instance: &ash::Instance,
         physical_device: vk::PhysicalDevice,
         surface: vk::SurfaceKHR,
-        surface_loader: &Surface
+        surface_loader: &khr::surface::Instance
     ) -> anyhow::Result<Self> {
         unsafe {
             let properties = instance.get_physical_device_queue_family_properties(physical_device);

@@ -4,7 +4,7 @@ use nova_core::input::{KeyboardKey, KeyboardKeyState, MouseButtonState, INPUT_ST
 use nova_math::vector::vector2::Vector2;
 use nova_renderer::renderer::Renderer;
 
-use log::info;
+use log::{debug, error, info};
 use std::time::{Duration, Instant};
 
 use raw_window_handle::{
@@ -144,7 +144,7 @@ impl NovaWindow for WinitWindow {
                                     .set_key_state(keyboard_key, keyboard_button_state);
                             }
 
-                            println!(
+                            debug!(
                                 "Pressed keys {:?}",
                                 INPUT_STATE
                                     .lock()
@@ -153,7 +153,7 @@ impl NovaWindow for WinitWindow {
                                     .get_pressed_keys()
                             );
                         } else {
-                            info!("Unable to parse key {:?}", key_event.physical_key)
+                            error!("Unable to parse key {:?}", key_event.physical_key)
                         }
                     }
                     WindowEvent::MouseInput { state, button, .. } => {
@@ -180,7 +180,7 @@ impl NovaWindow for WinitWindow {
                                 .mouse_state
                                 .set_mouse_state(button, mouse_button_state);
 
-                            println!(
+                            debug!(
                                 "Pressed mouse buttons {:?}",
                                 INPUT_STATE
                                     .lock()
@@ -189,7 +189,7 @@ impl NovaWindow for WinitWindow {
                                     .get_pressed_buttons()
                             );
                         } else {
-                            info!("Unable to parse mouse button {:?}", button)
+                            error!("Unable to parse mouse button {:?}", button)
                         }
                     }
                     _ => (),

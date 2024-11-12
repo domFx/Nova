@@ -1,5 +1,4 @@
 use anyhow::Result;
-use ash::vk;
 use cgmath::Matrix4;
 
 #[repr(C)]
@@ -16,5 +15,4 @@ pub(crate) fn create_push_constant() -> Result<()> {
     //     .build();
 
     todo!("Implement push constants");
-    Ok(())
 }

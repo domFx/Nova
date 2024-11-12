@@ -89,26 +89,24 @@ impl VulkanAppBuffer {
         usage: vk::BufferUsageFlags,
         properties: vk::MemoryPropertyFlags
     ) -> Result<VulkanAppBuffer> {
-        let buffer_info = vk::BufferCreateInfo::builder()
+        let buffer_info = vk::BufferCreateInfo::default()
             .size(size)
             .usage(usage)
-            .sharing_mode(vk::SharingMode::EXCLUSIVE)
-            .build();
+            .sharing_mode(vk::SharingMode::EXCLUSIVE);
 
         unsafe {
             let buffer = logical_device.create_buffer(&buffer_info, None)?;
 
             let requirements = logical_device.get_buffer_memory_requirements(buffer);
 
-            let memory_info = vk::MemoryAllocateInfo::builder()
+            let memory_info = vk::MemoryAllocateInfo::default()
                 .allocation_size(requirements.size)
                 .memory_type_index(get_memory_type_index(
                     instance,
                     physical_device,
                     properties,
                     requirements
-                )?)
-                .build();
+                )?);
 
             let buffer_memory = logical_device.allocate_memory(&memory_info, None)?;
 
@@ -140,11 +138,10 @@ impl VulkanAppBuffer {
     ) -> Result<()> {
         let command_buffer = begin_single_time_commands(logical_device, command_pool)?;
 
-        let regions = vk::BufferCopy::builder()
+        let regions = vk::BufferCopy::default()
             .src_offset(0)
             .dst_offset(0)
-            .size(size)
-            .build();
+            .size(size);
 
         unsafe {
             logical_device.cmd_copy_buffer(command_buffer, source.buffer, destination.buffer, &[regions]);
@@ -165,11 +162,10 @@ impl VulkanAppBuffer {
     ) -> Result<()> {
         let command_buffer = begin_single_time_commands(logical_device, command_pool)?;
 
-        let regions = vk::BufferCopy::builder()
+        let regions = vk::BufferCopy::default()
             .src_offset(0)
             .dst_offset(0)
-            .size(size)
-            .build();
+            .size(size);
 
         unsafe {
             logical_device.cmd_copy_buffer(command_buffer, self.buffer, destination, &[regions]);
