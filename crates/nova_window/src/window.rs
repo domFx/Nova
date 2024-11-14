@@ -7,7 +7,7 @@ use raw_window_handle::{RawDisplayHandle, RawWindowHandle};
 /// Window functionality
 pub trait NovaWindow {
     /// Window Loop
-    fn run(&mut self, renderer: &mut Renderer);
+    fn run(&self);
 
     /// Window Cleanup
     fn destroy(&self);
@@ -18,11 +18,13 @@ pub trait NovaWindow {
 
     fn get_window_dimensions(&self) -> Vector2<u32>;
 
-    fn get_window(&self) -> &winit::window::Window;
+    fn set_title(&mut self, title: &str);
 
-    fn set_title(&self, title: &str);
+    fn is_running(&self) -> bool;
+
+    fn redraw(&self) -> bool;
 }
 
-pub fn get_window() -> impl NovaWindow {
-    WinitWindow::new()
+pub fn get_window() -> WinitWindow {
+    WinitWindow::new("Nova Engine")
 }
