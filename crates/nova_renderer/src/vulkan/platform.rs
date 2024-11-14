@@ -6,7 +6,7 @@
 use ash::vk;
 
 #[cfg(target_os = "macos")]
-use ash::extensions::mvk::MacOSSurface;
+use ash::mvk;
 
 #[cfg(all(unix, not(target_os = "macos"), not(target_os="android")))]
 use ash::extensions::khr::XlibSurface;
@@ -20,8 +20,10 @@ pub(crate) fn required_extension_names() -> Vec<*const i8> {
 
     #[cfg(target_os = "macos")]
     return vec![
-        Surface::name().as_ptr(),
-        MacOSSurface::name().as_ptr(),
+        mvk::macos_surface::NAME.as_ptr(),
+        vk::KHR_SURFACE_NAME.as_ptr(),
+        // Surface::name().as_ptr(),
+        // MacOSSurface::name().as_ptr(),
     ];
 
     #[cfg(all(unix, not(target_os = "macos"), not(target_os="android")))]

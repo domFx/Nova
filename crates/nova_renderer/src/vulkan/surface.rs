@@ -33,11 +33,12 @@ pub unsafe fn create_surface(
         }
         #[cfg(target_os = "macos")]
         (RawDisplayHandle::AppKit(_), RawWindowHandle::AppKit(window)) => {
-            use ash::extensions::ext::MetalSurface;
+            use ash::ext::metal_surface;
             use cocoa::appkit::NSView;
             use cocoa::base::id as cocoa_id;
             use metal::{MetalLayer, MetalLayerRef};
             use objc::runtime::YES;
+            use std::ffi::c_void;
 
             let ns_view_ptr = window.ns_view.as_ptr();
 
@@ -50,12 +51,11 @@ pub unsafe fn create_surface(
 
             let layer_ptr = (layer.as_ref() as *const MetalLayerRef).cast::<c_void>();
 
-            let info = vk::MetalSurfaceCreateInfoEXT::builder()
+            let info = vk::MetalSurfaceCreateInfoEXT::default()
                 .flags(vk::MetalSurfaceCreateFlagsEXT::empty())
-                .layer(layer_ptr)
-                .build();
+                .layer(layer_ptr);
 
-            let metal_surface = MetalSurface::new(entry, instance);
+            let metal_surface = metal_surface::Instance::new(entry, instance);
 
             let surface = metal_surface.create_metal_surface(&info, None)?;
             Ok(surface)
