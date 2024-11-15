@@ -6,8 +6,9 @@ use crate::vertex::Vertex;
 use nova_math::vector::vector2::Vector2;
 use nova_math::vector::vector4::Vector4;
 
-use anyhow::Result;
+use anyhow::{anyhow, Result};
 use raw_window_handle::{RawDisplayHandle, RawWindowHandle};
+use thiserror::Error;
 
 /// Core Renderable Object
 trait Renderable {
@@ -113,7 +114,7 @@ impl QuadDrawables {
             .iter()
             .enumerate()
             .for_each(|(i, vertex)| { self.vertex_buffer[vertex_buffer_idx + i] = Some(*vertex); });
-        
+
         self.quad_count += 1;
     }
 
@@ -126,45 +127,72 @@ impl QuadDrawables {
     }
 }
 
-pub struct Renderer {
-    quads: QuadDrawables,
+#[derive(Default, Debug, Copy, Clone, Eq, PartialEq)]
+enum RendererState {
+    #[default]
+    Initialization,
+    Ready,
+    Cleanup,
+    Complete,
+    Error
+}
 
-    pub resized: bool,
-    renderer_backend: Box<dyn RendererBackend>,
+// TODO: Macro? - Pull this out for shared use
+impl std::fmt::Display for RendererState {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        write!(f, "{:?}", self)
+    }
+}
+
+#[derive(Error, Debug)]
+enum RendererError {
+    #[error("Invalid renderer state | Expected state: {expected:?} | Actual state: {actual:?}")]
+    InvalidRendererState {
+        expected: RendererState,
+        actual: RendererState
+    },
+    #[error("Renderer Backend Not Found")]
+    RendererBackendNotFound
+}
+
+#[derive(Default)]
+pub struct Renderer {
+    renderer_backend: Option<Box<dyn RendererBackend>>,
+    renderer_state: RendererState,
 }
 
 impl Renderer {
-    pub fn new(
-        renderer_type: RendererType,
+    pub fn init(
+        &mut self,
         window_handle: RawWindowHandle,
         display_handle: RawDisplayHandle,
         window_dimensions: Vector2<u32>,
-    ) -> Result<Self> {
-        let renderer_backend = match renderer_type {
-            RendererType::Vulkan => Box::new(VulkanRenderer::new(
-                window_handle,
-                display_handle,
-                window_dimensions,
-            )?),
-        };
+    ) -> Result<()> {
+        let renderer_backend = VulkanRenderer::new(window_handle, display_handle, window_dimensions)?;
+        self.renderer_backend = Some(Box::from(renderer_backend));
 
-        let quads = QuadDrawables::new();
-
-        Ok(Self {
-            quads,
-
-            resized: false,
-            renderer_backend,
-        })
+        self.renderer_state = RendererState::Ready;
+        Ok(())
     }
 
     pub fn render(&mut self, window_dimensions: Vector2<u32>) -> Result<()> {
-        self.renderer_backend.render(window_dimensions)?;
+        if self.renderer_state != RendererState::Ready {
+            return Err(anyhow!(RendererError::InvalidRendererState {
+                expected: RendererState::Ready,
+                actual: self.renderer_state
+            }))
+        }
+
+        if let Some(renderer_backend) = self.renderer_backend.as_mut() {
+            renderer_backend.render(window_dimensions)?;
+        } else {
+            return Err(anyhow!(RendererError::RendererBackendNotFound))
+        }
 
         Ok(())
     }
 
-    pub fn draw_rect(
+/*    pub fn draw_rect(
         &mut self,
         position: &Vector2<f32>,
         size: &Vector2<f32>,
@@ -182,10 +210,12 @@ impl Renderer {
         self.quads.add_quad(vertices);
 
         Ok(())
-    }
+    }*/
 
-    pub fn destroy(&self) {
-        self.renderer_backend.destroy();
+    pub fn destroy(&mut self) {
+        if let Some(ref mut renderer_backend) = self.renderer_backend {
+            renderer_backend.destroy();
+        }
     }
 }
 

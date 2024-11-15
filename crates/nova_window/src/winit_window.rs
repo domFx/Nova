@@ -100,11 +100,14 @@ impl ApplicationHandler for WinitWindow {
         let window_title = self.window_title.to_string();
 
         let window_attributes = WindowAttributes::default()
-            .with_transparent(true)
+            // .with_transparent(true)
             .with_title(window_title)
             .with_inner_size(LogicalSize::new(800, 600));
 
         let window = event_loop.create_window(window_attributes).unwrap();
+
+
+        self.window = Some(window);
 
         // let inner_size = window.inner_size();
         // let window_size = Vector2::new(inner_size.width, inner_size.height);
@@ -116,7 +119,6 @@ impl ApplicationHandler for WinitWindow {
     }
 
     fn window_event(&mut self, event_loop: &ActiveEventLoop, window_id: WindowId, event: WindowEvent) {
-        println!("Event {:?}", event);
         match event {
             WindowEvent::ActivationTokenDone { .. } => {}
             WindowEvent::Resized(size) => {
@@ -128,7 +130,7 @@ impl ApplicationHandler for WinitWindow {
             }
             WindowEvent::Moved(_) => {}
             WindowEvent::CloseRequested => {
-                println!("Close requested");
+                debug!("WindowEvent: Close Requested");
                 self.destroying = true;
                 event_loop.exit();
             }
@@ -249,16 +251,16 @@ impl ApplicationHandler for WinitWindow {
     }
 
     fn exiting(&mut self, event_loop: &ActiveEventLoop) {
-        println!("Exiting");
+        debug!("WinitWindow Exiting");
 
         if !event_loop.exiting() {
             event_loop.exit();
         }
 
         self.running = false;
-        println!("Winit Exiting");
     }
 }
+
 fn parse_winit_key_code(key_code: KeyCode) -> Option<KeyboardKey> {
     match key_code {
         KeyCode::Digit0 => Some(KeyboardKey::Key0),
