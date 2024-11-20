@@ -2,7 +2,7 @@ use log::debug;
 use nova_core::event::SystemEvents;
 use nova_math::vector2::Vector2;
 use nova_renderer::renderer::{Renderer, RendererType};
-use nova_window::window::{NovaWindow, get_window};
+use nova_window::window::{NovaWindow, get_nova_window};
 
 enum NovaEngineState {
     Initialization,
@@ -45,7 +45,7 @@ impl NovaEngine {
         let mut renderer = Renderer::default();
 
         self.state = NovaEngineState::Running;
-        self.window = Some(Box::new(get_window()));
+        self.window = Some(get_nova_window("Nova Engine"));
         // let mut renderer = Renderer::new(
         //     RendererType::Vulkan,
         //     self.window.get_window_handle(),

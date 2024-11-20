@@ -25,6 +25,6 @@ pub trait NovaWindow {
     fn redraw(&self) -> bool;
 }
 
-pub fn get_window() -> WinitWindow {
-    WinitWindow::new("Nova Engine")
+pub fn get_nova_window(title: &str) -> Box<dyn NovaWindow> {
+    Box::new(WinitWindow::new(title))
 }
