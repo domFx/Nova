@@ -1,14 +1,11 @@
 use crate::window::NovaWindow;
-use nova_core::event::{fire_event, EventContext};
 use nova_core::input::{KeyboardKey, KeyboardKeyState, MouseButtonState, INPUT_STATE};
 use nova_math::vector::vector2::Vector2;
 use nova_renderer::renderer::Renderer;
 
 use log::{debug, error, info};
-use std::time::{Instant};
-
 use anyhow::Result;
-use raw_window_handle::{DisplayHandle, HasDisplayHandle, HasRawDisplayHandle, HasRawWindowHandle, HasWindowHandle, RawDisplayHandle, RawWindowHandle, WindowHandle};
+use raw_window_handle::{HasRawDisplayHandle, HasRawWindowHandle, HasWindowHandle, RawDisplayHandle, RawWindowHandle, WindowHandle};
 use winit::{
     event::{ElementState, MouseButton, WindowEvent},
     event_loop::{ControlFlow, EventLoop},
@@ -158,7 +155,6 @@ impl ApplicationHandler for WinitWindow<'_> {
                 };
 
                 if let Some(keyboard_key) = key {
-                    // TODO: Remove this, temp for quick debug
                     if keyboard_key == KeyboardKey::Escape {
                         event_loop.exit()
                     } else {
