@@ -5,14 +5,14 @@ use nova_math::vector::vector2::Vector2;
 use nova_renderer::renderer::Renderer;
 
 use log::{debug, error, info};
-use std::time::{Duration, Instant};
+use std::time::{Instant};
 
+use anyhow::Result;
 use raw_window_handle::{DisplayHandle, HasDisplayHandle, HasRawDisplayHandle, HasRawWindowHandle, HasWindowHandle, RawDisplayHandle, RawWindowHandle, WindowHandle};
 use winit::{
-    event::{ElementState, Event, MouseButton, WindowEvent},
+    event::{ElementState, MouseButton, WindowEvent},
     event_loop::{ControlFlow, EventLoop},
     keyboard::{KeyCode, PhysicalKey},
-    platform::run_on_demand::EventLoopExtRunOnDemand,
     window::WindowAttributes,
 };
 use winit::application::ApplicationHandler;
@@ -20,8 +20,9 @@ use winit::dpi::LogicalSize;
 use winit::event_loop::ActiveEventLoop;
 use winit::window::WindowId;
 
-pub struct WinitWindow {
+pub struct WinitWindow<'a> {
     window: Option<winit::window::Window>,
+    renderer: &'a mut Renderer,
 
     raw_display_handle: Option<RawDisplayHandle>,
     raw_window_handle: Option<RawWindowHandle>,
@@ -35,13 +36,14 @@ pub struct WinitWindow {
     window_title: String
 }
 
-impl WinitWindow {
-    pub fn new(window_title: &str) -> Self {
+impl<'a> WinitWindow<'a> {
+    pub fn new(window_title: &str, renderer: &'a mut Renderer) -> Result<Self> {
         let event_loop = EventLoop::new().unwrap();
         event_loop.set_control_flow(ControlFlow::Poll);
 
         let mut winit_window = Self {
             window: None,
+            renderer,
 
             raw_display_handle: None,
             raw_window_handle: None,
@@ -57,11 +59,11 @@ impl WinitWindow {
 
         event_loop.run_app(&mut winit_window).unwrap();
 
-        winit_window
+        Ok(winit_window)
     }
 }
 
-impl NovaWindow for WinitWindow {
+impl NovaWindow<'_> for WinitWindow<'_> {
     fn run(&self) {
        return
     }
@@ -95,27 +97,26 @@ impl NovaWindow for WinitWindow {
     }
 }
 
-impl ApplicationHandler for WinitWindow {
+impl ApplicationHandler for WinitWindow<'_> {
     fn resumed(&mut self, event_loop: &ActiveEventLoop) {
         let window_title = self.window_title.to_string();
 
         let window_attributes = WindowAttributes::default()
-            // .with_transparent(true)
             .with_title(window_title)
             .with_inner_size(LogicalSize::new(800, 600));
 
         let window = event_loop.create_window(window_attributes).unwrap();
 
+        let inner_size = window.inner_size();
+        let window_size = Vector2::new(inner_size.width, inner_size.height);
 
+        self.raw_display_handle = Some(window.raw_display_handle().unwrap());
+        self.raw_window_handle = Some(window.window_handle().unwrap().raw_window_handle().unwrap());
+
+        self.window_size = window_size;
+
+        self.renderer.init(self.raw_window_handle.unwrap(), self.raw_display_handle.unwrap(), window_size).unwrap();
         self.window = Some(window);
-
-        // let inner_size = window.inner_size();
-        // let window_size = Vector2::new(inner_size.width, inner_size.height);
-
-        // self.raw_display_handle = Some(window.raw_display_handle().unwrap());
-        // self.raw_window_handle = Some(window.window_handle().unwrap().raw_window_handle().unwrap());
-
-        // self.window_size = window_size;
     }
 
     fn window_event(&mut self, event_loop: &ActiveEventLoop, window_id: WindowId, event: WindowEvent) {
@@ -146,38 +147,38 @@ impl ApplicationHandler for WinitWindow {
                 is_synthetic: false,
                 ..
             } => {
-                // let keyboard_button_state = match key_event.state {
-                //     ElementState::Pressed => KeyboardKeyState::Pressed,
-                //     ElementState::Released => KeyboardKeyState::Released,
-                // };
-                //
-                // let key = match key_event.physical_key {
-                //     PhysicalKey::Code(key_code) => parse_winit_key_code(key_code),
-                //     PhysicalKey::Unidentified(_) => None,
-                // };
-                //
-                // if let Some(keyboard_key) = key {
-                //     // TODO: Remove this, temp for quick debug
-                //     if keyboard_key == KeyboardKey::Escape {
-                //         event_loop.exit()
-                //     } else {
-                //         // Pass to input system
-                //         INPUT_STATE
-                //             .lock()
-                //             .unwrap()
-                //             .keyboard_state
-                //             .set_key_state(keyboard_key, keyboard_button_state);
-                //     }
-                //
-                //     let pressed_keys = INPUT_STATE
-                //         .lock()
-                //         .unwrap()
-                //         .keyboard_state
-                //         .get_pressed_keys();
-                //     debug!("Pressed keys {:?}", pressed_keys);
-                // } else {
-                //     error!("Unable to parse key {:?}", key_event.physical_key)
-                // }
+                let keyboard_button_state = match key_event.state {
+                    ElementState::Pressed => KeyboardKeyState::Pressed,
+                    ElementState::Released => KeyboardKeyState::Released,
+                };
+
+                let key = match key_event.physical_key {
+                    PhysicalKey::Code(key_code) => parse_winit_key_code(key_code),
+                    PhysicalKey::Unidentified(_) => None,
+                };
+
+                if let Some(keyboard_key) = key {
+                    // TODO: Remove this, temp for quick debug
+                    if keyboard_key == KeyboardKey::Escape {
+                        event_loop.exit()
+                    } else {
+                        // Pass to input system
+                        INPUT_STATE
+                            .lock()
+                            .unwrap()
+                            .keyboard_state
+                            .set_key_state(keyboard_key, keyboard_button_state);
+                    }
+
+                    let pressed_keys = INPUT_STATE
+                        .lock()
+                        .unwrap()
+                        .keyboard_state
+                        .get_pressed_keys();
+                    debug!("Pressed keys {:?}", pressed_keys);
+                } else {
+                    error!("Unable to parse key {:?}", key_event.physical_key)
+                }
             }
             WindowEvent::ModifiersChanged(_) => {}
             WindowEvent::Ime(_) => {}
@@ -186,40 +187,31 @@ impl ApplicationHandler for WinitWindow {
             WindowEvent::CursorLeft { .. } => {}
             WindowEvent::MouseWheel { .. } => {}
             WindowEvent::MouseInput { state, button, .. } => {
-                // let mouse_button_state = match state {
-                //     ElementState::Pressed => MouseButtonState::Pressed,
-                //     ElementState::Released => MouseButtonState::Released,
-                // };
-                //
-                // let mouse_button = match button {
-                //     MouseButton::Right => Some(nova_core::input::MouseButton::RightButton),
-                //     MouseButton::Left => Some(nova_core::input::MouseButton::LeftButton),
-                //     MouseButton::Middle => {
-                //         Some(nova_core::input::MouseButton::MiddleButton)
-                //     }
-                //     MouseButton::Back => None,
-                //     MouseButton::Forward => None,
-                //     MouseButton::Other(_) => None,
-                // };
-                //
-                // if let Some(button) = mouse_button {
-                //     INPUT_STATE
-                //         .lock()
-                //         .unwrap()
-                //         .mouse_state
-                //         .set_mouse_state(button, mouse_button_state);
-                //
-                //     debug!(
-                //                 "Pressed mouse buttons {:?}",
-                //                 INPUT_STATE
-                //                     .lock()
-                //                     .unwrap()
-                //                     .mouse_state
-                //                     .get_pressed_buttons()
-                //             );
-                // } else {
-                //     error!("Unable to parse mouse button {:?}", button)
-                // }
+                let mouse_button_state = match state {
+                    ElementState::Pressed => MouseButtonState::Pressed,
+                    ElementState::Released => MouseButtonState::Released,
+                };
+
+                let mouse_button = match button {
+                    MouseButton::Right => Some(nova_core::input::MouseButton::RightButton),
+                    MouseButton::Left => Some(nova_core::input::MouseButton::LeftButton),
+                    MouseButton::Middle => {
+                        Some(nova_core::input::MouseButton::MiddleButton)
+                    }
+                    MouseButton::Back => None,
+                    MouseButton::Forward => None,
+                    MouseButton::Other(_) => None,
+                };
+
+                if let Some(button) = mouse_button {
+                    INPUT_STATE
+                        .lock()
+                        .unwrap()
+                        .mouse_state
+                        .set_mouse_state(button, mouse_button_state);
+                } else {
+                    error!("Unable to parse mouse button {:?}", button)
+                }
             }
             WindowEvent::PinchGesture { .. } => {}
             WindowEvent::PanGesture { .. } => {}
@@ -232,6 +224,8 @@ impl ApplicationHandler for WinitWindow {
             WindowEvent::ThemeChanged(_) => {}
             WindowEvent::Occluded(_) => {}
             WindowEvent::RedrawRequested => {
+                self.renderer.render(self.window_size).unwrap();
+
                 if let Some(window) = self.window.as_ref() {
                     window.request_redraw();
                 }
@@ -247,7 +241,9 @@ impl ApplicationHandler for WinitWindow {
     }
 
     fn about_to_wait(&mut self, event_loop: &ActiveEventLoop) {
-        //
+        if let Some(window) = self.window.as_ref() {
+            window.request_redraw();
+        }
     }
 
     fn exiting(&mut self, event_loop: &ActiveEventLoop) {

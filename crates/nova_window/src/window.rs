@@ -1,11 +1,9 @@
-use crate::winit_window::WinitWindow;
 use nova_math::vector::vector2::Vector2;
-use nova_renderer::renderer::Renderer;
 
 use raw_window_handle::{RawDisplayHandle, RawWindowHandle};
 
 /// Window functionality
-pub trait NovaWindow {
+pub trait NovaWindow<'a> {
     /// Window Loop
     fn run(&self);
 
@@ -23,8 +21,4 @@ pub trait NovaWindow {
     fn is_running(&self) -> bool;
 
     fn redraw(&self) -> bool;
-}
-
-pub fn get_nova_window(title: &str) -> Box<dyn NovaWindow> {
-    Box::new(WinitWindow::new(title))
 }
