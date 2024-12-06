@@ -1,4 +1,6 @@
 mod nova_engine;
+
+use log::error;
 use nova_engine::NovaEngine;
 
 fn main() {
@@ -6,8 +8,13 @@ fn main() {
         .set_log_level("trace")
         .use_pretty_env_logger();
 
+    {
+        let engine_result = engine.run();
     
-    engine.run();
+        if let Err(error) = engine_result {
+            error!("Unexpected error encountered: {}", error);
+        }
+    }
 
     // engine.destroy();
 }

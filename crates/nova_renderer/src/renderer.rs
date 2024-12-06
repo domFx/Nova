@@ -216,6 +216,8 @@ impl Renderer {
         if let Some(ref mut renderer_backend) = self.renderer_backend {
             renderer_backend.destroy();
         }
+
+        self.renderer_backend = None;
     }
 }
 
