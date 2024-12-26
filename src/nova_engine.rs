@@ -43,7 +43,7 @@ impl NovaEngine {
         self
     }
 
-    pub fn run(&mut self) -> Result<()> {
+    pub fn run(&mut self) -> Result<&mut NovaEngine> {
         if self.state != NovaEngineState::Initialization {
             return Err(anyhow!("NovaEngine state is not Initialization"));
         }
@@ -67,6 +67,6 @@ impl NovaEngine {
 
         self.state = NovaEngineState::Complete;
 
-        Ok(())
+        Ok(self)
     }
 }

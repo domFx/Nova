@@ -5,7 +5,7 @@ use nova_renderer::renderer::Renderer;
 
 use log::{debug, error, info};
 use anyhow::Result;
-use raw_window_handle::{HasRawDisplayHandle, HasRawWindowHandle, HasWindowHandle, RawDisplayHandle, RawWindowHandle, WindowHandle};
+use raw_window_handle::{HasDisplayHandle, HasRawDisplayHandle, HasRawWindowHandle, HasWindowHandle, RawDisplayHandle, RawWindowHandle, WindowHandle};
 use winit::{
     event::{ElementState, MouseButton, WindowEvent},
     event_loop::{ControlFlow, EventLoop},
@@ -35,7 +35,7 @@ pub struct WinitWindow<'a> {
 
 impl<'a> WinitWindow<'a> {
     pub fn new(window_title: &str, renderer: &'a mut Renderer) -> Result<Self> {
-        let event_loop = EventLoop::new().unwrap();
+        let event_loop = EventLoop::new()?;
         event_loop.set_control_flow(ControlFlow::Poll);
 
         let mut winit_window = Self {
@@ -108,7 +108,7 @@ impl ApplicationHandler for WinitWindow<'_> {
         let window_size = Vector2::new(inner_size.width, inner_size.height);
 
         self.raw_display_handle = Some(window.raw_display_handle().unwrap());
-        self.raw_window_handle = Some(window.window_handle().unwrap().raw_window_handle().unwrap());
+        self.raw_window_handle = Some(window.raw_window_handle().unwrap());
 
         self.window_size = window_size;
 
