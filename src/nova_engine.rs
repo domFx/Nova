@@ -1,7 +1,6 @@
-use log::{debug, error};
+use log::{debug};
 use nova_core::event::SystemEvents;
-use nova_math::vector2::Vector2;
-use nova_renderer::renderer::{Renderer, RendererType};
+use nova_renderer::renderer::{Renderer};
 use nova_window::window::{NovaWindow};
 use nova_window::winit_window::WinitWindow;
 
