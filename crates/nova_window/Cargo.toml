@@ -8,6 +8,7 @@ nova_core.workspace = true
 nova_math.workspace = true
 nova_renderer.workspace = true
 
+anyhow.workspace = true
 log.workspace = true
 raw-window-handle.workspace = true
 winit.workspace = true

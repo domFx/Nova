@@ -7,12 +7,12 @@ edition = "2021"
 nova_core.workspace = true
 nova_math.workspace = true
 
+anyhow.workspace = true
 log.workspace = true
 raw-window-handle.workspace = true
 winit.workspace = true
 thiserror.workspace = true
 
-anyhow = "1.0"
 ash = "0.38.0"
 ash-window = "0.13.0"
 cgmath = "0.18.0"

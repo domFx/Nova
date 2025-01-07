@@ -1,52 +1,71 @@
+use log::{debug};
 use nova_core::event::SystemEvents;
-use nova_renderer::renderer::{Renderer, RendererType};
-use nova_window::window::{NovaWindow, get_window};
+use nova_renderer::renderer::{Renderer};
+use nova_window::window::{NovaWindow};
+use nova_window::winit_window::WinitWindow;
+
+use anyhow::{anyhow, Result};
+
+#[derive(Debug, PartialEq)]
+enum NovaEngineState {
+    Initialization,
+    Running,
+    Cleanup,
+    Complete
+}
 
 pub struct NovaEngine {
-    window: Box<dyn NovaWindow>,
-    renderer: Renderer,
-    system_event_handler: SystemEvents
+    renderer: Box<Renderer>,
+    system_event_handler: SystemEvents,
+    state: NovaEngineState,
 }
 
 impl NovaEngine {
-    pub fn new() -> Box<Self> {
-        let window = get_window();
-        window.set_title("Nova Engine");
-
+    pub fn new() -> Self {
         let system_event_handler = SystemEvents::default();
+        let renderer = Box::new(Renderer::default());
 
-        let renderer = Renderer::new(
-            RendererType::Vulkan,
-            window.get_window_handle(),
-            window.get_raw_display_handle(),
-            window.get_window_dimensions()
-        ).expect("Expected valid renderer");
-
-        Box::new(Self {
-            window: Box::new(window),
+        Self {
             renderer,
-            system_event_handler
-        })
+            system_event_handler,
+            state: NovaEngineState::Initialization
+        }
     }
 
-    pub fn run(&mut self) {
-        self.window.run(&mut self.renderer);
-    }
-
-    pub fn use_pretty_env_logger(&mut self) -> &mut NovaEngine {
+    pub fn use_pretty_env_logger(self) -> NovaEngine {
         pretty_env_logger::init();
         self
     }
 
-    pub fn set_log_level(&mut self, log_level: &str) -> &mut NovaEngine {
+    pub fn set_log_level(self, log_level: &str) -> NovaEngine {
         std::env::set_var("RUST_LOG", log_level);
         self
     }
-}
 
-impl Drop for NovaEngine {
-    fn drop(&mut self) {
+    pub fn run(&mut self) -> Result<&mut NovaEngine> {
+        if self.state != NovaEngineState::Initialization {
+            return Err(anyhow!("NovaEngine state is not Initialization"));
+        }
+
+        self.state = NovaEngineState::Running;
+
+        // Start window loop
+        {
+            let renderer = &mut self.renderer;
+
+            let nova_window =
+                Box::new(WinitWindow::new("Nova Engine", renderer)?);
+
+            nova_window.destroy();
+        }
+
+        debug!("NovaEngine clean up.");
+        self.state = NovaEngineState::Cleanup;
+        
         self.renderer.destroy();
-        self.window.destroy();
+
+        self.state = NovaEngineState::Complete;
+
+        Ok(self)
     }
 }

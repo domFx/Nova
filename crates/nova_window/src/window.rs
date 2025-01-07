@@ -1,13 +1,11 @@
-use crate::winit_window::WinitWindow;
 use nova_math::vector::vector2::Vector2;
-use nova_renderer::renderer::Renderer;
 
 use raw_window_handle::{RawDisplayHandle, RawWindowHandle};
 
 /// Window functionality
-pub trait NovaWindow {
+pub trait NovaWindow<'a> {
     /// Window Loop
-    fn run(&mut self, renderer: &mut Renderer);
+    fn run(&self);
 
     /// Window Cleanup
     fn destroy(&self);
@@ -18,11 +16,9 @@ pub trait NovaWindow {
 
     fn get_window_dimensions(&self) -> Vector2<u32>;
 
-    fn get_window(&self) -> &winit::window::Window;
+    fn set_title(&mut self, title: &str);
 
-    fn set_title(&self, title: &str);
-}
+    fn is_running(&self) -> bool;
 
-pub fn get_window() -> impl NovaWindow {
-    WinitWindow::new()
+    fn redraw(&self) -> bool;
 }
