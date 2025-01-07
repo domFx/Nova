@@ -114,7 +114,6 @@ impl QuadDrawables {
             .iter()
             .enumerate()
             .for_each(|(i, vertex)| { self.vertex_buffer[vertex_buffer_idx + i] = Some(*vertex); });
-
         self.quad_count += 1;
     }
 
