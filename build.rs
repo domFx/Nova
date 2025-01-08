@@ -14,6 +14,8 @@ fn compile_shaders() {
 }
 
 #[cfg(target_os = "macos")]
+// TODO: Figure out a way to run this in CI
+#[cfg_attr(feature = "ci", ignore)] 
 fn compile_shaders() {
     let shaders = vec![
         "shader.vert",

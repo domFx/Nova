@@ -37,3 +37,6 @@ nova_core.workspace = true
 nova_math.workspace = true
 nova_renderer.workspace = true
 nova_window.workspace = true
+
+[features]
+ci = []
