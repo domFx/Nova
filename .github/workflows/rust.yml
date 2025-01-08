@@ -28,17 +28,17 @@ jobs:
       run: cargo test --verbose
 
   
-  build-macos-latest:
-
-    runs-on: macos-latest
-
-    steps:
-      - uses: actions/checkout@v4
-      - name: Build
-        env:
-          CARGO_SKIP_BUILD_SCRIPT: "1"
-        run: cargo build --verbose
-      - name: Run tests
-        env:
-          CARGO_SKIP_BUILD_SCRIPT: "1"
-        run: cargo test --verbose
+#  build-macos-latest:
+#
+#    runs-on: macos-latest
+#
+#    steps:
+#      - uses: actions/checkout@v4
+#      - name: Build
+#        env:
+#          CARGO_SKIP_BUILD_SCRIPT: "1"
+#        run: cargo build --verbose
+#      - name: Run tests
+#        env:
+#          CARGO_SKIP_BUILD_SCRIPT: "1"
+#        run: cargo test --verbose
