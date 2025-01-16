@@ -17,7 +17,7 @@ enum NovaEngineState {
 pub struct NovaEngine {
     renderer: Box<Renderer>,
     system_event_handler: SystemEvents,
-    state: NovaEngineState,
+    state: NovaEngineState
 }
 
 impl NovaEngine {

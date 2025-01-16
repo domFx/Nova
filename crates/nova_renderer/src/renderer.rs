@@ -1,63 +1,12 @@
 use crate::vulkan::vulkan_renderer::VulkanRenderer;
 use crate::renderer_backend::RendererBackend;
-use crate::transform::Transform;
 use crate::vertex::Vertex;
 
 use nova_math::vector::vector2::Vector2;
-use nova_math::vector::vector4::Vector4;
 
 use anyhow::{anyhow, Result};
 use raw_window_handle::{RawDisplayHandle, RawWindowHandle};
 use thiserror::Error;
-
-/// Core Renderable Object
-trait Renderable {
-    fn transform(&self) -> &Transform;
-    fn z_index(&self) -> &i32;
-}
-
-#[derive(Debug, Copy, Clone)]
-pub struct RectRenderable {
-    // Transform data
-    transform: Transform, // Model matrix for translation, rotation, scaling
-
-    // Appearance data
-
-    // Color: RGBA
-    color: Vector4<f32>,
-    // texture_id: u32,        // Texture index in an atlas or texture array
-
-    // Render order (higher = on top)
-    z_index: i32,
-
-    // Vulkan-specific data (optional)
-    // pipeline_layout: vk::PipelineLayout,
-    // descriptor_set: vk::DescriptorSet,
-
-    // Should the object be drawn
-    is_visible: bool
-}
-
-impl Renderable for RectRenderable {
-    fn transform(&self) -> &Transform {
-        &self.transform
-    }
-
-    fn z_index(&self) -> &i32 {
-        &self.z_index
-    }
-}
-
-impl RectRenderable {
-    pub fn new(transform: Transform, color: Vector4<f32>, z_index: i32, is_visible: bool) -> Self {
-        Self {
-            transform,
-            color,
-            z_index,
-            is_visible
-        }
-    }
-}
 
 pub enum RendererType {
     Vulkan,
