@@ -1,3 +1,5 @@
+#![allow(unused)]
+
 mod nova_engine;
 
 use log::error;

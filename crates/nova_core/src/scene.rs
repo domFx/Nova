@@ -5,7 +5,7 @@ use crate::node::{ Node, NodeId };
 #[allow(unused)]
 #[derive(Default)]
 pub struct Scene {
-    nodes: HashMap<NodeId, Node>
+    nodes: HashMap<NodeId, Box<dyn Node>>
 }
 
 impl Scene {
@@ -16,8 +16,8 @@ impl Scene {
         }
     }
 
-    pub fn add_node(&mut self, node: Node) {
-        self.nodes.insert(node.get_id().to_owned(), node);
+    pub fn add_node(&mut self, nova_node: Box<dyn Node>) {
+        self.nodes.insert(nova_node.get_game_node().get_id().to_owned(), nova_node);
     }
 
     pub fn contains_node(&self, node_id: &NodeId) -> bool {
@@ -28,7 +28,7 @@ impl Scene {
         self.nodes.remove(node_id);
     }
 
-    pub fn get_nodes(&self) -> &HashMap<NodeId, Node> {
+    pub fn get_nodes(&self) -> &HashMap<NodeId, Box<dyn Node>> {
         &self.nodes
     }
 }
