@@ -4,7 +4,7 @@ use crate::vulkan::vulkan_buffer::VulkanAppBuffer;
 
 use anyhow::Result;
 use ash::vk;
-use nova_core::scene::Scene;
+use nova_core::scene::SceneBase;
 use crate::vulkan::utils::single_time_commands::*;
 
 // TODO: Potentially introduce state (init/recording/submitted)
@@ -46,11 +46,11 @@ impl<'a> VulkanRenderCommand<'a> {
 impl RenderCommand for VulkanRenderCommand<'_> {
     // Could maybe move the VulkanRenderCommand::new code into here, or call begin_single_time_commands here
     // Could be enforced that this is called first with state using phantom data.
-    fn begin_scene(&self, scene: &Scene) -> Result<()> {
+    fn begin_scene(&self, scene: &SceneBase) -> Result<()> {
         Ok(())
     }
 
-    fn end_scene(&self, scene: &Scene) -> Result<()> {
+    fn end_scene(&self, scene: &SceneBase) -> Result<()> {
         end_single_time_commands(
             self.logical_device,
             self.graphics_queue,

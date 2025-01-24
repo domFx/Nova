@@ -1,17 +1,21 @@
 use std::collections::HashMap;
 
-use crate::node::{ Node, NodeId };
+use crate::node::Node;
+use crate::entity_id::EntityId;
 
-#[allow(unused)]
-#[derive(Default)]
-pub struct Scene {
-    nodes: HashMap<NodeId, Box<dyn Node>>
+pub trait Scene {
+    fn get_scene_base(&self) -> &SceneBase;
 }
 
-impl Scene {
-    pub fn new() -> Scene {
+#[derive(Default)]
+pub struct SceneBase {
+    nodes: HashMap<EntityId, Box<dyn Node>>
+}
+
+impl SceneBase {
+    pub fn new() -> SceneBase {
         let default_capacity = 10;
-        Scene {
+        SceneBase {
             nodes: HashMap::with_capacity(default_capacity)
         }
     }
@@ -20,15 +24,15 @@ impl Scene {
         self.nodes.insert(nova_node.get_game_node().get_id().to_owned(), nova_node);
     }
 
-    pub fn contains_node(&self, node_id: &NodeId) -> bool {
+    pub fn contains_node(&self, node_id: &EntityId) -> bool {
         self.nodes.contains_key(node_id)
     }
 
-    pub fn remove_node(&mut self, node_id: &NodeId) {
+    pub fn remove_node(&mut self, node_id: &EntityId) {
         self.nodes.remove(node_id);
     }
 
-    pub fn get_nodes(&self) -> &HashMap<NodeId, Box<dyn Node>> {
+    pub fn get_nodes(&self) -> &HashMap<EntityId, Box<dyn Node>> {
         &self.nodes
     }
 }

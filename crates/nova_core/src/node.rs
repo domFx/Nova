@@ -1,26 +1,8 @@
 use nova_math::vector3::Vector3;
+
 use crate::color::Color;
+use crate::entity_id::EntityId;
 use crate::transform::Transform;
-
-/// Id wrapper
-#[derive(Default, PartialEq, Eq, Hash, Copy, Clone)]
-pub struct NodeId {
-    id: u32
-}
-
-impl NodeId {
-    pub fn new(id: u32) -> NodeId {
-        NodeId { id }
-    }
-
-    pub fn id(&self) -> u32 {
-        self.id
-    }
-
-    pub fn to_string(&self) -> String {
-        self.id.to_string()
-    }
-}
 
 /// Indicates how many indices to use and how they are laid out in the renderer
 #[derive(Default, Copy, Clone)]
@@ -32,7 +14,7 @@ pub enum NodeType {
 
 #[derive(Default, Copy, Clone)]
 pub struct NodeBase {
-    id: NodeId,
+    id: EntityId,
 
     // Transform data
     transform: Transform,
@@ -61,7 +43,7 @@ impl NodeBase {
         &self.transform
     }
 
-    pub fn get_id(&self) -> &NodeId {
+    pub fn get_id(&self) -> &EntityId {
         &self.id
     }
 
@@ -71,6 +53,14 @@ impl NodeBase {
 
     pub fn show(&mut self) {
         self.is_visible = true;
+    }
+
+    pub fn set_position(&mut self, position: Vector3<f32>) {
+        self.transform.set_position(position);
+    }
+
+    pub fn set_color(&mut self, color: Color) {
+        self.color = Some(color);
     }
 }
 
@@ -85,7 +75,9 @@ pub trait Node {
 }
 
 pub fn draw_triangle_from_transform(transform: Transform) -> NodeBase {
-    NodeBase::new(transform)
+   let mut node = NodeBase::new(transform);
+   node.node_type = NodeType::Triangle;
+   node
 }
 
 pub fn draw_triangle_from_vec3(position: Vector3<f32>, rotation: Vector3<f32>, scale: Vector3<f32>) -> NodeBase {
@@ -93,7 +85,7 @@ pub fn draw_triangle_from_vec3(position: Vector3<f32>, rotation: Vector3<f32>, s
 }
 
 pub struct RectangleNode { 
-    game_node: NodeBase,
+    node_base: NodeBase,
     width: f32,
     height: f32
 }
@@ -110,6 +102,23 @@ impl Scriptable for RectangleNode {
 
 impl Node for RectangleNode {
     fn get_game_node(&self) -> &NodeBase {
-        &self.game_node
+        &self.node_base
+    }
+}
+
+impl RectangleNode {
+    pub fn new(width: f32, height: f32, position: Vector3<f32>, color: Option<Color>) -> Self {
+        let mut node_base = NodeBase::default();
+        node_base.set_position(position);
+
+        if let Some(c) = color {
+            node_base.set_color(c);
+        }
+
+        Self {
+            node_base: NodeBase::default(),
+            width: width,
+            height: height
+        }
     }
 }
