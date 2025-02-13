@@ -5,6 +5,23 @@
     "version": "0.2.0",
     "configurations": [
         {
+            "type": "lldb",
+            "request": "launch",
+            "name": "MacOS - Cargo launch",
+            "preLaunchTask": "rust: cargo build",
+            "cargo": {
+                "args": [
+                    "build"
+                ]
+            },
+            "cwd": "${workspaceFolder}",
+            "console": "integratedTerminal",
+            "args": [],
+            "env": {
+                "DYLD_LIBRARY_PATH": "/usr/local/lib",
+            }
+        },
+        {
             "name": "(Windows) Launch",
             "type": "cppvsdbg",
             "request": "launch",
@@ -15,6 +32,6 @@
             "cwd": "${workspaceFolder}",
             "environment": [],
             "console": "integratedTerminal"
-        }
+        },
     ]
 }
