@@ -5,7 +5,7 @@ use std::sync::{Mutex, LazyLock};
 static ENTITY_COUNT: LazyLock<Mutex<u32>> = LazyLock::new(|| Mutex::new(0));
 
 /// Id wrapper class
-#[derive(Default, PartialEq, Eq, Hash, Copy, Clone)]
+#[derive(PartialEq, Eq, Hash, Copy, Clone)]
 pub struct EntityId {
     id: u32
 }
@@ -25,6 +25,12 @@ impl EntityId {
 
     pub fn to_string(&self) -> String {
         self.id.to_string()
+    }
+}
+
+impl Default for EntityId {
+    fn default() -> Self {
+        Self::new()
     }
 }
 

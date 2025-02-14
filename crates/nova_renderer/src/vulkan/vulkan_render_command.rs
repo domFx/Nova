@@ -1,9 +1,9 @@
-use crate::render_command::RenderCommand;
 use crate::vertex::Vertex;
 use crate::vulkan::vulkan_buffer::VulkanAppBuffer;
 
 use anyhow::Result;
 use ash::vk;
+use nova_core::color::{Color};
 use nova_core::scene::SceneBase;
 use crate::vulkan::utils::single_time_commands::*;
 
@@ -17,7 +17,10 @@ pub(crate) struct VulkanRenderCommand<'a> {
     // Command pool - cleanup command buffer that was created after use
     command_pool: vk::CommandPool,
     // Graphics queue to submit to
-    graphics_queue: vk::Queue
+    graphics_queue: vk::Queue,
+
+
+    clear_color: Color
 }
 
 impl<'a> VulkanRenderCommand<'a> {
@@ -36,63 +39,70 @@ impl<'a> VulkanRenderCommand<'a> {
             physical_device,
             command_pool,
             command_buffer,
-            graphics_queue
+            graphics_queue,
+            clear_color: Color::WHITE
         };
 
         Ok(render_command)
     }
 }
 
-impl RenderCommand for VulkanRenderCommand<'_> {
-    // Could maybe move the VulkanRenderCommand::new code into here, or call begin_single_time_commands here
-    // Could be enforced that this is called first with state using phantom data.
-    fn begin_scene(&self, scene: &SceneBase) -> Result<()> {
-        Ok(())
-    }
+// impl RenderCommand for VulkanRenderCommand<'_> {
+//     // Could maybe move the VulkanRenderCommand::new code into here, or call begin_single_time_commands here
+//     // Could be enforced that this is called first with state using phantom data.
+//     fn begin_drawing(&self, scene: &SceneBase) -> Result<()> {
+//         Ok(())
+//     }
 
-    fn end_scene(&self, scene: &SceneBase) -> Result<()> {
-        end_single_time_commands(
-            self.logical_device,
-            self.graphics_queue,
-            self.command_pool,
-            self.command_buffer
-        )?;
+//     fn end_drawing(&self, scene: &SceneBase) -> Result<()> {
+//         end_single_time_commands(
+//             self.logical_device,
+//             self.graphics_queue,
+//             self.command_pool,
+//             self.command_buffer
+//         )?;
 
-        Ok(())
-    }
+//         Ok(())
+//     }
+    
+//     fn clear_background(&mut self, color: nova_core::color::Color) -> Result<()> {
+//         self.clear_color = color;
 
-    fn bind_vertex_buffer(&self, vertex_buffer: Vec<Vertex>) -> Result<()> {
-        let buffer = VulkanAppBuffer::new_staged(
-            vertex_buffer.as_ptr(),
-            vertex_buffer.len(),
-            self.logical_device,
-            self.instance,
-            self.physical_device,
-            self.graphics_queue,
-            self.command_pool,
-            vk::BufferUsageFlags::TRANSFER_DST | vk::BufferUsageFlags::VERTEX_BUFFER,
-            vk::MemoryPropertyFlags::DEVICE_LOCAL
-        )?;
+//         return Ok(())
+//     }
 
-        unsafe {
-            self.logical_device.cmd_bind_vertex_buffers(self.command_buffer, 0, &[buffer.buffer], &[0])
-        }
+//     fn bind_vertex_buffer(&self, vertex_buffer: Vec<Vertex>) -> Result<()> {
+//         let buffer = VulkanAppBuffer::new_staged(
+//             vertex_buffer.as_ptr(),
+//             vertex_buffer.len(),
+//             self.logical_device,
+//             self.instance,
+//             self.physical_device,
+//             self.graphics_queue,
+//             self.command_pool,
+//             vk::BufferUsageFlags::TRANSFER_DST | vk::BufferUsageFlags::VERTEX_BUFFER,
+//             vk::MemoryPropertyFlags::DEVICE_LOCAL
+//         )?;
 
-        Ok(())
-    }
+//         unsafe {
+//             self.logical_device.cmd_bind_vertex_buffers(self.command_buffer, 0, &[buffer.buffer], &[0])
+//         }
 
-    fn bind_index_buffer(&self, _index_buffer: Vec<u32>) -> Result<()> {
-        // unsafe {
-            // self.logical_device.cmd_bind_index_buffer(self.command_buffer, vk::Buffer::null(), 0, vk::IndexType::UINT16);
-        // }
+//         Ok(())
+//     }
 
-        Ok(())
-    }
+//     fn bind_index_buffer(&self, _index_buffer: Vec<u32>) -> Result<()> {
+//         // unsafe {
+//             // self.logical_device.cmd_bind_index_buffer(self.command_buffer, vk::Buffer::null(), 0, vk::IndexType::UINT16);
+//         // }
 
-    fn draw(&self) -> Result<()> {
-        todo!("Not implemented ")
-    }
-}
+//         Ok(())
+//     }
+
+//     fn draw(&self) -> Result<()> {
+//         todo!("Not implemented ")
+//     }
+// }
 
 impl Drop for VulkanRenderCommand<'_> {
     fn drop(&mut self) {

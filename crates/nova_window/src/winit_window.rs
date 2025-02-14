@@ -112,7 +112,8 @@ impl ApplicationHandler for WinitWindow<'_> {
 
         self.window_size = window_size;
 
-        self.renderer.init(self.raw_window_handle.unwrap(), self.raw_display_handle.unwrap(), window_size).unwrap();
+        // TODO: Make renderer backend configurable
+        self.renderer.new_vulkan_renderer(self.raw_window_handle.unwrap(), self.raw_display_handle.unwrap(), window_size).unwrap();
         self.window = Some(window);
     }
 

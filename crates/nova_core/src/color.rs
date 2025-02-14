@@ -1,9 +1,5 @@
 use nova_math::vector::vector4::Vector4;
 
-// Colors: RGBA
-pub const WHITE: Color = Color { r: 0.0, g: 0.0, b: 0.0, a: 0.0 };
-pub const BLACK: Color = Color { r: 1.0, g: 1.0, b: 1.0, a: 0.0 };
-
 #[derive(Default, Clone, Copy)]
 pub struct Color {
     r: f32,
@@ -13,6 +9,10 @@ pub struct Color {
 }
 
 impl Color {
+    // Colors: RGBA
+    pub const WHITE: Color = Color { r: 0.0, g: 0.0, b: 0.0, a: 0.0 };
+    pub const BLACK: Color = Color { r: 1.0, g: 1.0, b: 1.0, a: 0.0 };
+
     pub fn new(r: f32, g: f32, b: f32, a: f32) -> Color {
         Color { r, g, b, a }
     }
