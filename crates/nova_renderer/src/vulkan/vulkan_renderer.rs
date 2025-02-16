@@ -23,12 +23,14 @@ use crate::vulkan::vulkan_vertex::{create_vertex_buffer, INDICES};
 use crate::vulkan::vulkan_render_command::VulkanRenderCommand;
 use crate::renderer_backend::RendererBackend;
 
+use ash::ext::index_type_uint8;
 use nova_math::vector::vector2::Vector2;
 
 use anyhow::{anyhow, Result};
 use ash::vk;
 use ash::khr;
 use ash::prelude::VkResult;
+use png::chunk::acTL;
 use std::time::Instant;
 use raw_window_handle::{RawDisplayHandle, RawWindowHandle};
 
@@ -67,6 +69,8 @@ pub struct VulkanRenderer {
     texture_image: VulkanImage,
     sampler: vk::Sampler,
     pub resized: bool,
+    active_command_buffer: Option<vk::CommandBuffer>,
+    current_image_index: Option<usize>
 }
 
 impl RendererBackend for VulkanRenderer {
@@ -86,13 +90,31 @@ impl RendererBackend for VulkanRenderer {
                 VkResult::Err(vk::Result::ERROR_OUT_OF_DATE_KHR) => return self.recreate_swapchain(self.window_dimensions),
                 VkResult::Err(e) => return Err(anyhow!(e))
             };
-
+            
             update_uniform_buffer(self.current_frame, &self.uniform_buffers, self.swapchain.extent, &self.logical_device, &self.start)?;
-
+            
             self.logical_device.reset_fences(&[self.in_flight_fences[self.current_frame]])?;
-
+            
             self.logical_device.reset_command_buffer(self.command_buffers[self.current_frame], vk::CommandBufferResetFlags::empty())?;
-            self.record_command_buffer(self.command_buffers[self.current_frame], image_index)?;
+
+            self.active_command_buffer = Some(self.command_buffers[self.current_frame]);
+            self.current_image_index = Some(image_index);
+
+            ///
+            /// WHERE THE DRAW CALLS HAPPEN
+            /// 
+            /// 
+            /// 
+            ///
+            /// 
+            self.record_command_buffer()?;
+
+            ///
+            /// 
+            /// 
+            /// 
+            /// 
+            /// 
 
             let wait_semaphores = &[self.image_available_semaphores[self.current_frame]];
             let wait_stages = &[vk::PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT];
@@ -251,54 +273,56 @@ impl VulkanRenderer {
                 window_dimensions,
                 texture_image,
                 sampler,
-                resized: false
+                resized: false,
+                active_command_buffer: None,
+                current_image_index: None
             };
 
             Ok(renderer)
         }
     }
 
-    pub fn get_2d_render_command(&self) -> Result<VulkanRenderCommand> {
-        let render_command = VulkanRenderCommand::new(
-            &self.logical_device,
-            &self.instance,
-            self.physical_device,
-            self.command_pool,
-            self.graphics_queue
-        )?;
+    pub fn record_command_buffer(&self) -> Result<()> {
+        let current_image_index = if let Some(image_index) = self.current_image_index {
+            image_index
+        } else {
+            return Err(anyhow!("Current image index found"));
+        };
 
-        Ok(render_command)
-    }
+        let active_command_buffer = if let Some(active_command_buffer) = self.active_command_buffer {
+            active_command_buffer
+        } else {
+            return Err(anyhow!("No active command buffer found"));
+        };
 
-    pub fn record_command_buffer(
-        &self,
-        command_buffer: vk::CommandBuffer,
-        image_index: usize
-    ) -> Result<()> {
         unsafe {
             let info = vk::CommandBufferBeginInfo::default();
 
-            self.logical_device.begin_command_buffer(command_buffer, &info)?;
+            self.logical_device.begin_command_buffer(active_command_buffer, &info)?;
 
-            let render_area = vk::Rect2D::default()
-                .offset(vk::Offset2D { x: 0, y: 0 })
-                .extent(self.swapchain.extent);
+            // Begin Render Pass
+            { 
+                let render_area = vk::Rect2D::default()
+                    .offset(vk::Offset2D { x: 0, y: 0 })
+                    .extent(self.swapchain.extent);
+    
+                let color_clear_value = vk::ClearValue {
+                    color: vk::ClearColorValue {
+                        float32: [0.0, 0.0, 0.0, 1.0],
+                    },
+                };
+    
+                let clear_values = &[color_clear_value];
+                let info = vk::RenderPassBeginInfo::default()
+                    .render_pass(self.render_pass)
+                    .framebuffer(self.framebuffers[current_image_index])
+                    .render_area(render_area)
+                    .clear_values(clear_values);
+                
+                self.logical_device.cmd_begin_render_pass(active_command_buffer, &info, vk::SubpassContents::INLINE);
+            }
 
-            let color_clear_value = vk::ClearValue {
-                color: vk::ClearColorValue {
-                    float32: [0.0, 0.0, 0.0, 1.0],
-                },
-            };
-
-            let clear_values = &[color_clear_value];
-            let info = vk::RenderPassBeginInfo::default()
-                .render_pass(self.render_pass)
-                .framebuffer(self.framebuffers[image_index])
-                .render_area(render_area)
-                .clear_values(clear_values);
-
-            self.logical_device.cmd_begin_render_pass(command_buffer, &info, vk::SubpassContents::INLINE);
-            self.logical_device.cmd_bind_pipeline(command_buffer, vk::PipelineBindPoint::GRAPHICS, self.pipeline.pipeline);
+            self.logical_device.cmd_bind_pipeline(active_command_buffer, vk::PipelineBindPoint::GRAPHICS, self.pipeline.pipeline);
 
             let viewport = vk::Viewport::default()
                 .x(0.0)
@@ -307,31 +331,31 @@ impl VulkanRenderer {
                 .height(self.swapchain.extent.height as f32)
                 .min_depth(0.0)
                 .max_depth(1.0);
-
-            self.logical_device.cmd_set_viewport(command_buffer, 0, &[viewport]);
+            self.logical_device.cmd_set_viewport(active_command_buffer, 0, &[viewport]);
 
             let scissor = vk::Rect2D::default()
                 .offset(vk::Offset2D { x: 0, y: 0 })
                 .extent(self.swapchain.extent);
+            self.logical_device.cmd_set_scissor(active_command_buffer, 0, &[scissor]);
 
-            self.logical_device.cmd_set_scissor(command_buffer, 0, &[scissor]);
-
-            self.logical_device.cmd_bind_vertex_buffers(command_buffer, 0, &[self.vertex_buffer.buffer], &[0]);
-
-            self.logical_device.cmd_bind_index_buffer(command_buffer, self.index_buffer.buffer, 0, vk::IndexType::UINT16);
+            self.logical_device.cmd_bind_vertex_buffers(active_command_buffer, 0, &[self.vertex_buffer.buffer], &[0]);
+            self.logical_device.cmd_bind_index_buffer(active_command_buffer, self.index_buffer.buffer, 0, vk::IndexType::UINT16);
 
             self.logical_device.cmd_bind_descriptor_sets(
-                command_buffer,
+                active_command_buffer,
                 vk::PipelineBindPoint::GRAPHICS,
                 self.pipeline.pipeline_layout,
                 0,
                 &[self.descriptor_sets[self.current_frame]],
                 &[]);
 
-            self.logical_device.cmd_draw_indexed(command_buffer, INDICES.len() as u32, 1, 0, 0, 0);
-            self.logical_device.cmd_end_render_pass(command_buffer);
-
-            self.logical_device.end_command_buffer(command_buffer)?;
+            self.logical_device.cmd_draw_indexed(active_command_buffer, INDICES.len() as u32, 1, 0, 0, 0);
+            
+            // End render pass
+            { 
+                self.logical_device.cmd_end_render_pass(active_command_buffer);
+                self.logical_device.end_command_buffer(active_command_buffer)?;
+            }
 
             Ok(())
         }

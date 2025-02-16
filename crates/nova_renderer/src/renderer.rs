@@ -8,7 +8,7 @@ use anyhow::{anyhow, Result};
 use raw_window_handle::{RawDisplayHandle, RawWindowHandle};
 use thiserror::Error;
 
-pub enum RendererType {
+pub enum RendererBackendType {
     Vulkan,
 }
 
@@ -53,7 +53,7 @@ impl Renderer {
         raw_display_handle: RawDisplayHandle,
         window_dimensions: Vector2<u32>
     ) -> Result<()> {
-        self.new(raw_window_handle, raw_display_handle, window_dimensions, RendererType::Vulkan)?;
+        self.new(raw_window_handle, raw_display_handle, window_dimensions, RendererBackendType::Vulkan)?;
 
         Ok(())
     }
@@ -62,10 +62,10 @@ impl Renderer {
         raw_window_handle: RawWindowHandle,
         raw_display_handle: RawDisplayHandle,
         window_dimensions: Vector2<u32>,
-        renderer_type: RendererType
+        renderer_type: RendererBackendType
     ) -> Result<()> {
         let renderer_backend = match renderer_type {
-            RendererType::Vulkan => VulkanRenderer::new(raw_window_handle, raw_display_handle, window_dimensions)?,
+            RendererBackendType::Vulkan => VulkanRenderer::new(raw_window_handle, raw_display_handle, window_dimensions)?,
         };
         
         self.renderer_backend = Some(Box::from(renderer_backend));
