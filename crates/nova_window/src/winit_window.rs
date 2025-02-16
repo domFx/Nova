@@ -1,7 +1,7 @@
 use crate::window::NovaWindow;
 use nova_core::input::{KeyboardKey, KeyboardKeyState, MouseButtonState, INPUT_STATE};
 use nova_math::vector::vector2::Vector2;
-use nova_renderer::renderer::Renderer;
+use nova_renderer::renderer::{Renderer, RendererBackendType};
 
 use log::{debug, error, info};
 use anyhow::Result;
@@ -19,7 +19,7 @@ use winit::window::WindowId;
 
 pub struct WinitWindow<'a> {
     window: Option<winit::window::Window>,
-    renderer: &'a mut Renderer,
+    renderer: &'a mut Option<Renderer>,
 
     raw_display_handle: Option<RawDisplayHandle>,
     raw_window_handle: Option<RawWindowHandle>,
@@ -34,7 +34,7 @@ pub struct WinitWindow<'a> {
 }
 
 impl<'a> WinitWindow<'a> {
-    pub fn new(window_title: &str, renderer: &'a mut Renderer) -> Result<Self> {
+    pub fn new(window_title: &str, renderer: &'a mut Option<Renderer>) -> Result<Self> {
         let event_loop = EventLoop::new()?;
         event_loop.set_control_flow(ControlFlow::Poll);
 
@@ -113,7 +113,12 @@ impl ApplicationHandler for WinitWindow<'_> {
         self.window_size = window_size;
 
         // TODO: Make renderer backend configurable
-        self.renderer.new_vulkan_renderer(self.raw_window_handle.unwrap(), self.raw_display_handle.unwrap(), window_size).unwrap();
+        let mut renderer: Renderer = Renderer::new_vulkan_renderer(
+            self.raw_window_handle.unwrap(), 
+            self.raw_display_handle.unwrap(), 
+            window_size);
+        
+        *self.renderer = Some(renderer);
         self.window = Some(window);
     }
 
@@ -221,7 +226,11 @@ impl ApplicationHandler for WinitWindow<'_> {
             WindowEvent::ThemeChanged(_) => {}
             WindowEvent::Occluded(_) => {}
             WindowEvent::RedrawRequested => {
-                self.renderer.render(self.window_size).unwrap();
+                if let Some(renderer) = self.renderer.as_mut() {
+                    renderer.begin_drawing().unwrap();
+                    renderer.render(self.window_size).unwrap();
+                    renderer.end_drawing().unwrap();
+                }
 
                 if let Some(window) = self.window.as_ref() {
                     window.request_redraw();

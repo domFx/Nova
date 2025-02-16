@@ -1,6 +1,6 @@
 use log::{debug};
 use nova_core::event::SystemEvents;
-use nova_renderer::renderer::{Renderer};
+use nova_renderer::renderer::{self, Renderer};
 use nova_window::window::{NovaWindow};
 use nova_window::winit_window::WinitWindow;
 
@@ -15,7 +15,7 @@ enum NovaEngineState {
 }
 
 pub struct NovaEngine {
-    renderer: Box<Renderer>,
+    renderer: Box<Option<Renderer>>,
     system_event_handler: SystemEvents,
     state: NovaEngineState
 }
@@ -23,7 +23,7 @@ pub struct NovaEngine {
 impl NovaEngine {
     pub fn new() -> Self {
         let system_event_handler = SystemEvents::default();
-        let renderer = Box::new(Renderer::default());
+        let renderer = Box::new(None);
 
         Self {
             renderer,
@@ -62,7 +62,9 @@ impl NovaEngine {
         debug!("NovaEngine clean up.");
         self.state = NovaEngineState::Cleanup;
         
-        self.renderer.destroy();
+        if let Some(mut renderer) = self.renderer.as_mut().take() {
+            renderer.destroy();
+        }
 
         self.state = NovaEngineState::Complete;
 
