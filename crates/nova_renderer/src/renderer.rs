@@ -64,6 +64,7 @@ impl Renderer {
         window_dimensions: Vector2<u32>,
         renderer_type: RendererBackendType
     ) -> Self {
+        // Only one backend for now...
         let renderer_backend: Box<dyn RendererBackend> = match renderer_type {
             RendererBackendType::Vulkan => Box::from(
                 VulkanRenderer::new(raw_window_handle, raw_display_handle, window_dimensions)

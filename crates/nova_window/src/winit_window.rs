@@ -19,7 +19,7 @@ use winit::window::WindowId;
 
 pub struct WinitWindow<'a> {
     window: Option<winit::window::Window>,
-    renderer: &'a mut Option<Renderer>,
+    renderer: &'a mut Option<Box<Renderer>>,
 
     raw_display_handle: Option<RawDisplayHandle>,
     raw_window_handle: Option<RawWindowHandle>,
@@ -34,7 +34,7 @@ pub struct WinitWindow<'a> {
 }
 
 impl<'a> WinitWindow<'a> {
-    pub fn new(window_title: &str, renderer: &'a mut Option<Renderer>) -> Result<Self> {
+    pub fn new(window_title: &str, renderer: &'a mut Option<Box<Renderer>>) -> Result<Self> {
         let event_loop = EventLoop::new()?;
         event_loop.set_control_flow(ControlFlow::Poll);
 
@@ -115,10 +115,9 @@ impl ApplicationHandler for WinitWindow<'_> {
         // TODO: Make renderer backend configurable
         let mut renderer: Renderer = Renderer::new_vulkan_renderer(
             self.raw_window_handle.unwrap(), 
-            self.raw_display_handle.unwrap(), 
-            window_size);
+            self.raw_display_handle.unwrap(), window_size);
         
-        *self.renderer = Some(renderer);
+        *self.renderer = Some(Box::from(renderer));
         self.window = Some(window);
     }
 

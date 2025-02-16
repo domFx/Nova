@@ -15,7 +15,7 @@ enum NovaEngineState {
 }
 
 pub struct NovaEngine {
-    renderer: Box<Option<Renderer>>,
+    renderer: Option<Box<Renderer>>,
     system_event_handler: SystemEvents,
     state: NovaEngineState
 }
@@ -23,10 +23,9 @@ pub struct NovaEngine {
 impl NovaEngine {
     pub fn new() -> Self {
         let system_event_handler = SystemEvents::default();
-        let renderer = Box::new(None);
-
+        
         Self {
-            renderer,
+            renderer: None,
             system_event_handler,
             state: NovaEngineState::Initialization
         }
