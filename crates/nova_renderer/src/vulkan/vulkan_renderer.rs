@@ -23,6 +23,7 @@ use crate::vulkan::vulkan_vertex::{create_vertex_buffer, INDICES};
 use crate::vulkan::vulkan_render_command::VulkanRenderCommand;
 use crate::renderer_backend::RendererBackend;
 
+use anyhow::Ok;
 use ash::ext::index_type_uint8;
 use nova_math::vector::vector2::Vector2;
 
@@ -51,8 +52,7 @@ pub struct VulkanRenderer {
     descriptor_sets: Vec<vk::DescriptorSet>,
     render_pass: vk::RenderPass,
     framebuffers: Vec<vk::Framebuffer>,
-    command_pool: vk::CommandPool,
-    command_buffers: Vec<vk::CommandBuffer>,
+    command_pool: vk::CommandPool,    command_buffers: Vec<vk::CommandBuffer>,
     image_available_semaphores: Vec<vk::Semaphore>,
     render_finished_semaphores: Vec<vk::Semaphore>,
     current_frame: usize,
@@ -74,7 +74,7 @@ pub struct VulkanRenderer {
 }
 
 impl RendererBackend for VulkanRenderer {
-    fn render(&mut self, _: Vector2<u32>) -> Result<()> {
+    fn prepare_window_surface(&mut self, window_dimensions: Vector2<u32>) -> Result<()> {
         unsafe {
             self.logical_device.wait_for_fences(&[self.in_flight_fences[self.current_frame]], true, u64::MAX)?;
 
@@ -90,51 +90,146 @@ impl RendererBackend for VulkanRenderer {
                 VkResult::Err(vk::Result::ERROR_OUT_OF_DATE_KHR) => return self.recreate_swapchain(self.window_dimensions),
                 VkResult::Err(e) => return Err(anyhow!(e))
             };
+            self.current_image_index = Some(image_index);
             
             update_uniform_buffer(self.current_frame, &self.uniform_buffers, self.swapchain.extent, &self.logical_device, &self.start)?;
             
             self.logical_device.reset_fences(&[self.in_flight_fences[self.current_frame]])?;
-            
+        }
+
+        Ok(())
+    }
+
+    fn begin_commands(&mut self) -> Result<()> {
+        unsafe {
             self.logical_device.reset_command_buffer(self.command_buffers[self.current_frame], vk::CommandBufferResetFlags::empty())?;
+        }
 
-            self.active_command_buffer = Some(self.command_buffers[self.current_frame]);
-            self.current_image_index = Some(image_index);
+        self.active_command_buffer = Some(self.command_buffers[self.current_frame]);
 
-            ///
-            /// WHERE THE DRAW CALLS HAPPEN
-            /// 
-            /// 
-            /// 
-            ///
-            /// 
-            self.record_command_buffer()?;
+        let current_image_index = if let Some(image_index) = self.current_image_index {
+            image_index
+        } else {
+            return Err(anyhow!("Current image index found"));
+        };
 
-            ///
-            /// 
-            /// 
-            /// 
-            /// 
-            /// 
+        let active_command_buffer = if let Some(active_command_buffer) = self.active_command_buffer {
+            active_command_buffer
+        } else {
+            return Err(anyhow!("No active command buffer found"));
+        };
 
-            let wait_semaphores = &[self.image_available_semaphores[self.current_frame]];
-            let wait_stages = &[vk::PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT];
-            let command_buffers = &[self.command_buffers[self.current_frame]];
-            let signal_semaphores = &[self.render_finished_semaphores[self.current_frame]];
-            let submit_info = vk::SubmitInfo::default()
-                .wait_semaphores(wait_semaphores)
-                .wait_dst_stage_mask(wait_stages)
-                .command_buffers(command_buffers)
-                .signal_semaphores(signal_semaphores);
+        unsafe {
+            let info = vk::CommandBufferBeginInfo::default();
 
+            self.logical_device.begin_command_buffer(active_command_buffer, &info)?;
+            Ok(())
+        }
+    }
+
+    fn begin_render_pass(&mut self) -> Result<()> {        
+        let render_area = vk::Rect2D::default()
+            .offset(vk::Offset2D { x: 0, y: 0 })
+            .extent(self.swapchain.extent);
+
+        let color_clear_value = vk::ClearValue {
+            color: vk::ClearColorValue {
+                float32: [0.0, 0.0, 0.0, 1.0],
+            },
+        };
+
+        let clear_values = &[color_clear_value];
+        let info = vk::RenderPassBeginInfo::default()
+            .render_pass(self.render_pass)
+            .framebuffer(self.framebuffers[self.current_image_index.unwrap()])
+            .render_area(render_area)
+            .clear_values(clear_values);
+        
+        unsafe {
+            self.logical_device.cmd_begin_render_pass(self.active_command_buffer.unwrap(), &info, vk::SubpassContents::INLINE);
+        }
+        
+        Ok(())
+    }
+
+    fn draw(&mut self) -> Result<()> {
+        unsafe {
+            self.logical_device.cmd_bind_pipeline(self.active_command_buffer.unwrap(), vk::PipelineBindPoint::GRAPHICS, self.pipeline.pipeline);
+
+            let viewport = vk::Viewport::default()
+                .x(0.0)
+                .y(0.0)
+                .width(self.swapchain.extent.width as f32)
+                .height(self.swapchain.extent.height as f32)
+                .min_depth(0.0)
+                .max_depth(1.0);
+            self.logical_device.cmd_set_viewport(self.active_command_buffer.unwrap(), 0, &[viewport]);
+
+            let scissor = vk::Rect2D::default()
+                .offset(vk::Offset2D { x: 0, y: 0 })
+                .extent(self.swapchain.extent);
+            self.logical_device.cmd_set_scissor(self.active_command_buffer.unwrap(), 0, &[scissor]);
+
+            self.logical_device.cmd_bind_vertex_buffers(self.active_command_buffer.unwrap(), 0, &[self.vertex_buffer.buffer], &[0]);
+            self.logical_device.cmd_bind_index_buffer(self.active_command_buffer.unwrap(), self.index_buffer.buffer, 0, vk::IndexType::UINT16);
+
+            self.logical_device.cmd_bind_descriptor_sets(
+                self.active_command_buffer.unwrap(),
+                vk::PipelineBindPoint::GRAPHICS,
+                self.pipeline.pipeline_layout,
+                0,
+                &[self.descriptor_sets[self.current_frame]],
+                &[]);
+
+            self.logical_device.cmd_draw_indexed(self.active_command_buffer.unwrap(), INDICES.len() as u32, 1, 0, 0, 0);
+        }
+
+        Ok(())
+    }
+
+    fn end_render_pass(&mut self) -> Result<()> {
+        unsafe {
+            self.logical_device.cmd_end_render_pass(self.active_command_buffer.expect("No active command buffer"));
+        }
+        Ok(())
+    }
+
+    fn end_commands(&mut self) -> Result<()> {
+        unsafe { 
+            self.logical_device.end_command_buffer(self.active_command_buffer.expect("No active command buffer"))?;
+        }
+
+        Ok(())
+    }
+
+    fn submit(&mut self) -> Result<()> {
+        let wait_semaphores = &[self.image_available_semaphores[self.current_frame]];
+        let wait_stages = &[vk::PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT];
+        let command_buffers = &[self.command_buffers[self.current_frame]];
+        let signal_semaphores = &[self.render_finished_semaphores[self.current_frame]];
+        let submit_info = vk::SubmitInfo::default()
+            .wait_semaphores(wait_semaphores)
+            .wait_dst_stage_mask(wait_stages)
+            .command_buffers(command_buffers)
+            .signal_semaphores(signal_semaphores);
+
+        unsafe { 
             self.logical_device.queue_submit(self.graphics_queue, &[submit_info], self.in_flight_fences[self.current_frame])?;
+        }
 
-            let swapchains = &[self.swapchain.swapchain];
-            let image_indices = &[image_index as u32];
-            let present_info = vk::PresentInfoKHR::default()
-                .wait_semaphores(signal_semaphores)
-                .swapchains(swapchains)
-                .image_indices(image_indices);
+        Ok(())
+    }
 
+    fn present(&mut self) -> Result<()> {
+        let swapchains = &[self.swapchain.swapchain];
+        let image_indices = &[self.current_image_index.unwrap() as u32];
+        let signal_semaphores = &[self.render_finished_semaphores[self.current_frame]];
+        let present_info = vk::PresentInfoKHR::default()
+            .wait_semaphores(signal_semaphores)
+            .swapchains(swapchains)
+            .image_indices(image_indices);
+
+        unsafe {
             let result = self.swapchain.loader.queue_present(self.present_queue, &present_info);
 
             let changed = match result {
@@ -142,14 +237,15 @@ impl RendererBackend for VulkanRenderer {
                 Err(vk::Result::ERROR_OUT_OF_DATE_KHR) => true,
                 _ => false
             };
-
+    
             if self.resized || changed {
                 // debug!("Window resized resized: {:?} changed {:?}", self.resized, changed);
                 self.resized = false;
                 self.recreate_swapchain(self.window_dimensions)?;
             } else if let Err(e) = result {
                 return Err(anyhow!(e));
-            }
+            }        
+    
         }
 
         self.current_frame = (self.current_frame + 1) % MAX_FRAMES_IN_FLIGHT;
@@ -279,85 +375,6 @@ impl VulkanRenderer {
             };
 
             Ok(renderer)
-        }
-    }
-
-    pub fn record_command_buffer(&self) -> Result<()> {
-        let current_image_index = if let Some(image_index) = self.current_image_index {
-            image_index
-        } else {
-            return Err(anyhow!("Current image index found"));
-        };
-
-        let active_command_buffer = if let Some(active_command_buffer) = self.active_command_buffer {
-            active_command_buffer
-        } else {
-            return Err(anyhow!("No active command buffer found"));
-        };
-
-        unsafe {
-            let info = vk::CommandBufferBeginInfo::default();
-
-            self.logical_device.begin_command_buffer(active_command_buffer, &info)?;
-
-            // Begin Render Pass
-            { 
-                let render_area = vk::Rect2D::default()
-                    .offset(vk::Offset2D { x: 0, y: 0 })
-                    .extent(self.swapchain.extent);
-    
-                let color_clear_value = vk::ClearValue {
-                    color: vk::ClearColorValue {
-                        float32: [0.0, 0.0, 0.0, 1.0],
-                    },
-                };
-    
-                let clear_values = &[color_clear_value];
-                let info = vk::RenderPassBeginInfo::default()
-                    .render_pass(self.render_pass)
-                    .framebuffer(self.framebuffers[current_image_index])
-                    .render_area(render_area)
-                    .clear_values(clear_values);
-                
-                self.logical_device.cmd_begin_render_pass(active_command_buffer, &info, vk::SubpassContents::INLINE);
-            }
-
-            self.logical_device.cmd_bind_pipeline(active_command_buffer, vk::PipelineBindPoint::GRAPHICS, self.pipeline.pipeline);
-
-            let viewport = vk::Viewport::default()
-                .x(0.0)
-                .y(0.0)
-                .width(self.swapchain.extent.width as f32)
-                .height(self.swapchain.extent.height as f32)
-                .min_depth(0.0)
-                .max_depth(1.0);
-            self.logical_device.cmd_set_viewport(active_command_buffer, 0, &[viewport]);
-
-            let scissor = vk::Rect2D::default()
-                .offset(vk::Offset2D { x: 0, y: 0 })
-                .extent(self.swapchain.extent);
-            self.logical_device.cmd_set_scissor(active_command_buffer, 0, &[scissor]);
-
-            self.logical_device.cmd_bind_vertex_buffers(active_command_buffer, 0, &[self.vertex_buffer.buffer], &[0]);
-            self.logical_device.cmd_bind_index_buffer(active_command_buffer, self.index_buffer.buffer, 0, vk::IndexType::UINT16);
-
-            self.logical_device.cmd_bind_descriptor_sets(
-                active_command_buffer,
-                vk::PipelineBindPoint::GRAPHICS,
-                self.pipeline.pipeline_layout,
-                0,
-                &[self.descriptor_sets[self.current_frame]],
-                &[]);
-
-            self.logical_device.cmd_draw_indexed(active_command_buffer, INDICES.len() as u32, 1, 0, 0, 0);
-            
-            // End render pass
-            { 
-                self.logical_device.cmd_end_render_pass(active_command_buffer);
-                self.logical_device.end_command_buffer(active_command_buffer)?;
-            }
-
-            Ok(())
         }
     }
 

@@ -226,13 +226,13 @@ impl ApplicationHandler for WinitWindow<'_> {
             WindowEvent::Occluded(_) => {}
             WindowEvent::RedrawRequested => {
                 if let Some(renderer) = self.renderer.as_mut() {
-                    renderer.begin_drawing().unwrap();
-                    renderer.render(self.window_size).unwrap();
-                    renderer.end_drawing().unwrap();
-                }
+                    renderer.begin_rendering();
 
-                if let Some(window) = self.window.as_ref() {
-                    window.request_redraw();
+                    // Start Drawing
+
+                    // End Drawing
+                    
+                    renderer.end_rendering();
                 }
 
                 if !self.destroying && !self.minimized && !self.window_size.equals(&Vector2::zero()) {

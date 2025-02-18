@@ -1,9 +1,11 @@
 use crate::{renderer_backend, vulkan::vulkan_renderer::VulkanRenderer};
 use crate::renderer_backend::RendererBackend;
 use crate::vertex::Vertex;
+use nova_core::color::Color;
 
 use log::debug;
 use nova_math::vector::vector2::Vector2;
+use nova_math::vector::vector4::Vector4;
 
 use anyhow::{anyhow, Result};
 use raw_window_handle::{RawDisplayHandle, RawWindowHandle};
@@ -44,11 +46,13 @@ enum RendererError {
 pub struct Renderer {
     renderer_backend: Option<Box<dyn RendererBackend>>,
     renderer_state: RendererState,
-    index_buffer: RenderBuffer,
-    vertex_buffer: RenderBuffer
+    index_buffer: Vec<u32>,
+    vertex_buffer: Vec<Vertex>
 }
 
 impl Renderer {
+    const INITIAL_CAPACITY: usize = 1000;
+    
     /// Initializes a renderer with a Vulkan backend
     pub fn new_vulkan_renderer(
         raw_window_handle: RawWindowHandle, 
@@ -77,34 +81,39 @@ impl Renderer {
         Self {
             renderer_backend: Some(renderer_backend),
             renderer_state,
-            index_buffer: RenderBuffer::new(RenderBufferType::Index),
-            vertex_buffer: RenderBuffer::new(RenderBufferType::Vertex)
+            index_buffer: Vec::with_capacity(Self::INITIAL_CAPACITY),
+            vertex_buffer: Vec::with_capacity(Self::INITIAL_CAPACITY)
         }
     }
 
-    pub fn begin_drawing(&self) -> Result<()> {
-        Ok(())
+    pub fn begin_rendering(&mut self) {
+        if let Some(renderer_backend) = &mut self.renderer_backend {
+            renderer_backend.prepare_window_surface(Vector2::new(800, 600));
+            renderer_backend.begin_commands();
+            renderer_backend.begin_render_pass();
+        }
     }
 
-    pub fn end_drawing(&self) -> Result<()> {
-        Ok(())
+    pub fn end_rendering(&mut self) {
+        if let Some(renderer_backend) = &mut self.renderer_backend {
+            renderer_backend.draw();
+            renderer_backend.end_render_pass();
+            renderer_backend.end_commands();
+            renderer_backend.submit();
+            renderer_backend.present();
+        }
     }
+    
+    pub fn draw_line_2d(&mut self, start_position: Vector2<f32>, end_position: Vector2<f32>, color: Color) {
+        let vertices = [
+            Vertex::new(Vector2::new(start_position.x, end_position.y), color.to_vector4(), Vector2::zero()),
+            Vertex::new(Vector2::new(end_position.x, end_position.y), color.to_vector4(), Vector2::zero())
+        ];
 
-    pub fn render(&mut self, window_dimensions: Vector2<u32>) -> Result<()> {
-        if self.renderer_state != RendererState::Ready {
-            return Err(anyhow!(RendererError::InvalidRendererState {
-                expected: RendererState::Ready,
-                actual: self.renderer_state
-            }))
-        }
-
-        if let Some(renderer_backend) = self.renderer_backend.as_mut() {
-            renderer_backend.render(window_dimensions)?;
-        } else {
-            return Err(anyhow!(RendererError::RendererBackendNotFound))
-        }
-
-        Ok(())
+        let indices = [0, 1];
+        
+        self.vertex_buffer.extend_from_slice(&vertices);
+        self.index_buffer.extend_from_slice(&indices);
     }
 
     pub fn destroy(&mut self) {
@@ -135,44 +144,3 @@ impl Renderer {
 
         Ok(())
     }*/
-
-
-enum RenderBufferType {
-    Vertex,
-    Index
-}
-
-struct RenderBuffer {
-    internal_buffer_data: Vec<u32>,
-    buffer_type: RenderBufferType
-}
-
-impl RenderBuffer {
-    const INITIAL_CAPACITY: usize = 1000;
-
-    fn new(buffer_type: RenderBufferType) -> Self {
-        Self {
-            internal_buffer_data: Vec::with_capacity(Self::INITIAL_CAPACITY),
-            buffer_type
-        }
-    }
-
-    fn get_buffer_type(&self) -> &RenderBufferType {
-        &self.buffer_type
-    }
-    
-    fn get_buffer_count(&self) -> usize {
-        self.internal_buffer_data.len()
-    }
-
-    fn get_capacity(&self) -> usize {
-        self.internal_buffer_data.capacity()
-    }
-
-    fn load_data(&mut self, data: &[u32]) {
-        if data.len() > self.internal_buffer_data.capacity() {
-            debug!("Buffer resize needed, current capacity: {}, new capacity: {}", self.internal_buffer_data.capacity(), self.internal_buffer_data.capacity() + data.len());
-        }
-        self.internal_buffer_data.extend_from_slice(data);
-    }
-}
