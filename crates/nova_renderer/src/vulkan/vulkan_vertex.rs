@@ -1,4 +1,4 @@
-use crate::vulkan::vulkan_buffer::VulkanAppBuffer;
+use crate::vulkan::vulkan_buffer::{VulkanAppBuffer,VulkanBufferType};
 use crate::vertex::Vertex;
 
 use nova_math::vector::vector2::Vector2;
@@ -39,50 +39,3 @@ impl Vertex {
         [pos, color, text_coord]
     }
 }
-
-pub(crate) fn create_vertex_buffer(
-    instance: &ash::Instance,
-    logical_device: &ash::Device,
-    physical_device: vk::PhysicalDevice,
-    graphics_queue: vk::Queue,
-    command_pool: vk::CommandPool,
-) -> Result<VulkanAppBuffer> {
-    let vertex_buffer = VulkanAppBuffer::new_staged(
-        VERTICES.as_ptr(),
-        VERTICES.len(),
-        logical_device,
-        instance,
-        physical_device,
-        graphics_queue,
-        command_pool,
-        vk::BufferUsageFlags::TRANSFER_DST | vk::BufferUsageFlags::VERTEX_BUFFER,
-        vk::MemoryPropertyFlags::DEVICE_LOCAL,
-    )?;
-
-    Ok(vertex_buffer)
-}
-
-pub(crate) static VERTICES: [Vertex; 4] = [
-    Vertex::new(
-        Vector2::new(-0.5, -0.5),
-        Vector4::new(1.0, 0.0, 0.0, 1.0),
-        Vector2::new(1.0, 0.0),
-    ),
-    Vertex::new(
-        Vector2::new(0.5, -0.5),
-        Vector4::new(1.0, 0.0, 0.0, 1.0),
-        Vector2::new(0.0, 0.0),
-    ),
-    Vertex::new(
-        Vector2::new(0.5, 0.5),
-        Vector4::new(1.0, 0.0, 0.0, 1.0),
-        Vector2::new(0.0, 1.0),
-    ),
-    Vertex::new(
-        Vector2::new(-0.5, 0.5),
-        Vector4::new(1.0, 0.0, 0.0, 1.0),
-        Vector2::new(1.0, 1.0),
-    ),
-];
-
-pub const INDICES: &[u16] = &[0, 1, 2, 2, 3, 0];

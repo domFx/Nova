@@ -1,5 +1,5 @@
 use crate::window::NovaWindow;
-use nova_core::input::{KeyboardKey, KeyboardKeyState, MouseButtonState, INPUT_STATE};
+use nova_core::{color::Color, input::{KeyboardKey, KeyboardKeyState, MouseButtonState, INPUT_STATE}};
 use nova_math::vector::vector2::Vector2;
 use nova_renderer::renderer::{Renderer, RendererBackendType};
 
@@ -96,11 +96,13 @@ impl NovaWindow<'_> for WinitWindow<'_> {
 
 impl ApplicationHandler for WinitWindow<'_> {
     fn resumed(&mut self, event_loop: &ActiveEventLoop) {
+        debug!("WinitWindow Resumed");
+
         let window_title = self.window_title.to_string();
 
         let window_attributes = WindowAttributes::default()
             .with_title(window_title)
-            .with_inner_size(LogicalSize::new(800, 600));
+            .with_inner_size(LogicalSize::new(1024, 800));
 
         let window = event_loop.create_window(window_attributes).unwrap();
 
@@ -226,10 +228,12 @@ impl ApplicationHandler for WinitWindow<'_> {
             WindowEvent::Occluded(_) => {}
             WindowEvent::RedrawRequested => {
                 if let Some(renderer) = self.renderer.as_mut() {
-                    renderer.begin_rendering();
+                    renderer.begin_rendering(self.window_size);
 
                     // Start Drawing
+                    renderer.draw_rect();
 
+                    // renderer.draw_line_2d(Vector2::new(-0.5f32, -0.5f32), Vector2::new(0f32, -0.5f32), Color::WHITE);
                     // End Drawing
                     
                     renderer.end_rendering();

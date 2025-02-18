@@ -86,31 +86,61 @@ impl Renderer {
         }
     }
 
-    pub fn begin_rendering(&mut self) {
+    pub fn begin_rendering(&mut self, window_dimensions: Vector2<u32>) {
         if let Some(renderer_backend) = &mut self.renderer_backend {
-            renderer_backend.prepare_window_surface(Vector2::new(800, 600));
+            renderer_backend.prepare_window_surface(window_dimensions);
             renderer_backend.begin_commands();
-            renderer_backend.begin_render_pass();
+            renderer_backend.begin_render_pass(Color::BLACK);
         }
     }
 
     pub fn end_rendering(&mut self) {
         if let Some(renderer_backend) = &mut self.renderer_backend {
-            renderer_backend.draw();
+            renderer_backend.draw(self.vertex_buffer.clone(),  self.index_buffer.clone());
             renderer_backend.end_render_pass();
             renderer_backend.end_commands();
             renderer_backend.submit();
             renderer_backend.present();
         }
     }
+
+    pub fn draw_rect(&mut self) {
+        let vertices: [Vertex; 4] = [
+            Vertex::new(
+                Vector2::new(-0.5, -0.5),
+                Vector4::new(1.0, 0.0, 0.0, 1.0),
+                Vector2::new(1.0, 0.0),
+            ),
+            Vertex::new(
+                Vector2::new(0.5, -0.5),
+                Vector4::new(1.0, 0.0, 0.0, 1.0),
+                Vector2::new(0.0, 0.0),
+            ),
+            Vertex::new(
+                Vector2::new(0.5, 0.5),
+                Vector4::new(1.0, 0.0, 0.0, 1.0),
+                Vector2::new(0.0, 1.0),
+            ),
+            Vertex::new(
+                Vector2::new(-0.5, 0.5),
+                Vector4::new(1.0, 0.0, 0.0, 1.0),
+                Vector2::new(1.0, 1.0),
+            ),
+        ];
+        
+        let indices: [u32; 6] = [0, 1, 2, 2, 3, 0];
+
+        self.vertex_buffer.extend_from_slice(&vertices);
+        self.index_buffer.extend_from_slice(&indices);
+    }
     
     pub fn draw_line_2d(&mut self, start_position: Vector2<f32>, end_position: Vector2<f32>, color: Color) {
         let vertices = [
-            Vertex::new(Vector2::new(start_position.x, end_position.y), color.to_vector4(), Vector2::zero()),
-            Vertex::new(Vector2::new(end_position.x, end_position.y), color.to_vector4(), Vector2::zero())
+            Vertex::new(start_position, color.to_vector4(), Vector2::zero()),
+            Vertex::new(end_position, color.to_vector4(), Vector2::zero())
         ];
 
-        let indices = [0, 1];
+        let indices = [];
         
         self.vertex_buffer.extend_from_slice(&vertices);
         self.index_buffer.extend_from_slice(&indices);

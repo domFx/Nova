@@ -1,3 +1,5 @@
+use crate::vertex;
+use crate::vertex::Vertex;
 use crate::vulkan::command_buffers::*;
 use crate::vulkan::command_pool::*;
 use crate::vulkan::descriptor_set_layout::*;
@@ -10,21 +12,20 @@ use crate::vulkan::queue_families::*;
 use crate::vulkan::render_pass::*;
 use crate::vulkan::swapchain::*;
 use crate::vulkan::surface::*;
-use crate::vulkan::index_buffer::*;
 use crate::vulkan::texture_image::*;
 
-use crate::vulkan::vulkan_buffer::VulkanAppBuffer;
+use crate::vulkan::vulkan_buffer::{ VulkanAppBuffer, VulkanBufferType };
 use crate::vulkan::constants::{MAX_FRAMES_IN_FLIGHT, VALIDATION_ENABLED};
 use crate::vulkan::debug::{create_debug_info, VulkanAppDebug};
 use crate::vulkan::descriptor_pool::create_descriptor_pool;
 use crate::vulkan::descriptor_sets::create_descriptor_sets;
 use crate::vulkan::uniform_buffers::{create_uniform_buffers, update_uniform_buffer};
-use crate::vulkan::vulkan_vertex::{create_vertex_buffer, INDICES};
 use crate::vulkan::vulkan_render_command::VulkanRenderCommand;
 use crate::renderer_backend::RendererBackend;
 
 use anyhow::Ok;
 use ash::ext::index_type_uint8;
+use nova_core::color::Color;
 use nova_math::vector::vector2::Vector2;
 
 use anyhow::{anyhow, Result};
@@ -61,8 +62,6 @@ pub struct VulkanRenderer {
     indices: QueueFamilyIndices,
     images: Vec<vk::Image>,
     image_views: Vec<vk::ImageView>,
-    vertex_buffer: VulkanAppBuffer,
-    index_buffer: VulkanAppBuffer,
     uniform_buffers: Vec<VulkanAppBuffer>,
     start: Instant,
     window_dimensions: Vector2<u32>,
@@ -127,14 +126,14 @@ impl RendererBackend for VulkanRenderer {
         }
     }
 
-    fn begin_render_pass(&mut self) -> Result<()> {        
+    fn begin_render_pass(&mut self, clear_color: Color) -> Result<()> {        
         let render_area = vk::Rect2D::default()
             .offset(vk::Offset2D { x: 0, y: 0 })
             .extent(self.swapchain.extent);
 
         let color_clear_value = vk::ClearValue {
             color: vk::ClearColorValue {
-                float32: [0.0, 0.0, 0.0, 1.0],
+                float32: clear_color.to_rgb_array(),
             },
         };
 
@@ -152,7 +151,7 @@ impl RendererBackend for VulkanRenderer {
         Ok(())
     }
 
-    fn draw(&mut self) -> Result<()> {
+    fn draw(&mut self, vertices: Vec<Vertex>, indices: Vec<u32>) -> Result<()> {
         unsafe {
             self.logical_device.cmd_bind_pipeline(self.active_command_buffer.unwrap(), vk::PipelineBindPoint::GRAPHICS, self.pipeline.pipeline);
 
@@ -170,8 +169,28 @@ impl RendererBackend for VulkanRenderer {
                 .extent(self.swapchain.extent);
             self.logical_device.cmd_set_scissor(self.active_command_buffer.unwrap(), 0, &[scissor]);
 
-            self.logical_device.cmd_bind_vertex_buffers(self.active_command_buffer.unwrap(), 0, &[self.vertex_buffer.buffer], &[0]);
-            self.logical_device.cmd_bind_index_buffer(self.active_command_buffer.unwrap(), self.index_buffer.buffer, 0, vk::IndexType::UINT16);
+            let vertex_buffer = VulkanAppBuffer::new_staged(
+                vertices.as_ptr(), 
+                vertices.len(), 
+                &self.logical_device, 
+                &self.instance, 
+                self.physical_device, 
+                self.graphics_queue, 
+                self.command_pool,         
+                VulkanBufferType::Vertex)?;
+
+            let index_buffer = VulkanAppBuffer::new_staged(
+                indices.as_ptr(), 
+                indices.len(), 
+                &self.logical_device, 
+                &self.instance, 
+                self.physical_device, 
+                self.graphics_queue, 
+                self.command_pool,
+                VulkanBufferType::Index)?;
+
+            self.logical_device.cmd_bind_vertex_buffers(self.active_command_buffer.unwrap(), 0, &[vertex_buffer.buffer], &[0]);
+            self.logical_device.cmd_bind_index_buffer(self.active_command_buffer.unwrap(), index_buffer.buffer, 0, vk::IndexType::UINT32);
 
             self.logical_device.cmd_bind_descriptor_sets(
                 self.active_command_buffer.unwrap(),
@@ -181,7 +200,12 @@ impl RendererBackend for VulkanRenderer {
                 &[self.descriptor_sets[self.current_frame]],
                 &[]);
 
-            self.logical_device.cmd_draw_indexed(self.active_command_buffer.unwrap(), INDICES.len() as u32, 1, 0, 0, 0);
+            self.logical_device.cmd_draw_indexed(self.active_command_buffer.unwrap(), indices.len() as u32, 1, 0, 0, 0);
+       
+            // self.logical_device.destroy_buffer(vertex_buffer.buffer, None);
+            // self.logical_device.free_memory(vertex_buffer.buffer_memory, None);
+            // self.logical_device.destroy_buffer(index_buffer.buffer, None);
+            // self.logical_device.free_memory(index_buffer.buffer_memory, None);
         }
 
         Ok(())
@@ -268,11 +292,6 @@ impl RendererBackend for VulkanRenderer {
             self.render_finished_semaphores.iter().for_each(|s| self.logical_device.destroy_semaphore(*s, None));
             self.image_available_semaphores.iter().for_each(|s| self.logical_device.destroy_semaphore(*s, None));
 
-            self.logical_device.destroy_buffer(self.vertex_buffer.buffer, None);
-            self.logical_device.free_memory(self.vertex_buffer.buffer_memory, None);
-            self.logical_device.destroy_buffer(self.index_buffer.buffer, None);
-            self.logical_device.free_memory(self.index_buffer.buffer_memory, None);
-
             self.logical_device.destroy_command_pool(self.command_pool, None);
             self.logical_device.destroy_device(None);
             self.surface_loader.destroy_surface(self.surface, None);
@@ -310,8 +329,6 @@ impl VulkanRenderer {
             let command_pool = create_command_pool(&logical_device, &indices)?;
             let texture_image = create_texture_image(&instance, &logical_device, physical_device, command_pool, graphics_queue)?;
             let sampler = create_texture_sampler(&logical_device)?;
-            let vertex_buffer = create_vertex_buffer(&instance, &logical_device, physical_device, graphics_queue, command_pool)?;
-            let index_buffer = create_index_buffer(&instance, &logical_device, physical_device, graphics_queue, command_pool)?;
             let uniform_buffers = create_uniform_buffers(&instance, &logical_device, physical_device)?;
             let descriptor_pool = create_descriptor_pool(&logical_device, &images)?;
             let descriptor_sets = create_descriptor_sets(&logical_device, descriptor_pool, descriptor_set_layout, &images, &uniform_buffers, texture_image.texture_image_view, sampler)?;
@@ -362,8 +379,6 @@ impl VulkanRenderer {
                 indices,
                 images,
                 image_views,
-                vertex_buffer,
-                index_buffer,
                 uniform_buffers,
                 start,
                 window_dimensions,

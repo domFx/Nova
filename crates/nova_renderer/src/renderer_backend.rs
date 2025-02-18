@@ -1,5 +1,8 @@
 use anyhow::Result;
+use nova_core::color::Color;
 use nova_math::vector::vector2::Vector2;
+
+use crate::vertex::Vertex;
 
 // frame_prepare_window_surface - verifies swapchain, gets image index, etc.
 // frame_commands_begin - begins command list/buffer
@@ -12,9 +15,9 @@ pub trait RendererBackend {
 
     fn begin_commands(&mut self) -> Result<()>;
 
-    fn begin_render_pass(&mut self) -> Result<()>;
+    fn begin_render_pass(&mut self, clear_color: Color) -> Result<()>;
 
-    fn draw(&mut self) -> Result<()>;
+    fn draw(&mut self, vertices: Vec<Vertex>, indices: Vec<u32>) -> Result<()>;
 
     fn end_render_pass(&mut self) -> Result<()>;
 
