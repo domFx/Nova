@@ -6,18 +6,20 @@ use std::ffi::CStr;
 use anyhow::Result;
 use ash::vk;
 
-pub struct VulkanAppPipeline {
+use super::vulkan_renderer::VulkanTopology;
+
+pub struct VulkanPipeline {
     pub pipeline_layout: vk::PipelineLayout,
-    pub pipeline: vk::Pipeline,
+    pub pipeline: vk::Pipeline
 }
 
-impl VulkanAppPipeline {
+impl VulkanPipeline {
     pub(crate) fn new(
         device: &ash::Device,
-        _extent: vk::Extent2D,
         render_pass: vk::RenderPass,
         descriptor_set_layout: vk::DescriptorSetLayout,
-    ) -> Result<VulkanAppPipeline> {
+        topology: VulkanTopology
+    ) -> Result<VulkanPipeline> {
         let vert =
             ash::util::read_spv(&mut std::fs::File::open("./src/shaders/vert.spv")?)?;
         let frag =
@@ -43,8 +45,8 @@ impl VulkanAppPipeline {
                 .vertex_binding_descriptions(binding_descriptions)
                 .vertex_attribute_descriptions(&attribute_descriptions);
 
-            let input_assembly_state = vk::PipelineInputAssemblyStateCreateInfo::default()
-                .topology(vk::PrimitiveTopology::TRIANGLE_LIST)
+            let input_assembly_state: vk::PipelineInputAssemblyStateCreateInfo = vk::PipelineInputAssemblyStateCreateInfo::default()
+                .topology(topology.to_vulkan_topology())
                 .primitive_restart_enable(false);
 
             let viewport_state = vk::PipelineViewportStateCreateInfo::default()
@@ -56,8 +58,7 @@ impl VulkanAppPipeline {
                 .rasterizer_discard_enable(false)
                 .polygon_mode(vk::PolygonMode::FILL)
                 .line_width(1.0)
-                .cull_mode(vk::CullModeFlags::NONE)
-                // .front_face(vk::FrontFace::COUNTER_CLOCKWISE)
+                .cull_mode(vk::CullModeFlags::BACK)
                 .front_face(vk::FrontFace::CLOCKWISE)
                 .depth_bias_enable(false);
 
@@ -68,19 +69,10 @@ impl VulkanAppPipeline {
             let attachment = vk::PipelineColorBlendAttachmentState::default()
                 .color_write_mask(vk::ColorComponentFlags::RGBA)
                 .blend_enable(false);
-                // .src_color_blend_factor(vk::BlendFactor::ONE)
-                // .dst_color_blend_factor(vk::BlendFactor::ZERO)
-                // .color_blend_op(vk::BlendOp::ADD)
-                // .src_alpha_blend_factor(vk::BlendFactor::ONE)
-                // .dst_alpha_blend_factor(vk::BlendFactor::ZERO)
-                // .alpha_blend_op(vk::BlendOp::ADD)
 
             let attachments = &[attachment];
             let color_blend_state = vk::PipelineColorBlendStateCreateInfo::default()
-                .logic_op_enable(false)
-                .logic_op(vk::LogicOp::COPY)
-                .attachments(attachments)
-                .blend_constants([0.0, 0.0, 0.0, 0.0]);
+                .attachments(attachments);
 
             let dynamic_states = vec![vk::DynamicState::VIEWPORT, vk::DynamicState::SCISSOR];
             let dynamic_state_info = vk::PipelineDynamicStateCreateInfo::default()
@@ -117,7 +109,7 @@ impl VulkanAppPipeline {
             device.destroy_shader_module(vertex_shader_module, None);
             device.destroy_shader_module(fragment_shader_module, None);
 
-            Ok(VulkanAppPipeline {
+            Ok(Self {
                 pipeline_layout,
                 pipeline,
             })

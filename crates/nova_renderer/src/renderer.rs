@@ -1,8 +1,10 @@
-use crate::vulkan::vulkan_renderer::VulkanRenderer;
+use crate::vulkan::vulkan_renderer::VulkanTopology;
+use crate::{renderer_backend, vulkan::vulkan_renderer::VulkanRenderer};
 use crate::renderer_backend::RendererBackend;
-use crate::transform::Transform;
-use crate::vertex::Vertex;
+use crate::vertex::{self, Vertex};
+use nova_core::color::Color;
 
+use log::debug;
 use nova_math::vector::vector2::Vector2;
 use nova_math::vector::vector4::Vector4;
 
@@ -10,120 +12,8 @@ use anyhow::{anyhow, Result};
 use raw_window_handle::{RawDisplayHandle, RawWindowHandle};
 use thiserror::Error;
 
-/// Core Renderable Object
-trait Renderable {
-    fn transform(&self) -> &Transform;
-    fn z_index(&self) -> &i32;
-}
-
-#[derive(Debug, Copy, Clone)]
-pub struct RectRenderable {
-    // Transform data
-    transform: Transform, // Model matrix for translation, rotation, scaling
-
-    // Appearance data
-
-    // Color: RGBA
-    color: Vector4<f32>,
-    // texture_id: u32,        // Texture index in an atlas or texture array
-
-    // Render order (higher = on top)
-    z_index: i32,
-
-    // Vulkan-specific data (optional)
-    // pipeline_layout: vk::PipelineLayout,
-    // descriptor_set: vk::DescriptorSet,
-
-    // Should the object be drawn
-    is_visible: bool
-}
-
-impl Renderable for RectRenderable {
-    fn transform(&self) -> &Transform {
-        &self.transform
-    }
-
-    fn z_index(&self) -> &i32 {
-        &self.z_index
-    }
-}
-
-impl RectRenderable {
-    pub fn new(transform: Transform, color: Vector4<f32>, z_index: i32, is_visible: bool) -> Self {
-        Self {
-            transform,
-            color,
-            z_index,
-            is_visible
-        }
-    }
-}
-
-pub enum RendererType {
+pub enum RendererBackendType {
     Vulkan,
-}
-
-struct QuadDrawables {
-    quad_count: usize,
-    vertex_buffer: Vec<Option<Vertex>>,
-    index_buffer: Vec<u32>,
-}
-
-impl QuadDrawables {
-    const INDICES: &'static [u16] = &[0, 1, 2, 2, 3, 0];
-    const MAX_QUADS: usize = 200;
-    const NUM_VERTICES: usize = 4;
-    const NUM_INDICES: usize = 6;
-
-    pub fn new_with_max(max_quads: usize) -> Self {
-        let mut index_buffer = vec![0; max_quads * Self::NUM_INDICES];
-
-        let mut indices_idx = 0;
-        for i in 0 .. max_quads * Self::NUM_INDICES {
-            index_buffer[i] = Self::INDICES[indices_idx];
-
-            indices_idx += 1;
-            if indices_idx == Self::NUM_INDICES {
-                indices_idx = 0
-            }
-        }
-
-        Self {
-            quad_count: 0,
-            vertex_buffer: vec![None; max_quads * Self::NUM_VERTICES],
-            index_buffer: vec![0; max_quads * Self::NUM_INDICES]
-        }
-    }
-
-    pub fn new() -> Self {
-        Self::new_with_max(Self::MAX_QUADS)
-    }
-
-    pub fn add_quad(&mut self, vertices: Vec<Vertex>) {
-        assert!(self.quad_count < Self::MAX_QUADS - 1, "Expected quad count {} to be less than max quads {}", self.quad_count, Self::MAX_QUADS);
-        assert_eq!(vertices.len(), Self::NUM_VERTICES, "Expected {} vertices", Self::NUM_VERTICES);
-
-        // Push to graphics card
-        if self.quad_count > self.get_max_quads() {
-            return;
-        }
-
-        let vertex_buffer_idx = self.quad_count * Self::NUM_VERTICES;
-
-        vertices
-            .iter()
-            .enumerate()
-            .for_each(|(i, vertex)| { self.vertex_buffer[vertex_buffer_idx + i] = Some(*vertex); });
-        self.quad_count += 1;
-    }
-
-    pub fn get_max_quads(&self) -> usize {
-        self.vertex_buffer.capacity() / Self::NUM_VERTICES
-    }
-
-    pub fn get_quad_count(&self) -> usize {
-        self.quad_count
-    }
 }
 
 #[derive(Default, Debug, Copy, Clone, Eq, PartialEq)]
@@ -154,62 +44,162 @@ enum RendererError {
     RendererBackendNotFound
 }
 
-#[derive(Default)]
+struct RenderDrawBuffer {
+    index_buffer: Vec<u32>,
+    vertex_buffer: Vec<Vertex>
+}
+
+impl RenderDrawBuffer {
+    const INITIAL_CAPACITY: usize = 1000;
+
+    pub fn new() -> Self {
+        Self {
+            index_buffer: Vec::with_capacity(Self::INITIAL_CAPACITY),
+            vertex_buffer: Vec::with_capacity(Self::INITIAL_CAPACITY)
+        }
+    }
+
+    pub fn add_to_buffer(&mut self, vertices: &[Vertex], indices: &[u32]) {
+        let updated_indices: Vec<u32> = indices.iter().map(|i| self.vertex_buffer.len() as u32 + *i).collect::<Vec<u32>>();
+
+        self.vertex_buffer.extend_from_slice(&vertices);
+        self.index_buffer.extend_from_slice(&updated_indices);
+    }
+
+}
+
 pub struct Renderer {
     renderer_backend: Option<Box<dyn RendererBackend>>,
     renderer_state: RendererState,
+    line_buffer: RenderDrawBuffer,
+    triangle_buffer: RenderDrawBuffer
 }
 
 impl Renderer {
-    pub fn init(
-        &mut self,
-        window_handle: RawWindowHandle,
-        display_handle: RawDisplayHandle,
+    /// Initializes a renderer with a Vulkan backend
+    pub fn new_vulkan_renderer(
+        raw_window_handle: RawWindowHandle, 
+        raw_display_handle: RawDisplayHandle,
+        window_dimensions: Vector2<u32>
+    ) -> Self {
+        Self::new(raw_window_handle, raw_display_handle, window_dimensions, RendererBackendType::Vulkan)
+    }
+
+    pub fn new(
+        raw_window_handle: RawWindowHandle,
+        raw_display_handle: RawDisplayHandle,
         window_dimensions: Vector2<u32>,
-    ) -> Result<()> {
-        let renderer_backend = VulkanRenderer::new(window_handle, display_handle, window_dimensions)?;
-        self.renderer_backend = Some(Box::from(renderer_backend));
+        renderer_type: RendererBackendType
+    ) -> Self {
+        // Only one backend for now...
+        let renderer_backend: Box<dyn RendererBackend> = match renderer_type {
+            RendererBackendType::Vulkan => Box::from(
+                VulkanRenderer::new(raw_window_handle, raw_display_handle, window_dimensions)
+                    .expect("Failed to create Vulkan Renderer")
+                )
+        };
+        
+        let renderer_state = RendererState::Ready;
 
-        self.renderer_state = RendererState::Ready;
-        Ok(())
+        Self {
+            renderer_backend: Some(renderer_backend),
+            renderer_state,
+            line_buffer: RenderDrawBuffer::new(),
+            triangle_buffer: RenderDrawBuffer::new()
+        }
     }
 
-    pub fn render(&mut self, window_dimensions: Vector2<u32>) -> Result<()> {
-        if self.renderer_state != RendererState::Ready {
-            return Err(anyhow!(RendererError::InvalidRendererState {
-                expected: RendererState::Ready,
-                actual: self.renderer_state
-            }))
+    pub fn begin_rendering(&mut self, window_dimensions: Vector2<u32>) {
+        if let Some(renderer_backend) = &mut self.renderer_backend {
+            renderer_backend.prepare_window_surface(window_dimensions);
+            renderer_backend.begin_commands();
+            renderer_backend.begin_render_pass(Color::BLACK);
         }
-
-        if let Some(renderer_backend) = self.renderer_backend.as_mut() {
-            renderer_backend.render(window_dimensions)?;
-        } else {
-            return Err(anyhow!(RendererError::RendererBackendNotFound))
-        }
-
-        Ok(())
     }
 
-/*    pub fn draw_rect(
-        &mut self,
-        position: &Vector2<f32>,
-        size: &Vector2<f32>,
-        color: &Vector4<f32>,
-    ) -> Result<()> {
-        let text_coord = Vector2::zero();
+    pub fn end_rendering(&mut self) {
+        if let Some(renderer_backend) = &mut self.renderer_backend {
+            
+            renderer_backend.draw(self.triangle_buffer.vertex_buffer.clone(),  self.triangle_buffer.index_buffer.clone(), crate::core_types::TopologyType::TriangleList);
+            
+            renderer_backend.draw(self.line_buffer.vertex_buffer.clone(),  self.line_buffer.index_buffer.clone(), crate::core_types::TopologyType::LineList);
 
-        let vertices = vec![
-            Vertex::new(Vector2::new(position.x, position.y), color.to_owned(), text_coord),
-            Vertex::new(Vector2::new(position.x + size.x, position.y), color.to_owned(), text_coord),
-            Vertex::new(Vector2::new(position.x + size.x, position.y + size.y), color.to_owned(), text_coord),
-            Vertex::new(Vector2::new(position.x, position.y + size.y), color.to_owned(), text_coord)
+            
+            renderer_backend.end_render_pass();
+            renderer_backend.end_commands();
+            renderer_backend.submit();
+            renderer_backend.present();
+        }
+    }
+
+    pub fn draw_rect(&mut self, position: Vector2<f32>, height: f32, width: f32, color: Color) {
+        let vertices: [Vertex; 4] = [
+            Vertex::new(
+                Vector2::new(position.x - width / 2.0, position.y - height / 2.0),
+                color.to_vector4(),
+                Vector2::zero(),
+            ),
+            Vertex::new(
+                Vector2::new(position.x - width / 2.0, position.y + height / 2.0),
+                color.to_vector4(),
+                Vector2::zero()
+            ),
+            Vertex::new(
+                Vector2::new(position.x + width / 2.0, position.y + height / 2.0),
+                color.to_vector4(),
+                Vector2::zero(),
+            ),
+            Vertex::new(
+                Vector2::new(position.x + width / 2.0, position.y - height / 2.0),
+                color.to_vector4(),
+                Vector2::zero(),
+            )
+        ]; 
+
+        let indices: [u32; 6] = [0, 1, 2, 2, 3, 0];
+
+        self.triangle_buffer.add_to_buffer(&vertices, &indices);
+    }
+
+    pub fn draw_rect_debug(&mut self) {
+        let vertices: [Vertex; 4] = [
+            Vertex::new(
+                Vector2::new(-0.5, -0.5),
+                Vector4::new(1.0, 0.0, 0.0, 1.0),
+                Vector2::zero(),
+            ),
+            Vertex::new(
+                Vector2::new(-0.5, 0.5),
+                Vector4::new(1.0, 0.0, 0.0, 1.0),
+                Vector2::zero()
+            ),
+            Vertex::new(
+                Vector2::new(0.5, 0.5),
+                Vector4::new(1.0, 0.0, 0.0, 1.0),
+                Vector2::zero(),
+            ),
+            Vertex::new(
+                Vector2::new(0.5, -0.5),
+                Vector4::new(1.0, 0.0, 0.0, 1.0),
+                Vector2::zero(),
+            )
+        ];
+        
+        let indices: [u32; 6] = [0, 1, 2, 2, 3, 0];
+
+        self.triangle_buffer.add_to_buffer(&vertices, &indices);
+    }
+    
+    pub fn draw_line_2d(&mut self, start_position: Vector2<f32>, end_position: Vector2<f32>, color: Color) {
+        let vertices = [
+            Vertex::new(end_position, color.to_vector4(), Vector2::zero()),
+            Vertex::new(start_position, color.to_vector4(), Vector2::zero()),
         ];
 
-        self.quads.add_quad(vertices);
-
-        Ok(())
-    }*/
+        let indices = [0, 1, 1];
+        
+        self.line_buffer.add_to_buffer(&vertices, &indices);
+    }
 
     pub fn destroy(&mut self) {
         if let Some(ref mut renderer_backend) = self.renderer_backend {
@@ -217,34 +207,5 @@ impl Renderer {
         }
 
         self.renderer_backend = None;
-    }
-}
-
-#[cfg(test)]
-mod quad_drawable_tests {
-    use nova_math::vector2::Vector2;
-    use nova_math::vector4::Vector4;
-    use crate::renderer::QuadDrawables;
-    use crate::vertex::Vertex;
-
-    #[test]
-    fn add_quad_tests() {
-        const MAX_QUADS: usize = 2;
-        let mut quads = QuadDrawables::new_with_max(MAX_QUADS);
-
-        let quad = vec![
-            Vertex::new(Vector2::zero(), Vector4::zero(), Vector2::zero()),
-            Vertex::new(Vector2::zero(), Vector4::zero(), Vector2::zero()),
-            Vertex::new(Vector2::zero(), Vector4::zero(), Vector2::zero()),
-            Vertex::new(Vector2::zero(), Vector4::zero(), Vector2::zero())
-        ];
-
-        quads.add_quad(quad.clone());
-
-        assert_eq!(quads.get_max_quads(), MAX_QUADS);
-        assert_eq!(quads.get_quad_count(), 1);
-
-        quads.add_quad(quad.clone());
-        assert_eq!(quads.get_quad_count(), MAX_QUADS);
     }
 }

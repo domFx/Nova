@@ -16,7 +16,6 @@ pub(crate) mod command_buffers;
 pub(crate) mod vulkan_vertex;
 pub(crate) mod memory;
 pub(crate) mod vulkan_buffer;
-pub(crate) mod index_buffer;
 pub(crate) mod uniform_buffers;
 pub(crate) mod descriptor_set_layout;
 pub(crate) mod descriptor_pool;

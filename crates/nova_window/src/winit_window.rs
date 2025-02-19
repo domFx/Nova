@@ -1,7 +1,7 @@
 use crate::window::NovaWindow;
-use nova_core::input::{KeyboardKey, KeyboardKeyState, MouseButtonState, INPUT_STATE};
-use nova_math::vector::vector2::Vector2;
-use nova_renderer::renderer::Renderer;
+use nova_core::{color::Color, input::{KeyboardKey, KeyboardKeyState, MouseButtonState, INPUT_STATE}};
+use nova_math::{vector::vector2::Vector2, vector4::Vector4};
+use nova_renderer::renderer::{Renderer, RendererBackendType};
 
 use log::{debug, error, info};
 use anyhow::Result;
@@ -19,7 +19,7 @@ use winit::window::WindowId;
 
 pub struct WinitWindow<'a> {
     window: Option<winit::window::Window>,
-    renderer: &'a mut Renderer,
+    renderer: &'a mut Option<Box<Renderer>>,
 
     raw_display_handle: Option<RawDisplayHandle>,
     raw_window_handle: Option<RawWindowHandle>,
@@ -34,7 +34,7 @@ pub struct WinitWindow<'a> {
 }
 
 impl<'a> WinitWindow<'a> {
-    pub fn new(window_title: &str, renderer: &'a mut Renderer) -> Result<Self> {
+    pub fn new(window_title: &str, renderer: &'a mut Option<Box<Renderer>>) -> Result<Self> {
         let event_loop = EventLoop::new()?;
         event_loop.set_control_flow(ControlFlow::Poll);
 
@@ -96,11 +96,13 @@ impl NovaWindow<'_> for WinitWindow<'_> {
 
 impl ApplicationHandler for WinitWindow<'_> {
     fn resumed(&mut self, event_loop: &ActiveEventLoop) {
+        debug!("WinitWindow Resumed");
+
         let window_title = self.window_title.to_string();
 
         let window_attributes = WindowAttributes::default()
             .with_title(window_title)
-            .with_inner_size(LogicalSize::new(800, 600));
+            .with_inner_size(LogicalSize::new(1024, 800));
 
         let window = event_loop.create_window(window_attributes).unwrap();
 
@@ -112,7 +114,12 @@ impl ApplicationHandler for WinitWindow<'_> {
 
         self.window_size = window_size;
 
-        self.renderer.init(self.raw_window_handle.unwrap(), self.raw_display_handle.unwrap(), window_size).unwrap();
+        // TODO: Make renderer backend configurable
+        let mut renderer: Renderer = Renderer::new_vulkan_renderer(
+            self.raw_window_handle.unwrap(), 
+            self.raw_display_handle.unwrap(), window_size);
+        
+        *self.renderer = Some(Box::from(renderer));
         self.window = Some(window);
     }
 
@@ -220,10 +227,17 @@ impl ApplicationHandler for WinitWindow<'_> {
             WindowEvent::ThemeChanged(_) => {}
             WindowEvent::Occluded(_) => {}
             WindowEvent::RedrawRequested => {
-                self.renderer.render(self.window_size).unwrap();
+                if let Some(renderer) = self.renderer.as_mut() {
+                    renderer.begin_rendering(self.window_size);
 
-                if let Some(window) = self.window.as_ref() {
-                    window.request_redraw();
+                    // Start Drawing
+                    renderer.draw_rect(Vector2::new(0f32, 0f32), 0.2f32, 0.5f32, Color::from_vector4(Vector4::new(1.0, 0.0, 0.0, 1.0)));
+                    renderer.draw_rect(Vector2::new(0f32, 0f32), 0.5f32, 0.2f32, Color::from_vector4(Vector4::new(1.0, 1.0, 0.0, 1.0)));
+
+                    renderer.draw_line_2d(Vector2::new(0f32, 0f32), Vector2::new(0.5f32, 0.5f32), Color::WHITE);
+                    // End Drawing
+                    
+                    renderer.end_rendering();
                 }
 
                 if !self.destroying && !self.minimized && !self.window_size.equals(&Vector2::zero()) {

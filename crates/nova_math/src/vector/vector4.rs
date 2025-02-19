@@ -277,3 +277,9 @@ mod vector4_tests {
         assert_eq!(dot_product, 16.0)
     }
 }
+
+impl Default for Vector4<f32> {
+    fn default() -> Self {
+        Self::zero()
+    }
+}

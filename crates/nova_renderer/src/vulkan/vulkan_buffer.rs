@@ -4,6 +4,11 @@ use crate::vulkan::utils::single_time_commands::*;
 use anyhow::Result;
 use ash::vk;
 
+pub(crate) enum VulkanBufferType { 
+    Vertex,
+    Index
+}
+
 #[derive(Copy, Clone)]
 pub(crate) struct VulkanAppBuffer {
     pub(crate) buffer: vk::Buffer,
@@ -19,8 +24,7 @@ impl VulkanAppBuffer {
         physical_device: vk::PhysicalDevice,
         graphics_queue: vk::Queue,
         command_pool: vk::CommandPool,
-        usage: vk::BufferUsageFlags,
-        properties: vk::MemoryPropertyFlags
+        buffer_type: VulkanBufferType
     ) -> Result<VulkanAppBuffer> {
         let size = (size_of::<T>() * input_length) as u64;
 
@@ -46,21 +50,26 @@ impl VulkanAppBuffer {
             logical_device.unmap_memory(staging_buffer.buffer_memory);
         }
 
-        let vertex_buffer = Self::new_internal(
+        let additional_destination_properties = match buffer_type {
+            VulkanBufferType::Vertex => vk::BufferUsageFlags::VERTEX_BUFFER,
+            VulkanBufferType::Index => vk::BufferUsageFlags::INDEX_BUFFER
+        };
+
+        let destination_buffer = Self::new_internal(
             instance,
             logical_device,
             physical_device,
             size,
-            usage,
-            properties
+            vk::BufferUsageFlags::TRANSFER_DST |  additional_destination_properties,
+            vk::MemoryPropertyFlags::DEVICE_LOCAL
         )?;
 
         // Copy
-        Self::copy_to_destination(logical_device, staging_buffer, vertex_buffer, size, graphics_queue, command_pool)?;
+        Self::copy_to_destination(logical_device, staging_buffer, destination_buffer, size, graphics_queue, command_pool)?;
 
         staging_buffer.destroy_buffer(logical_device)?;
 
-        Ok(vertex_buffer)
+        Ok(destination_buffer)
     }
 
     pub fn new(

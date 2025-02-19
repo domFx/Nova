@@ -1,3 +1,6 @@
+use crate::core_types::TopologyType;
+use crate::vertex;
+use crate::vertex::Vertex;
 use crate::vulkan::command_buffers::*;
 use crate::vulkan::command_pool::*;
 use crate::vulkan::descriptor_set_layout::*;
@@ -10,27 +13,54 @@ use crate::vulkan::queue_families::*;
 use crate::vulkan::render_pass::*;
 use crate::vulkan::swapchain::*;
 use crate::vulkan::surface::*;
-use crate::vulkan::index_buffer::*;
 use crate::vulkan::texture_image::*;
 
-use crate::vulkan::vulkan_buffer::VulkanAppBuffer;
+use crate::vulkan::vulkan_buffer::{ VulkanAppBuffer, VulkanBufferType };
 use crate::vulkan::constants::{MAX_FRAMES_IN_FLIGHT, VALIDATION_ENABLED};
 use crate::vulkan::debug::{create_debug_info, VulkanAppDebug};
 use crate::vulkan::descriptor_pool::create_descriptor_pool;
 use crate::vulkan::descriptor_sets::create_descriptor_sets;
 use crate::vulkan::uniform_buffers::{create_uniform_buffers, update_uniform_buffer};
-use crate::vulkan::vulkan_vertex::{create_vertex_buffer, INDICES};
 use crate::vulkan::vulkan_render_command::VulkanRenderCommand;
 use crate::renderer_backend::RendererBackend;
 
+use anyhow::Ok;
+use ash::ext::index_type_uint8;
+use nova_core::color::Color;
 use nova_math::vector::vector2::Vector2;
 
 use anyhow::{anyhow, Result};
 use ash::vk;
 use ash::khr;
 use ash::prelude::VkResult;
+use png::chunk::acTL;
 use std::time::Instant;
 use raw_window_handle::{RawDisplayHandle, RawWindowHandle};
+
+use super::pipeline;
+
+pub(crate) enum VulkanTopology {
+    PointList,
+    LineList,
+    LineStrip,
+    TriangleList,
+    TriangleStrip,
+    TriangleFan
+}
+
+impl VulkanTopology {
+    pub(crate) fn to_vulkan_topology(&self) -> vk::PrimitiveTopology {
+        match self {
+            VulkanTopology::PointList => vk::PrimitiveTopology::POINT_LIST,
+            VulkanTopology::LineList => vk::PrimitiveTopology::LINE_LIST,
+            VulkanTopology::LineStrip => vk::PrimitiveTopology::LINE_STRIP,
+            VulkanTopology::TriangleList => vk::PrimitiveTopology::TRIANGLE_LIST,
+            VulkanTopology::TriangleStrip => vk::PrimitiveTopology::TRIANGLE_STRIP,
+            VulkanTopology::TriangleFan => vk::PrimitiveTopology::TRIANGLE_FAN,
+            _ => vk::PrimitiveTopology::TRIANGLE_LIST
+        }
+    }
+}
 
 pub struct VulkanRenderer {
     entry: ash::Entry,
@@ -43,13 +73,17 @@ pub struct VulkanRenderer {
     present_queue: vk::Queue,
     surface: vk::SurfaceKHR,
     swapchain: VulkanAppSwapchain,
-    pipeline: VulkanAppPipeline,
+    
+    // TODO: Make pipeline stuff better
+    line_pipeline: VulkanPipeline,
+    triangle_pipeline: VulkanPipeline,
+
     descriptor_set_layout: vk::DescriptorSetLayout,
     descriptor_pool: vk::DescriptorPool,
     descriptor_sets: Vec<vk::DescriptorSet>,
     render_pass: vk::RenderPass,
     framebuffers: Vec<vk::Framebuffer>,
-    command_pool: vk::CommandPool,
+    command_pool: vk::CommandPool,    
     command_buffers: Vec<vk::CommandBuffer>,
     image_available_semaphores: Vec<vk::Semaphore>,
     render_finished_semaphores: Vec<vk::Semaphore>,
@@ -59,18 +93,18 @@ pub struct VulkanRenderer {
     indices: QueueFamilyIndices,
     images: Vec<vk::Image>,
     image_views: Vec<vk::ImageView>,
-    vertex_buffer: VulkanAppBuffer,
-    index_buffer: VulkanAppBuffer,
     uniform_buffers: Vec<VulkanAppBuffer>,
     start: Instant,
     window_dimensions: Vector2<u32>,
     texture_image: VulkanImage,
     sampler: vk::Sampler,
     pub resized: bool,
+    active_command_buffer: Option<vk::CommandBuffer>,
+    current_image_index: Option<usize>
 }
 
 impl RendererBackend for VulkanRenderer {
-    fn render(&mut self, _: Vector2<u32>) -> Result<()> {
+    fn prepare_window_surface(&mut self, window_dimensions: Vector2<u32>) -> Result<()> {
         unsafe {
             self.logical_device.wait_for_fences(&[self.in_flight_fences[self.current_frame]], true, u64::MAX)?;
 
@@ -86,33 +120,176 @@ impl RendererBackend for VulkanRenderer {
                 VkResult::Err(vk::Result::ERROR_OUT_OF_DATE_KHR) => return self.recreate_swapchain(self.window_dimensions),
                 VkResult::Err(e) => return Err(anyhow!(e))
             };
-
+            self.current_image_index = Some(image_index);
+            
             update_uniform_buffer(self.current_frame, &self.uniform_buffers, self.swapchain.extent, &self.logical_device, &self.start)?;
-
+            
             self.logical_device.reset_fences(&[self.in_flight_fences[self.current_frame]])?;
+        }
 
+        Ok(())
+    }
+
+    fn begin_commands(&mut self) -> Result<()> {
+        unsafe {
             self.logical_device.reset_command_buffer(self.command_buffers[self.current_frame], vk::CommandBufferResetFlags::empty())?;
-            self.record_command_buffer(self.command_buffers[self.current_frame], image_index)?;
+        }
 
-            let wait_semaphores = &[self.image_available_semaphores[self.current_frame]];
-            let wait_stages = &[vk::PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT];
-            let command_buffers = &[self.command_buffers[self.current_frame]];
-            let signal_semaphores = &[self.render_finished_semaphores[self.current_frame]];
-            let submit_info = vk::SubmitInfo::default()
-                .wait_semaphores(wait_semaphores)
-                .wait_dst_stage_mask(wait_stages)
-                .command_buffers(command_buffers)
-                .signal_semaphores(signal_semaphores);
+        self.active_command_buffer = Some(self.command_buffers[self.current_frame]);
 
+        let current_image_index = if let Some(image_index) = self.current_image_index {
+            image_index
+        } else {
+            return Err(anyhow!("Current image index found"));
+        };
+
+        let active_command_buffer = if let Some(active_command_buffer) = self.active_command_buffer {
+            active_command_buffer
+        } else {
+            return Err(anyhow!("No active command buffer found"));
+        };
+
+        unsafe {
+            let info = vk::CommandBufferBeginInfo::default();
+
+            self.logical_device.begin_command_buffer(active_command_buffer, &info)?;
+            Ok(())
+        }
+    }
+
+    fn begin_render_pass(&mut self, clear_color: Color) -> Result<()> {        
+        let render_area = vk::Rect2D::default()
+            .offset(vk::Offset2D { x: 0, y: 0 })
+            .extent(self.swapchain.extent);
+
+        let color_clear_value = vk::ClearValue {
+            color: vk::ClearColorValue {
+                float32: clear_color.to_rgb_array(),
+            },
+        };
+
+        let clear_values = &[color_clear_value];
+        let info = vk::RenderPassBeginInfo::default()
+            .render_pass(self.render_pass)
+            .framebuffer(self.framebuffers[self.current_image_index.unwrap()])
+            .render_area(render_area)
+            .clear_values(clear_values);
+        
+        unsafe {
+            self.logical_device.cmd_begin_render_pass(self.active_command_buffer.unwrap(), &info, vk::SubpassContents::INLINE);
+        }
+        
+        Ok(())
+    }
+
+    fn draw(&mut self, vertices: Vec<Vertex>, indices: Vec<u32>, topology_type: TopologyType) -> Result<()> {
+        let pipeline = match topology_type {
+            TopologyType::LineList => &self.line_pipeline,
+            TopologyType::TriangleList => &self.triangle_pipeline
+        };
+
+        unsafe {
+            self.logical_device.cmd_bind_pipeline(self.active_command_buffer.unwrap(), vk::PipelineBindPoint::GRAPHICS, pipeline.pipeline);
+
+            let viewport = vk::Viewport::default()
+                .x(0.0)
+                .y(self.swapchain.extent.height as f32)
+                .width(self.swapchain.extent.width as f32)
+                .height(-(self.swapchain.extent.height as f32))
+                .min_depth(0.0)
+                .max_depth(1.0);
+            self.logical_device.cmd_set_viewport(self.active_command_buffer.unwrap(), 0, &[viewport]);
+
+            let scissor = vk::Rect2D::default()
+                .offset(vk::Offset2D { x: 0, y: 0 })
+                .extent(self.swapchain.extent);
+            self.logical_device.cmd_set_scissor(self.active_command_buffer.unwrap(), 0, &[scissor]);
+
+            let vertex_buffer = VulkanAppBuffer::new_staged(
+                vertices.as_ptr(), 
+                vertices.len(), 
+                &self.logical_device, 
+                &self.instance, 
+                self.physical_device, 
+                self.graphics_queue, 
+                self.command_pool,         
+                VulkanBufferType::Vertex)?;
+
+            let index_buffer = VulkanAppBuffer::new_staged(
+                indices.as_ptr(), 
+                indices.len(), 
+                &self.logical_device, 
+                &self.instance, 
+                self.physical_device, 
+                self.graphics_queue, 
+                self.command_pool,
+                VulkanBufferType::Index)?;
+
+            self.logical_device.cmd_bind_vertex_buffers(self.active_command_buffer.unwrap(), 0, &[vertex_buffer.buffer], &[0]);
+            self.logical_device.cmd_bind_index_buffer(self.active_command_buffer.unwrap(), index_buffer.buffer, 0, vk::IndexType::UINT32);
+
+            self.logical_device.cmd_bind_descriptor_sets(
+                self.active_command_buffer.unwrap(),
+                vk::PipelineBindPoint::GRAPHICS,
+                pipeline.pipeline_layout,
+                0,
+                &[self.descriptor_sets[self.current_frame]],
+                &[]);
+
+            self.logical_device.cmd_draw_indexed(self.active_command_buffer.unwrap(), indices.len() as u32, 1, 0, 0, 0);
+       
+            // self.logical_device.destroy_buffer(vertex_buffer.buffer, None);
+            // self.logical_device.free_memory(vertex_buffer.buffer_memory, None);
+            // self.logical_device.destroy_buffer(index_buffer.buffer, None);
+            // self.logical_device.free_memory(index_buffer.buffer_memory, None);
+        }
+
+        Ok(())
+    }
+
+    fn end_render_pass(&mut self) -> Result<()> {
+        unsafe {
+            self.logical_device.cmd_end_render_pass(self.active_command_buffer.expect("No active command buffer"));
+        }
+        Ok(())
+    }
+
+    fn end_commands(&mut self) -> Result<()> {
+        unsafe { 
+            self.logical_device.end_command_buffer(self.active_command_buffer.expect("No active command buffer"))?;
+        }
+
+        Ok(())
+    }
+
+    fn submit(&mut self) -> Result<()> {
+        let wait_semaphores = &[self.image_available_semaphores[self.current_frame]];
+        let wait_stages = &[vk::PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT];
+        let command_buffers = &[self.command_buffers[self.current_frame]];
+        let signal_semaphores = &[self.render_finished_semaphores[self.current_frame]];
+        let submit_info = vk::SubmitInfo::default()
+            .wait_semaphores(wait_semaphores)
+            .wait_dst_stage_mask(wait_stages)
+            .command_buffers(command_buffers)
+            .signal_semaphores(signal_semaphores);
+
+        unsafe { 
             self.logical_device.queue_submit(self.graphics_queue, &[submit_info], self.in_flight_fences[self.current_frame])?;
+        }
 
-            let swapchains = &[self.swapchain.swapchain];
-            let image_indices = &[image_index as u32];
-            let present_info = vk::PresentInfoKHR::default()
-                .wait_semaphores(signal_semaphores)
-                .swapchains(swapchains)
-                .image_indices(image_indices);
+        Ok(())
+    }
 
+    fn present(&mut self) -> Result<()> {
+        let swapchains = &[self.swapchain.swapchain];
+        let image_indices = &[self.current_image_index.unwrap() as u32];
+        let signal_semaphores = &[self.render_finished_semaphores[self.current_frame]];
+        let present_info = vk::PresentInfoKHR::default()
+            .wait_semaphores(signal_semaphores)
+            .swapchains(swapchains)
+            .image_indices(image_indices);
+
+        unsafe {
             let result = self.swapchain.loader.queue_present(self.present_queue, &present_info);
 
             let changed = match result {
@@ -120,14 +297,15 @@ impl RendererBackend for VulkanRenderer {
                 Err(vk::Result::ERROR_OUT_OF_DATE_KHR) => true,
                 _ => false
             };
-
+    
             if self.resized || changed {
                 // debug!("Window resized resized: {:?} changed {:?}", self.resized, changed);
                 self.resized = false;
                 self.recreate_swapchain(self.window_dimensions)?;
             } else if let Err(e) = result {
                 return Err(anyhow!(e));
-            }
+            }        
+    
         }
 
         self.current_frame = (self.current_frame + 1) % MAX_FRAMES_IN_FLIGHT;
@@ -149,11 +327,6 @@ impl RendererBackend for VulkanRenderer {
             self.in_flight_fences.iter().for_each(|f| self.logical_device.destroy_fence(*f, None));
             self.render_finished_semaphores.iter().for_each(|s| self.logical_device.destroy_semaphore(*s, None));
             self.image_available_semaphores.iter().for_each(|s| self.logical_device.destroy_semaphore(*s, None));
-
-            self.logical_device.destroy_buffer(self.vertex_buffer.buffer, None);
-            self.logical_device.free_memory(self.vertex_buffer.buffer_memory, None);
-            self.logical_device.destroy_buffer(self.index_buffer.buffer, None);
-            self.logical_device.free_memory(self.index_buffer.buffer_memory, None);
 
             self.logical_device.destroy_command_pool(self.command_pool, None);
             self.logical_device.destroy_device(None);
@@ -187,13 +360,13 @@ impl VulkanRenderer {
             let image_views =  create_swapchain_image_views(&logical_device, &images, swapchain.format)?;
             let render_pass = create_render_pass(&instance, &logical_device, swapchain.format)?;
             let descriptor_set_layout = create_descriptor_set_layout(&logical_device)?;
-            let pipeline = VulkanAppPipeline::new(&logical_device, swapchain.extent, render_pass, descriptor_set_layout)?;
+            let triangle_pipeline = VulkanPipeline::new(&logical_device, render_pass, descriptor_set_layout, VulkanTopology::TriangleList)?;
+            let line_pipeline = VulkanPipeline::new(&logical_device, render_pass, descriptor_set_layout, VulkanTopology::LineList)?;
+            
             let framebuffers = create_framebuffers(&logical_device, &image_views, render_pass, &swapchain.extent)?;
             let command_pool = create_command_pool(&logical_device, &indices)?;
             let texture_image = create_texture_image(&instance, &logical_device, physical_device, command_pool, graphics_queue)?;
             let sampler = create_texture_sampler(&logical_device)?;
-            let vertex_buffer = create_vertex_buffer(&instance, &logical_device, physical_device, graphics_queue, command_pool)?;
-            let index_buffer = create_index_buffer(&instance, &logical_device, physical_device, graphics_queue, command_pool)?;
             let uniform_buffers = create_uniform_buffers(&instance, &logical_device, physical_device)?;
             let descriptor_pool = create_descriptor_pool(&logical_device, &images)?;
             let descriptor_sets = create_descriptor_sets(&logical_device, descriptor_pool, descriptor_set_layout, &images, &uniform_buffers, texture_image.texture_image_view, sampler)?;
@@ -228,7 +401,8 @@ impl VulkanRenderer {
                 present_queue,
                 surface,
                 swapchain,
-                pipeline,
+                triangle_pipeline,
+                line_pipeline,
                 descriptor_set_layout,
                 descriptor_pool,
                 descriptor_sets,
@@ -244,96 +418,17 @@ impl VulkanRenderer {
                 indices,
                 images,
                 image_views,
-                vertex_buffer,
-                index_buffer,
                 uniform_buffers,
                 start,
                 window_dimensions,
                 texture_image,
                 sampler,
-                resized: false
+                resized: false,
+                active_command_buffer: None,
+                current_image_index: None
             };
 
             Ok(renderer)
-        }
-    }
-
-    pub fn get_2d_render_command(&self) -> Result<VulkanRenderCommand> {
-        let render_command = VulkanRenderCommand::new(
-            &self.logical_device,
-            &self.instance,
-            self.physical_device,
-            self.command_pool,
-            self.graphics_queue
-        )?;
-
-        Ok(render_command)
-    }
-
-    pub fn record_command_buffer(
-        &self,
-        command_buffer: vk::CommandBuffer,
-        image_index: usize
-    ) -> Result<()> {
-        unsafe {
-            let info = vk::CommandBufferBeginInfo::default();
-
-            self.logical_device.begin_command_buffer(command_buffer, &info)?;
-
-            let render_area = vk::Rect2D::default()
-                .offset(vk::Offset2D { x: 0, y: 0 })
-                .extent(self.swapchain.extent);
-
-            let color_clear_value = vk::ClearValue {
-                color: vk::ClearColorValue {
-                    float32: [0.0, 0.0, 0.0, 1.0],
-                },
-            };
-
-            let clear_values = &[color_clear_value];
-            let info = vk::RenderPassBeginInfo::default()
-                .render_pass(self.render_pass)
-                .framebuffer(self.framebuffers[image_index])
-                .render_area(render_area)
-                .clear_values(clear_values);
-
-            self.logical_device.cmd_begin_render_pass(command_buffer, &info, vk::SubpassContents::INLINE);
-            self.logical_device.cmd_bind_pipeline(command_buffer, vk::PipelineBindPoint::GRAPHICS, self.pipeline.pipeline);
-
-            let viewport = vk::Viewport::default()
-                .x(0.0)
-                .y(0.0)
-                .width(self.swapchain.extent.width as f32)
-                .height(self.swapchain.extent.height as f32)
-                .min_depth(0.0)
-                .max_depth(1.0);
-
-            self.logical_device.cmd_set_viewport(command_buffer, 0, &[viewport]);
-
-            let scissor = vk::Rect2D::default()
-                .offset(vk::Offset2D { x: 0, y: 0 })
-                .extent(self.swapchain.extent);
-
-            self.logical_device.cmd_set_scissor(command_buffer, 0, &[scissor]);
-
-            self.logical_device.cmd_bind_vertex_buffers(command_buffer, 0, &[self.vertex_buffer.buffer], &[0]);
-
-            self.logical_device.cmd_bind_index_buffer(command_buffer, self.index_buffer.buffer, 0, vk::IndexType::UINT16);
-
-            self.logical_device.cmd_bind_descriptor_sets(
-                command_buffer,
-                vk::PipelineBindPoint::GRAPHICS,
-                self.pipeline.pipeline_layout,
-                0,
-                &[self.descriptor_sets[self.current_frame]],
-                &[]);
-
-            self.logical_device.cmd_draw_indexed(command_buffer, INDICES.len() as u32, 1, 0, 0, 0);
-            self.logical_device.cmd_end_render_pass(command_buffer);
-
-            self.logical_device.end_command_buffer(command_buffer)?;
-
-            Ok(())
         }
     }
 
@@ -350,7 +445,8 @@ impl VulkanRenderer {
             self.framebuffers
                 .iter()
                 .for_each(|f| self.logical_device.destroy_framebuffer(*f, None));
-            self.pipeline.destroy(&self.logical_device);
+            self.triangle_pipeline.destroy(&self.logical_device);
+            self.line_pipeline.destroy(&self.logical_device);
             self.logical_device.destroy_render_pass(self.render_pass, None);
             self.image_views
                 .iter()
@@ -369,7 +465,11 @@ impl VulkanRenderer {
             self.images = self.swapchain.loader.get_swapchain_images(self.swapchain.swapchain)?;
             self.image_views = create_swapchain_image_views(&self.logical_device, &self.images, self.swapchain.format)?;
             self.render_pass = create_render_pass(&self.instance, &self.logical_device, self.swapchain.format)?;
-            self.pipeline = VulkanAppPipeline::new(&self.logical_device, self.swapchain.extent, self.render_pass, self.descriptor_set_layout)?;
+            
+            
+            self.triangle_pipeline = VulkanPipeline::new(&self.logical_device, self.render_pass, self.descriptor_set_layout, VulkanTopology::TriangleList)?;
+            self.line_pipeline = VulkanPipeline::new(&self.logical_device, self.render_pass, self.descriptor_set_layout, VulkanTopology::LineList)?;
+            
             self.framebuffers = create_framebuffers(&self.logical_device, &self.image_views, self.render_pass, &self.swapchain.extent)?;
             self.uniform_buffers = create_uniform_buffers(&self.instance, &self.logical_device, self.physical_device)?;
             self.descriptor_pool = create_descriptor_pool(&self.logical_device, &self.images)?;
