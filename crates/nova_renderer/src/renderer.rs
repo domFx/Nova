@@ -1,6 +1,7 @@
+use crate::vulkan::vulkan_renderer::VulkanTopology;
 use crate::{renderer_backend, vulkan::vulkan_renderer::VulkanRenderer};
 use crate::renderer_backend::RendererBackend;
-use crate::vertex::Vertex;
+use crate::vertex::{self, Vertex};
 use nova_core::color::Color;
 
 use log::debug;
@@ -43,16 +44,38 @@ enum RendererError {
     RendererBackendNotFound
 }
 
-pub struct Renderer {
-    renderer_backend: Option<Box<dyn RendererBackend>>,
-    renderer_state: RendererState,
+struct RenderDrawBuffer {
     index_buffer: Vec<u32>,
     vertex_buffer: Vec<Vertex>
 }
 
-impl Renderer {
+impl RenderDrawBuffer {
     const INITIAL_CAPACITY: usize = 1000;
-    
+
+    pub fn new() -> Self {
+        Self {
+            index_buffer: Vec::with_capacity(Self::INITIAL_CAPACITY),
+            vertex_buffer: Vec::with_capacity(Self::INITIAL_CAPACITY)
+        }
+    }
+
+    pub fn extend_vertex_buffer(&mut self, vertices: &[Vertex]) {
+        self.vertex_buffer.extend_from_slice(&vertices);
+    }
+
+    pub fn extend_index_buffer(&mut self, indices: &[u32]) {
+        self.index_buffer.extend_from_slice(&indices);
+    }
+}
+
+pub struct Renderer {
+    renderer_backend: Option<Box<dyn RendererBackend>>,
+    renderer_state: RendererState,
+    line_buffer: RenderDrawBuffer,
+    triangle_buffer: RenderDrawBuffer
+}
+
+impl Renderer {
     /// Initializes a renderer with a Vulkan backend
     pub fn new_vulkan_renderer(
         raw_window_handle: RawWindowHandle, 
@@ -81,8 +104,8 @@ impl Renderer {
         Self {
             renderer_backend: Some(renderer_backend),
             renderer_state,
-            index_buffer: Vec::with_capacity(Self::INITIAL_CAPACITY),
-            vertex_buffer: Vec::with_capacity(Self::INITIAL_CAPACITY)
+            line_buffer: RenderDrawBuffer::new(),
+            triangle_buffer: RenderDrawBuffer::new()
         }
     }
 
@@ -96,7 +119,12 @@ impl Renderer {
 
     pub fn end_rendering(&mut self) {
         if let Some(renderer_backend) = &mut self.renderer_backend {
-            renderer_backend.draw(self.vertex_buffer.clone(),  self.index_buffer.clone());
+            
+            renderer_backend.draw(self.triangle_buffer.vertex_buffer.clone(),  self.triangle_buffer.index_buffer.clone(), crate::core_types::TopologyType::TriangleList);
+            
+            renderer_backend.draw(self.line_buffer.vertex_buffer.clone(),  self.line_buffer.index_buffer.clone(), crate::core_types::TopologyType::LineList);
+
+            
             renderer_backend.end_render_pass();
             renderer_backend.end_commands();
             renderer_backend.submit();
@@ -104,46 +132,47 @@ impl Renderer {
         }
     }
 
+    // pub fn draw_rect(&mut self, position: Vector2<f32>, height: f32, width: f32, color: Color) {
     pub fn draw_rect(&mut self) {
         let vertices: [Vertex; 4] = [
             Vertex::new(
                 Vector2::new(-0.5, -0.5),
                 Vector4::new(1.0, 0.0, 0.0, 1.0),
-                Vector2::new(1.0, 0.0),
-            ),
-            Vertex::new(
-                Vector2::new(0.5, -0.5),
-                Vector4::new(1.0, 0.0, 0.0, 1.0),
-                Vector2::new(0.0, 0.0),
-            ),
-            Vertex::new(
-                Vector2::new(0.5, 0.5),
-                Vector4::new(1.0, 0.0, 0.0, 1.0),
-                Vector2::new(0.0, 1.0),
+                Vector2::zero(),
             ),
             Vertex::new(
                 Vector2::new(-0.5, 0.5),
                 Vector4::new(1.0, 0.0, 0.0, 1.0),
-                Vector2::new(1.0, 1.0),
+                Vector2::zero()
             ),
+            Vertex::new(
+                Vector2::new(0.5, 0.5),
+                Vector4::new(1.0, 0.0, 0.0, 1.0),
+                Vector2::zero(),
+            ),
+            Vertex::new(
+                Vector2::new(0.5, -0.5),
+                Vector4::new(1.0, 0.0, 0.0, 1.0),
+                Vector2::zero(),
+            )
         ];
         
         let indices: [u32; 6] = [0, 1, 2, 2, 3, 0];
 
-        self.vertex_buffer.extend_from_slice(&vertices);
-        self.index_buffer.extend_from_slice(&indices);
+        self.triangle_buffer.extend_vertex_buffer(&vertices);
+        self.triangle_buffer.extend_index_buffer(&indices);
     }
     
     pub fn draw_line_2d(&mut self, start_position: Vector2<f32>, end_position: Vector2<f32>, color: Color) {
         let vertices = [
+            Vertex::new(end_position, color.to_vector4(), Vector2::zero()),
             Vertex::new(start_position, color.to_vector4(), Vector2::zero()),
-            Vertex::new(end_position, color.to_vector4(), Vector2::zero())
         ];
 
-        let indices = [];
+        let indices = [0, 1, 1];
         
-        self.vertex_buffer.extend_from_slice(&vertices);
-        self.index_buffer.extend_from_slice(&indices);
+        self.line_buffer.extend_vertex_buffer(&vertices);
+        self.line_buffer.extend_index_buffer(&indices);
     }
 
     pub fn destroy(&mut self) {

@@ -233,7 +233,7 @@ impl ApplicationHandler for WinitWindow<'_> {
                     // Start Drawing
                     renderer.draw_rect();
 
-                    // renderer.draw_line_2d(Vector2::new(-0.5f32, -0.5f32), Vector2::new(0f32, -0.5f32), Color::WHITE);
+                    renderer.draw_line_2d(Vector2::new(-0.5f32, -0.5f32), Vector2::new(0f32, -0.5f32), Color::WHITE);
                     // End Drawing
                     
                     renderer.end_rendering();

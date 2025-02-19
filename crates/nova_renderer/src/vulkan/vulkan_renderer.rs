@@ -1,3 +1,4 @@
+use crate::core_types::TopologyType;
 use crate::vertex;
 use crate::vertex::Vertex;
 use crate::vulkan::command_buffers::*;
@@ -36,6 +37,31 @@ use png::chunk::acTL;
 use std::time::Instant;
 use raw_window_handle::{RawDisplayHandle, RawWindowHandle};
 
+use super::pipeline;
+
+pub(crate) enum VulkanTopology {
+    PointList,
+    LineList,
+    LineStrip,
+    TriangleList,
+    TriangleStrip,
+    TriangleFan
+}
+
+impl VulkanTopology {
+    pub(crate) fn to_vulkan_topology(&self) -> vk::PrimitiveTopology {
+        match self {
+            VulkanTopology::PointList => vk::PrimitiveTopology::POINT_LIST,
+            VulkanTopology::LineList => vk::PrimitiveTopology::LINE_LIST,
+            VulkanTopology::LineStrip => vk::PrimitiveTopology::LINE_STRIP,
+            VulkanTopology::TriangleList => vk::PrimitiveTopology::TRIANGLE_LIST,
+            VulkanTopology::TriangleStrip => vk::PrimitiveTopology::TRIANGLE_STRIP,
+            VulkanTopology::TriangleFan => vk::PrimitiveTopology::TRIANGLE_FAN,
+            _ => vk::PrimitiveTopology::TRIANGLE_LIST
+        }
+    }
+}
+
 pub struct VulkanRenderer {
     entry: ash::Entry,
     instance: ash::Instance,
@@ -47,13 +73,18 @@ pub struct VulkanRenderer {
     present_queue: vk::Queue,
     surface: vk::SurfaceKHR,
     swapchain: VulkanAppSwapchain,
-    pipeline: VulkanAppPipeline,
+    
+    // TODO: Make pipeline stuff better
+    line_pipeline: VulkanPipeline,
+    triangle_pipeline: VulkanPipeline,
+
     descriptor_set_layout: vk::DescriptorSetLayout,
     descriptor_pool: vk::DescriptorPool,
     descriptor_sets: Vec<vk::DescriptorSet>,
     render_pass: vk::RenderPass,
     framebuffers: Vec<vk::Framebuffer>,
-    command_pool: vk::CommandPool,    command_buffers: Vec<vk::CommandBuffer>,
+    command_pool: vk::CommandPool,    
+    command_buffers: Vec<vk::CommandBuffer>,
     image_available_semaphores: Vec<vk::Semaphore>,
     render_finished_semaphores: Vec<vk::Semaphore>,
     current_frame: usize,
@@ -151,15 +182,20 @@ impl RendererBackend for VulkanRenderer {
         Ok(())
     }
 
-    fn draw(&mut self, vertices: Vec<Vertex>, indices: Vec<u32>) -> Result<()> {
+    fn draw(&mut self, vertices: Vec<Vertex>, indices: Vec<u32>, topology_type: TopologyType) -> Result<()> {
+        let pipeline = match topology_type {
+            TopologyType::LineList => &self.line_pipeline,
+            TopologyType::TriangleList => &self.triangle_pipeline
+        };
+
         unsafe {
-            self.logical_device.cmd_bind_pipeline(self.active_command_buffer.unwrap(), vk::PipelineBindPoint::GRAPHICS, self.pipeline.pipeline);
+            self.logical_device.cmd_bind_pipeline(self.active_command_buffer.unwrap(), vk::PipelineBindPoint::GRAPHICS, pipeline.pipeline);
 
             let viewport = vk::Viewport::default()
                 .x(0.0)
-                .y(0.0)
+                .y(self.swapchain.extent.height as f32)
                 .width(self.swapchain.extent.width as f32)
-                .height(self.swapchain.extent.height as f32)
+                .height(-(self.swapchain.extent.height as f32))
                 .min_depth(0.0)
                 .max_depth(1.0);
             self.logical_device.cmd_set_viewport(self.active_command_buffer.unwrap(), 0, &[viewport]);
@@ -195,7 +231,7 @@ impl RendererBackend for VulkanRenderer {
             self.logical_device.cmd_bind_descriptor_sets(
                 self.active_command_buffer.unwrap(),
                 vk::PipelineBindPoint::GRAPHICS,
-                self.pipeline.pipeline_layout,
+                pipeline.pipeline_layout,
                 0,
                 &[self.descriptor_sets[self.current_frame]],
                 &[]);
@@ -324,7 +360,9 @@ impl VulkanRenderer {
             let image_views =  create_swapchain_image_views(&logical_device, &images, swapchain.format)?;
             let render_pass = create_render_pass(&instance, &logical_device, swapchain.format)?;
             let descriptor_set_layout = create_descriptor_set_layout(&logical_device)?;
-            let pipeline = VulkanAppPipeline::new(&logical_device, swapchain.extent, render_pass, descriptor_set_layout)?;
+            let triangle_pipeline = VulkanPipeline::new(&logical_device, render_pass, descriptor_set_layout, VulkanTopology::TriangleList)?;
+            let line_pipeline = VulkanPipeline::new(&logical_device, render_pass, descriptor_set_layout, VulkanTopology::LineList)?;
+            
             let framebuffers = create_framebuffers(&logical_device, &image_views, render_pass, &swapchain.extent)?;
             let command_pool = create_command_pool(&logical_device, &indices)?;
             let texture_image = create_texture_image(&instance, &logical_device, physical_device, command_pool, graphics_queue)?;
@@ -363,7 +401,8 @@ impl VulkanRenderer {
                 present_queue,
                 surface,
                 swapchain,
-                pipeline,
+                triangle_pipeline,
+                line_pipeline,
                 descriptor_set_layout,
                 descriptor_pool,
                 descriptor_sets,
@@ -406,7 +445,8 @@ impl VulkanRenderer {
             self.framebuffers
                 .iter()
                 .for_each(|f| self.logical_device.destroy_framebuffer(*f, None));
-            self.pipeline.destroy(&self.logical_device);
+            self.triangle_pipeline.destroy(&self.logical_device);
+            self.line_pipeline.destroy(&self.logical_device);
             self.logical_device.destroy_render_pass(self.render_pass, None);
             self.image_views
                 .iter()
@@ -425,7 +465,11 @@ impl VulkanRenderer {
             self.images = self.swapchain.loader.get_swapchain_images(self.swapchain.swapchain)?;
             self.image_views = create_swapchain_image_views(&self.logical_device, &self.images, self.swapchain.format)?;
             self.render_pass = create_render_pass(&self.instance, &self.logical_device, self.swapchain.format)?;
-            self.pipeline = VulkanAppPipeline::new(&self.logical_device, self.swapchain.extent, self.render_pass, self.descriptor_set_layout)?;
+            
+            
+            self.triangle_pipeline = VulkanPipeline::new(&self.logical_device, self.render_pass, self.descriptor_set_layout, VulkanTopology::TriangleList)?;
+            self.line_pipeline = VulkanPipeline::new(&self.logical_device, self.render_pass, self.descriptor_set_layout, VulkanTopology::LineList)?;
+            
             self.framebuffers = create_framebuffers(&self.logical_device, &self.image_views, self.render_pass, &self.swapchain.extent)?;
             self.uniform_buffers = create_uniform_buffers(&self.instance, &self.logical_device, self.physical_device)?;
             self.descriptor_pool = create_descriptor_pool(&self.logical_device, &self.images)?;
