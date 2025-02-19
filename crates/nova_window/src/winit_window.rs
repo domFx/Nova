@@ -1,6 +1,6 @@
 use crate::window::NovaWindow;
 use nova_core::{color::Color, input::{KeyboardKey, KeyboardKeyState, MouseButtonState, INPUT_STATE}};
-use nova_math::{vector::vector2::Vector2, vector4::Vector4};
+use nova_math::vector::{Vector2, Vector4};
 use nova_renderer::renderer::{Renderer, RendererBackendType};
 
 use log::{debug, error, info};

@@ -4,8 +4,7 @@ use crate::renderer_backend::RendererBackend;
 use crate::vertex::Vertex;
 
 use nova_core::color::Color;
-use nova_math::vector::vector2::Vector2;
-use nova_math::vector::vector4::Vector4;
+use nova_math::vector::{Vector2, Vector4};
 
 use anyhow::{anyhow, Result};
 use log::debug;
