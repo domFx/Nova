@@ -1,6 +1,6 @@
 use crate::window::NovaWindow;
 use nova_core::{color::Color, input::{KeyboardKey, KeyboardKeyState, MouseButtonState, INPUT_STATE}};
-use nova_math::vector::vector2::Vector2;
+use nova_math::{vector::vector2::Vector2, vector4::Vector4};
 use nova_renderer::renderer::{Renderer, RendererBackendType};
 
 use log::{debug, error, info};
@@ -231,9 +231,10 @@ impl ApplicationHandler for WinitWindow<'_> {
                     renderer.begin_rendering(self.window_size);
 
                     // Start Drawing
-                    renderer.draw_rect();
+                    renderer.draw_rect(Vector2::new(0f32, 0f32), 0.2f32, 0.5f32, Color::from_vector4(Vector4::new(1.0, 0.0, 0.0, 1.0)));
+                    renderer.draw_rect(Vector2::new(0f32, 0f32), 0.5f32, 0.2f32, Color::from_vector4(Vector4::new(1.0, 1.0, 0.0, 1.0)));
 
-                    renderer.draw_line_2d(Vector2::new(-0.5f32, -0.5f32), Vector2::new(0f32, -0.5f32), Color::WHITE);
+                    renderer.draw_line_2d(Vector2::new(0f32, 0f32), Vector2::new(0.5f32, 0.5f32), Color::WHITE);
                     // End Drawing
                     
                     renderer.end_rendering();

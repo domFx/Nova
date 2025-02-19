@@ -59,13 +59,13 @@ impl RenderDrawBuffer {
         }
     }
 
-    pub fn extend_vertex_buffer(&mut self, vertices: &[Vertex]) {
+    pub fn add_to_buffer(&mut self, vertices: &[Vertex], indices: &[u32]) {
+        let updated_indices: Vec<u32> = indices.iter().map(|i| self.vertex_buffer.len() as u32 + *i).collect::<Vec<u32>>();
+
         self.vertex_buffer.extend_from_slice(&vertices);
+        self.index_buffer.extend_from_slice(&updated_indices);
     }
 
-    pub fn extend_index_buffer(&mut self, indices: &[u32]) {
-        self.index_buffer.extend_from_slice(&indices);
-    }
 }
 
 pub struct Renderer {
@@ -132,8 +132,36 @@ impl Renderer {
         }
     }
 
-    // pub fn draw_rect(&mut self, position: Vector2<f32>, height: f32, width: f32, color: Color) {
-    pub fn draw_rect(&mut self) {
+    pub fn draw_rect(&mut self, position: Vector2<f32>, height: f32, width: f32, color: Color) {
+        let vertices: [Vertex; 4] = [
+            Vertex::new(
+                Vector2::new(position.x - width / 2.0, position.y - height / 2.0),
+                color.to_vector4(),
+                Vector2::zero(),
+            ),
+            Vertex::new(
+                Vector2::new(position.x - width / 2.0, position.y + height / 2.0),
+                color.to_vector4(),
+                Vector2::zero()
+            ),
+            Vertex::new(
+                Vector2::new(position.x + width / 2.0, position.y + height / 2.0),
+                color.to_vector4(),
+                Vector2::zero(),
+            ),
+            Vertex::new(
+                Vector2::new(position.x + width / 2.0, position.y - height / 2.0),
+                color.to_vector4(),
+                Vector2::zero(),
+            )
+        ]; 
+
+        let indices: [u32; 6] = [0, 1, 2, 2, 3, 0];
+
+        self.triangle_buffer.add_to_buffer(&vertices, &indices);
+    }
+
+    pub fn draw_rect_debug(&mut self) {
         let vertices: [Vertex; 4] = [
             Vertex::new(
                 Vector2::new(-0.5, -0.5),
@@ -159,8 +187,7 @@ impl Renderer {
         
         let indices: [u32; 6] = [0, 1, 2, 2, 3, 0];
 
-        self.triangle_buffer.extend_vertex_buffer(&vertices);
-        self.triangle_buffer.extend_index_buffer(&indices);
+        self.triangle_buffer.add_to_buffer(&vertices, &indices);
     }
     
     pub fn draw_line_2d(&mut self, start_position: Vector2<f32>, end_position: Vector2<f32>, color: Color) {
@@ -171,8 +198,7 @@ impl Renderer {
 
         let indices = [0, 1, 1];
         
-        self.line_buffer.extend_vertex_buffer(&vertices);
-        self.line_buffer.extend_index_buffer(&indices);
+        self.line_buffer.add_to_buffer(&vertices, &indices);
     }
 
     pub fn destroy(&mut self) {
@@ -183,23 +209,3 @@ impl Renderer {
         self.renderer_backend = None;
     }
 }
-
-/*    pub fn draw_rect(
-        &mut self,
-        position: &Vector2<f32>,
-        size: &Vector2<f32>,
-        color: &Vector4<f32>,
-    ) -> Result<()> {
-        let text_coord = Vector2::zero();
-
-        let vertices = vec![
-            Vertex::new(Vector2::new(position.x, position.y), color.to_owned(), text_coord),
-            Vertex::new(Vector2::new(position.x + size.x, position.y), color.to_owned(), text_coord),
-            Vertex::new(Vector2::new(position.x + size.x, position.y + size.y), color.to_owned(), text_coord),
-            Vertex::new(Vector2::new(position.x, position.y + size.y), color.to_owned(), text_coord)
-        ];
-
-        self.quads.add_quad(vertices);
-
-        Ok(())
-    }*/
