@@ -1,14 +1,14 @@
-use crate::vulkan::vulkan_renderer::VulkanTopology;
-use crate::{renderer_backend, vulkan::vulkan_renderer::VulkanRenderer};
+use crate::core_types::TopologyType;
+use crate::vulkan::vulkan_renderer::{VulkanRenderer, VulkanTopology};
 use crate::renderer_backend::RendererBackend;
-use crate::vertex::{self, Vertex};
-use nova_core::color::Color;
+use crate::vertex::Vertex;
 
-use log::debug;
+use nova_core::color::Color;
 use nova_math::vector::vector2::Vector2;
 use nova_math::vector::vector4::Vector4;
 
 use anyhow::{anyhow, Result};
+use log::debug;
 use raw_window_handle::{RawDisplayHandle, RawWindowHandle};
 use thiserror::Error;
 
@@ -65,7 +65,6 @@ impl RenderDrawBuffer {
         self.vertex_buffer.extend_from_slice(&vertices);
         self.index_buffer.extend_from_slice(&updated_indices);
     }
-
 }
 
 pub struct Renderer {
@@ -120,10 +119,11 @@ impl Renderer {
     pub fn end_rendering(&mut self) {
         if let Some(renderer_backend) = &mut self.renderer_backend {
             
-            renderer_backend.draw(self.triangle_buffer.vertex_buffer.clone(),  self.triangle_buffer.index_buffer.clone(), crate::core_types::TopologyType::TriangleList);
+            // Triangles
+            renderer_backend.draw(self.triangle_buffer.vertex_buffer.clone(),  self.triangle_buffer.index_buffer.clone(), TopologyType::TriangleList);
             
-            renderer_backend.draw(self.line_buffer.vertex_buffer.clone(),  self.line_buffer.index_buffer.clone(), crate::core_types::TopologyType::LineList);
-
+            // Lines
+            renderer_backend.draw(self.line_buffer.vertex_buffer.clone(),  self.line_buffer.index_buffer.clone(), TopologyType::LineList);
             
             renderer_backend.end_render_pass();
             renderer_backend.end_commands();
@@ -132,6 +132,7 @@ impl Renderer {
         }
     }
 
+    /// Draws a rectangle centered at the position
     pub fn draw_rect(&mut self, position: Vector2<f32>, height: f32, width: f32, color: Color) {
         let vertices: [Vertex; 4] = [
             Vertex::new(
@@ -156,35 +157,6 @@ impl Renderer {
             )
         ]; 
 
-        let indices: [u32; 6] = [0, 1, 2, 2, 3, 0];
-
-        self.triangle_buffer.add_to_buffer(&vertices, &indices);
-    }
-
-    pub fn draw_rect_debug(&mut self) {
-        let vertices: [Vertex; 4] = [
-            Vertex::new(
-                Vector2::new(-0.5, -0.5),
-                Vector4::new(1.0, 0.0, 0.0, 1.0),
-                Vector2::zero(),
-            ),
-            Vertex::new(
-                Vector2::new(-0.5, 0.5),
-                Vector4::new(1.0, 0.0, 0.0, 1.0),
-                Vector2::zero()
-            ),
-            Vertex::new(
-                Vector2::new(0.5, 0.5),
-                Vector4::new(1.0, 0.0, 0.0, 1.0),
-                Vector2::zero(),
-            ),
-            Vertex::new(
-                Vector2::new(0.5, -0.5),
-                Vector4::new(1.0, 0.0, 0.0, 1.0),
-                Vector2::zero(),
-            )
-        ];
-        
         let indices: [u32; 6] = [0, 1, 2, 2, 3, 0];
 
         self.triangle_buffer.add_to_buffer(&vertices, &indices);

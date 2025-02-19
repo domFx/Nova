@@ -21,7 +21,6 @@ use crate::vulkan::debug::{create_debug_info, VulkanAppDebug};
 use crate::vulkan::descriptor_pool::create_descriptor_pool;
 use crate::vulkan::descriptor_sets::create_descriptor_sets;
 use crate::vulkan::uniform_buffers::{create_uniform_buffers, update_uniform_buffer};
-use crate::vulkan::vulkan_render_command::VulkanRenderCommand;
 use crate::renderer_backend::RendererBackend;
 
 use anyhow::Ok;
