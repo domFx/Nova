@@ -13,7 +13,6 @@ pub(crate) fn create_command_pool(
 
     unsafe {
         let command_pool = device.create_command_pool(&info, None)?;
-
         Ok(command_pool)
     }
 }

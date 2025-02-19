@@ -3,6 +3,8 @@ use ash::{vk, Entry, Instance};
 use log::error;
 use raw_window_handle::{RawDisplayHandle, RawWindowHandle};
 
+use crate::vulkan::errors::VulkanConfigurationError;
+
 pub unsafe fn create_surface(
     raw_window_handle: RawWindowHandle,
     raw_display_handle: RawDisplayHandle,
@@ -61,8 +63,7 @@ pub unsafe fn create_surface(
             Ok(surface)
         }
         _ => {
-            error!("Raw window handle not implemented");
-            Err(anyhow!("Missing valid physical device."))
+            Err(anyhow!(VulkanConfigurationError("Missing valid physical device.")))
         }
     }
 }

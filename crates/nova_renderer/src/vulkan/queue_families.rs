@@ -8,6 +8,7 @@ pub(crate) struct QueueFamilyIndices {
     pub graphics: u32,
     pub present: u32
 }
+ 
 impl QueueFamilyIndices {
     pub(crate) fn get(
         instance: &ash::Instance,
