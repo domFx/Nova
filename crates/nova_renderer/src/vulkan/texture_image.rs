@@ -1,6 +1,6 @@
 use crate::vulkan::memory::get_memory_type_index;
 use crate::vulkan::utils::single_time_commands::*;
-use crate::vulkan::vulkan_buffer::VulkanAppBuffer;
+use crate::vulkan::vulkan_buffer::VulkanBuffer;
 
 use ash::vk;
 use anyhow::{anyhow, Result};
@@ -47,7 +47,7 @@ pub(crate) fn create_texture_image(
 
     // let device_size: DeviceSize = (width * height * 4) as DeviceSize;
 
-    let buffer = VulkanAppBuffer::new(
+    let buffer = VulkanBuffer::new(
         instance,
         logical_device,
         physical_device,

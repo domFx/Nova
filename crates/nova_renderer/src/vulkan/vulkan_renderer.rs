@@ -15,7 +15,7 @@ use crate::vulkan::swapchain::*;
 use crate::vulkan::surface::*;
 use crate::vulkan::texture_image::*;
 
-use crate::vulkan::vulkan_buffer::{ VulkanAppBuffer, VulkanBufferType };
+use crate::vulkan::vulkan_buffer::{ VulkanBuffer, VulkanBufferType };
 use crate::vulkan::constants::{MAX_FRAMES_IN_FLIGHT, VALIDATION_ENABLED};
 use crate::vulkan::debug::{create_debug_info, VulkanAppDebug};
 use crate::vulkan::descriptor_pool::create_descriptor_pool;
@@ -93,7 +93,7 @@ pub struct VulkanRenderer {
     indices: QueueFamilyIndices,
     images: Vec<vk::Image>,
     image_views: Vec<vk::ImageView>,
-    uniform_buffers: Vec<VulkanAppBuffer>,
+    uniform_buffers: Vec<VulkanBuffer>,
     start: Instant,
     window_dimensions: Vector2<u32>,
     texture_image: VulkanImage,
@@ -183,9 +183,11 @@ impl RendererBackend for VulkanRenderer {
     }
 
     fn draw(&mut self, vertices: Vec<Vertex>, indices: Vec<u32>, topology_type: TopologyType) -> Result<()> {
+        // TODO: Improve pipeline selection
         let pipeline = match topology_type {
             TopologyType::LineList => &self.line_pipeline,
-            TopologyType::TriangleList => &self.triangle_pipeline
+            TopologyType::TriangleList => &self.triangle_pipeline,
+            _ => &self.triangle_pipeline
         };
 
         unsafe {
@@ -205,7 +207,7 @@ impl RendererBackend for VulkanRenderer {
                 .extent(self.swapchain.extent);
             self.logical_device.cmd_set_scissor(self.active_command_buffer.unwrap(), 0, &[scissor]);
 
-            let vertex_buffer = VulkanAppBuffer::new_staged(
+            let vertex_buffer = VulkanBuffer::new_staged(
                 vertices.as_ptr(), 
                 vertices.len(), 
                 &self.logical_device, 
@@ -215,7 +217,7 @@ impl RendererBackend for VulkanRenderer {
                 self.command_pool,         
                 VulkanBufferType::Vertex)?;
 
-            let index_buffer = VulkanAppBuffer::new_staged(
+            let index_buffer = VulkanBuffer::new_staged(
                 indices.as_ptr(), 
                 indices.len(), 
                 &self.logical_device, 

@@ -1,4 +1,4 @@
-use crate::vulkan::vulkan_buffer::VulkanAppBuffer;
+use crate::vulkan::vulkan_buffer::VulkanBuffer;
 use crate::vulkan::uniform_buffers::UniformBufferObject;
 use crate::vulkan::constants::MAX_FRAMES_IN_FLIGHT;
 
@@ -11,7 +11,7 @@ pub(crate) fn create_descriptor_sets(
     descriptor_pool: vk::DescriptorPool,
     descriptor_set_layout: vk::DescriptorSetLayout,
     swapchain_images: &Vec<vk::Image>,
-    uniform_buffers: &Vec<VulkanAppBuffer>,
+    uniform_buffers: &Vec<VulkanBuffer>,
     texture_image_view: vk::ImageView,
     sampler: vk::Sampler
 ) -> Result<Vec<vk::DescriptorSet>> {

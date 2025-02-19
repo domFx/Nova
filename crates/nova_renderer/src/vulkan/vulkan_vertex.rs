@@ -1,4 +1,4 @@
-use crate::vulkan::vulkan_buffer::{VulkanAppBuffer,VulkanBufferType};
+use crate::vulkan::vulkan_buffer::{VulkanBuffer,VulkanBufferType};
 use crate::vertex::Vertex;
 
 use nova_math::vector::vector2::Vector2;

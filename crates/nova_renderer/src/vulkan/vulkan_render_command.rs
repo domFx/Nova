@@ -1,5 +1,5 @@
 use crate::vertex::Vertex;
-use crate::vulkan::vulkan_buffer::VulkanAppBuffer;
+use crate::vulkan::vulkan_buffer::VulkanBuffer;
 
 use anyhow::Result;
 use ash::vk;
