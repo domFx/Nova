@@ -36,21 +36,11 @@ pub(crate) fn create_logical_device(
         }
     }
 
-    let layers: Vec<*const i8> = if VALIDATION_ENABLED {
-        VALIDATION_LAYERS
-            .iter()
-            .map(|v| v.as_ptr())
-            .collect()
-    } else  {
-        vec![]
-    };
-
     let features = vk::PhysicalDeviceFeatures::default()
         .sampler_anisotropy(true);
 
     let info = vk::DeviceCreateInfo::default()
         .queue_create_infos(&queue_infos)
-        .enabled_layer_names(&layers)
         .enabled_extension_names(&extensions)
         .enabled_features(&features);
 
