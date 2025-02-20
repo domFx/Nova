@@ -16,7 +16,6 @@ pub(crate) fn create_instance(
     let engine_name = CString::new(ENGINE_NAME)?;
 
     let api_version: u32 = match unsafe { entry.try_enumerate_instance_version() }? {
-        // Vulkan 1.1+
         Some(version) => {
             let major = vk::api_version_major(version);
             let minor = vk::api_version_minor(version);
@@ -24,7 +23,6 @@ pub(crate) fn create_instance(
 
             ash::vk::make_api_version(0, major, minor, patch)
         },
-        // Vulkan 1.0
         None => {
             MIN_API_VERSION
         }
@@ -36,7 +34,6 @@ pub(crate) fn create_instance(
         let error_string = format!("Vulkan version invalid: {} {} {}", vk::api_version_major(api_version), vk::api_version_minor(api_version), vk::api_version_patch(api_version));
         return Err(anyhow!(VulkanSuitabilityFormmatedError(error_string)));
     }
-
 
     let app_info = vk::ApplicationInfo::default()
         .application_name(&window_title)
