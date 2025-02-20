@@ -29,7 +29,7 @@ use ash::{vk, khr, prelude::VkResult};
 use ash::ext::index_type_uint8;
 use ash::vk::PrimitiveTopology;
 use png::chunk::acTL;
-use raw_window_handle::{RawDisplayHandle, RawWindowHandle};
+use raw_window_handle::{DisplayHandle, WindowHandle};
 use std::time::Instant;
 use std::u64;
 use std::usize::MAX;
@@ -348,14 +348,14 @@ impl RendererBackend for VulkanRenderer {
 }
 
 impl VulkanRenderer {
-    pub fn new(raw_window_handle: RawWindowHandle, raw_display_handle: RawDisplayHandle, window_dimensions: Vector2<u32>) -> Result<Self> {
+    pub fn new(window_handle: WindowHandle, display_handle: DisplayHandle, window_dimensions: Vector2<u32>) -> Result<Self> {
         unsafe {
             let entry = ash::Entry::load()?;
             let mut debug_info = create_debug_info();
             let instance = create_instance(&entry, &mut debug_info)?;
             let debug = VulkanAppDebug::get(&entry, &instance, debug_info)?;
             let surface_loader = khr::surface::Instance::new(&entry, &instance);
-            let surface = create_surface(raw_window_handle, raw_display_handle, &entry, &instance)?;
+            let surface = create_surface(window_handle, display_handle, &entry, &instance)?;
             let physical_device = pick_physical_device(&instance, &surface_loader, surface)?;
             let indices = QueueFamilyIndices::get(&instance, physical_device, surface, &surface_loader)?;
             let logical_device = create_logical_device(&entry, &instance, physical_device, &indices)?;

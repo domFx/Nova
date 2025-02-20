@@ -8,7 +8,7 @@ use nova_math::vector::{Vector2, Vector4};
 
 use anyhow::{anyhow, Result};
 use log::debug;
-use raw_window_handle::{RawDisplayHandle, RawWindowHandle};
+use raw_window_handle::{DisplayHandle, WindowHandle};
 use thiserror::Error;
 
 pub enum RendererBackendType {
@@ -76,23 +76,23 @@ pub struct Renderer {
 impl Renderer {
     /// Initializes a renderer with a Vulkan backend
     pub fn new_vulkan_renderer(
-        raw_window_handle: RawWindowHandle, 
-        raw_display_handle: RawDisplayHandle,
+        window_handle: WindowHandle, 
+        display_handle: DisplayHandle,
         window_dimensions: Vector2<u32>
     ) -> Self {
-        Self::new(raw_window_handle, raw_display_handle, window_dimensions, RendererBackendType::Vulkan)
+        Self::new(window_handle, display_handle, window_dimensions, RendererBackendType::Vulkan)
     }
 
     pub fn new(
-        raw_window_handle: RawWindowHandle,
-        raw_display_handle: RawDisplayHandle,
+        window_handle: WindowHandle, 
+        display_handle: DisplayHandle,
         window_dimensions: Vector2<u32>,
         renderer_type: RendererBackendType
     ) -> Self {
         // Only one backend for now...
         let renderer_backend: Box<dyn RendererBackend> = match renderer_type {
             RendererBackendType::Vulkan => Box::from(
-                VulkanRenderer::new(raw_window_handle, raw_display_handle, window_dimensions)
+                VulkanRenderer::new(window_handle, display_handle, window_dimensions)
                     .expect("Failed to create Vulkan Renderer")
             )
         };

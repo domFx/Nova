@@ -1,17 +1,17 @@
 use anyhow::anyhow;
 use ash::{vk, Entry, Instance};
 use log::error;
-use raw_window_handle::{RawDisplayHandle, RawWindowHandle};
+use raw_window_handle::{DisplayHandle, WindowHandle, RawDisplayHandle, RawWindowHandle};
 
 use crate::vulkan::errors::VulkanConfigurationError;
 
 pub unsafe fn create_surface(
-    raw_window_handle: RawWindowHandle,
-    raw_display_handle: RawDisplayHandle,
+    window_handle: WindowHandle,
+    display_handle: DisplayHandle,
     entry: &Entry,
     instance: &Instance,
 ) -> anyhow::Result<vk::SurfaceKHR> {
-    match (raw_display_handle, raw_window_handle) {
+    match (display_handle.as_raw(), window_handle.as_raw()) {
         #[cfg(target_os = "windows")]
         (RawDisplayHandle::Windows(_), RawWindowHandle::Win32(win32_window_handle)) => {
             use ash::khr;

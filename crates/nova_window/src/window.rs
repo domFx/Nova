@@ -1,6 +1,6 @@
 use nova_math::vector::vector2::Vector2;
 
-use raw_window_handle::{RawDisplayHandle, RawWindowHandle};
+use raw_window_handle::{DisplayHandle, WindowHandle};
 
 /// Window functionality
 pub trait NovaWindow<'a> {
@@ -9,10 +9,6 @@ pub trait NovaWindow<'a> {
 
     /// Window Cleanup
     fn destroy(&self);
-
-    fn get_raw_display_handle(&self) -> RawDisplayHandle;
-
-    fn get_window_handle(&self) -> RawWindowHandle;
 
     fn get_window_dimensions(&self) -> Vector2<u32>;
 

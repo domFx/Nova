@@ -1,3 +1,5 @@
+use std::path::Display;
+
 use crate::window::NovaWindow;
 use nova_core::{color::Color, input::{KeyboardKey, KeyboardKeyState, MouseButtonState, INPUT_STATE}};
 use nova_math::vector::{Vector2, Vector4};
@@ -5,7 +7,7 @@ use nova_renderer::renderer::{Renderer, RendererBackendType};
 
 use log::{debug, error, info};
 use anyhow::Result;
-use raw_window_handle::{HasDisplayHandle, HasRawDisplayHandle, HasRawWindowHandle, HasWindowHandle, RawDisplayHandle, RawWindowHandle, WindowHandle};
+use raw_window_handle::{DisplayHandle, HasDisplayHandle, HasWindowHandle, RawDisplayHandle, RawWindowHandle, WindowHandle};
 use winit::{
     event::{ElementState, MouseButton, WindowEvent},
     event_loop::{ControlFlow, EventLoop},
@@ -20,10 +22,7 @@ use winit::window::WindowId;
 pub struct WinitWindow<'a> {
     window: Option<winit::window::Window>,
     renderer: &'a mut Option<Box<Renderer>>,
-
-    raw_display_handle: Option<RawDisplayHandle>,
-    raw_window_handle: Option<RawWindowHandle>,
-
+    
     minimized: bool,
     destroying: bool,
     redraw: bool,
@@ -41,9 +40,6 @@ impl<'a> WinitWindow<'a> {
         let mut winit_window = Self {
             window: None,
             renderer,
-
-            raw_display_handle: None,
-            raw_window_handle: None,
 
             destroying: false,
             minimized: false,
@@ -67,14 +63,6 @@ impl NovaWindow<'_> for WinitWindow<'_> {
 
     fn destroy(&self) {
         return
-    }
-
-    fn get_raw_display_handle(&self) -> RawDisplayHandle {
-        self.raw_display_handle.unwrap()
-    }
-
-    fn get_window_handle(&self) -> RawWindowHandle {
-        self.raw_window_handle.unwrap()
     }
 
     fn get_window_dimensions(&self) -> Vector2<u32> {
@@ -109,15 +97,13 @@ impl ApplicationHandler for WinitWindow<'_> {
         let inner_size = window.inner_size();
         let window_size = Vector2::new(inner_size.width, inner_size.height);
 
-        self.raw_display_handle = Some(window.raw_display_handle().unwrap());
-        self.raw_window_handle = Some(window.raw_window_handle().unwrap());
-
         self.window_size = window_size;
 
         // TODO: Make renderer backend configurable
         let mut renderer: Renderer = Renderer::new_vulkan_renderer(
-            self.raw_window_handle.unwrap(), 
-            self.raw_display_handle.unwrap(), window_size);
+            window.window_handle().unwrap(), 
+            window.display_handle().unwrap(), 
+            window_size);
         
         *self.renderer = Some(Box::from(renderer));
         self.window = Some(window);
