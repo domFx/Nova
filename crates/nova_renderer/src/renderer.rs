@@ -117,12 +117,11 @@ impl Renderer {
 
     pub fn end_rendering(&mut self) {
         if let Some(renderer_backend) = &mut self.renderer_backend {
-            
             // Triangles
-            renderer_backend.draw(self.triangle_buffer.vertex_buffer.clone(),  self.triangle_buffer.index_buffer.clone(), PrimitiveTopologyType::TriangleList);
+            renderer_backend.draw(self.triangle_buffer.vertex_buffer.clone(), self.triangle_buffer.index_buffer.clone(), PrimitiveTopologyType::TriangleList);
             
             // Lines
-            renderer_backend.draw(self.line_buffer.vertex_buffer.clone(),  self.line_buffer.index_buffer.clone(), PrimitiveTopologyType::LineList);
+            renderer_backend.draw(self.line_buffer.vertex_buffer.clone(), self.line_buffer.index_buffer.clone(), PrimitiveTopologyType::LineList);
             
             renderer_backend.end_render_pass();
             renderer_backend.end_commands();

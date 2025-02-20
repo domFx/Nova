@@ -1,5 +1,5 @@
 use crate::core_types::PrimitiveTopologyType;
-use crate::vertex;
+use crate::renderer_backend::RendererBackend;
 use crate::vertex::Vertex;
 use crate::vulkan::command_buffers::*;
 use crate::vulkan::command_pool::*;
@@ -14,30 +14,23 @@ use crate::vulkan::render_pass::*;
 use crate::vulkan::swapchain::*;
 use crate::vulkan::surface::*;
 use crate::vulkan::texture_image::*;
-
-use crate::vulkan::vulkan_buffer::{ VulkanBuffer, VulkanBufferType };
+use crate::vulkan::vulkan_buffer::{VulkanBuffer, VulkanBufferType};
 use crate::vulkan::constants::{MAX_FRAMES_IN_FLIGHT, VALIDATION_ENABLED};
 use crate::vulkan::debug::{create_debug_info, VulkanAppDebug};
 use crate::vulkan::descriptor_pool::create_descriptor_pool;
 use crate::vulkan::descriptor_sets::create_descriptor_sets;
 use crate::vulkan::uniform_buffers::{create_uniform_buffers, update_uniform_buffer};
-use crate::renderer_backend::RendererBackend;
 
-use anyhow::Ok;
-use ash::ext::index_type_uint8;
-use ash::vk::PrimitiveTopology;
 use nova_core::color::Color;
-use nova_math::vector::vector2::Vector2;
+use nova_math::vector::Vector2;
 
 use anyhow::{anyhow, Result};
-use ash::vk;
-use ash::khr;
-use ash::prelude::VkResult;
+use ash::{vk, khr, prelude::VkResult};
+use ash::ext::index_type_uint8;
+use ash::vk::PrimitiveTopology;
 use png::chunk::acTL;
-use std::time::Instant;
 use raw_window_handle::{RawDisplayHandle, RawWindowHandle};
-
-use super::pipeline;
+use std::time::Instant;
 
 pub(crate) enum VulkanTopology {
     PointList,
@@ -100,7 +93,9 @@ pub struct VulkanRenderer {
     sampler: vk::Sampler,
     pub resized: bool,
     active_command_buffer: Option<vk::CommandBuffer>,
-    current_image_index: Option<usize>
+    current_image_index: Option<usize>,
+
+    created_buffers: [Option<VulkanBuffer>; 2]
 }
 
 impl RendererBackend for VulkanRenderer {
@@ -131,6 +126,8 @@ impl RendererBackend for VulkanRenderer {
     }
 
     fn begin_commands(&mut self) -> Result<()> {
+        self.created_buffers = [None, None];
+
         unsafe {
             self.logical_device.reset_command_buffer(self.command_buffers[self.current_frame], vk::CommandBufferResetFlags::empty())?;
         }
@@ -157,7 +154,7 @@ impl RendererBackend for VulkanRenderer {
         }
     }
 
-    fn begin_render_pass(&mut self, clear_color: Color) -> Result<()> {        
+    fn begin_render_pass(&mut self, clear_color: Color) -> Result<()> {     
         let render_area = vk::Rect2D::default()
             .offset(vk::Offset2D { x: 0, y: 0 })
             .extent(self.swapchain.extent);
@@ -227,6 +224,9 @@ impl RendererBackend for VulkanRenderer {
                 self.command_pool,
                 VulkanBufferType::Index)?;
 
+            self.created_buffers[0] = Some(vertex_buffer);
+            self.created_buffers[1] = Some(index_buffer);
+
             self.logical_device.cmd_bind_vertex_buffers(self.active_command_buffer.unwrap(), 0, &[vertex_buffer.buffer], &[0]);
             self.logical_device.cmd_bind_index_buffer(self.active_command_buffer.unwrap(), index_buffer.buffer, 0, vk::IndexType::UINT32);
 
@@ -239,9 +239,6 @@ impl RendererBackend for VulkanRenderer {
                 &[]);
 
             self.logical_device.cmd_draw_indexed(self.active_command_buffer.unwrap(), indices.len() as u32, 1, 0, 0, 0);
-       
-            // vertex_buffer.destroy_buffer(&self.logical_device);
-            // index_buffer.destroy_buffer(&self.logical_device);
         }
 
         Ok(())
@@ -291,6 +288,9 @@ impl RendererBackend for VulkanRenderer {
 
         unsafe {
             let result = self.swapchain.loader.queue_present(self.present_queue, &present_info);
+
+            self.created_buffers.iter().for_each(|b| 
+                if let Some(buffer) = b { buffer.destroy_buffer(&self.logical_device) } );
 
             let changed = match result {
                 VkResult::Ok(true) => true,
@@ -425,7 +425,8 @@ impl VulkanRenderer {
                 sampler,
                 resized: false,
                 active_command_buffer: None,
-                current_image_index: None
+                current_image_index: None,
+                created_buffers: [None, None]
             };
 
             Ok(renderer)
