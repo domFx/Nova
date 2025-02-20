@@ -307,7 +307,6 @@ impl RendererBackend for VulkanRenderer {
             } else if let Err(e) = result {
                 return Err(anyhow!(e));
             }        
-    
         }
 
         self.current_frame = (self.current_frame + 1) % MAX_FRAMES_IN_FLIGHT;
@@ -330,6 +329,11 @@ impl RendererBackend for VulkanRenderer {
             self.render_finished_semaphores.iter().for_each(|s| self.logical_device.destroy_semaphore(*s, None));
             self.image_available_semaphores.iter().for_each(|s| self.logical_device.destroy_semaphore(*s, None));
 
+            self.created_buffers.iter()
+                .for_each(|cb| { 
+                    cb.iter().for_each(|b| b.destroy_buffer(&self.logical_device));
+                });
+                
             self.logical_device.destroy_command_pool(self.command_pool, None);
             self.logical_device.destroy_device(None);
             self.surface_loader.destroy_surface(self.surface, None);
