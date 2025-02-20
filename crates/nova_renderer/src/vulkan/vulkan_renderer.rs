@@ -31,6 +31,8 @@ use ash::vk::PrimitiveTopology;
 use png::chunk::acTL;
 use raw_window_handle::{RawDisplayHandle, RawWindowHandle};
 use std::time::Instant;
+use std::u64;
+use std::usize::MAX;
 
 pub(crate) enum VulkanTopology {
     PointList,
@@ -95,7 +97,7 @@ pub struct VulkanRenderer {
     active_command_buffer: Option<vk::CommandBuffer>,
     current_image_index: Option<usize>,
 
-    created_buffers: [Option<VulkanBuffer>; 2]
+    created_buffers: Vec<Vec<VulkanBuffer>>
 }
 
 impl RendererBackend for VulkanRenderer {
@@ -126,8 +128,6 @@ impl RendererBackend for VulkanRenderer {
     }
 
     fn begin_commands(&mut self) -> Result<()> {
-        self.created_buffers = [None, None];
-
         unsafe {
             self.logical_device.reset_command_buffer(self.command_buffers[self.current_frame], vk::CommandBufferResetFlags::empty())?;
         }
@@ -224,8 +224,8 @@ impl RendererBackend for VulkanRenderer {
                 self.command_pool,
                 VulkanBufferType::Index)?;
 
-            self.created_buffers[0] = Some(vertex_buffer);
-            self.created_buffers[1] = Some(index_buffer);
+            self.created_buffers[self.current_frame].push(index_buffer);
+            self.created_buffers[self.current_frame].push(vertex_buffer);
 
             self.logical_device.cmd_bind_vertex_buffers(self.active_command_buffer.unwrap(), 0, &[vertex_buffer.buffer], &[0]);
             self.logical_device.cmd_bind_index_buffer(self.active_command_buffer.unwrap(), index_buffer.buffer, 0, vk::IndexType::UINT32);
@@ -289,8 +289,10 @@ impl RendererBackend for VulkanRenderer {
         unsafe {
             let result = self.swapchain.loader.queue_present(self.present_queue, &present_info);
 
-            self.created_buffers.iter().for_each(|b| 
-                if let Some(buffer) = b { buffer.destroy_buffer(&self.logical_device) } );
+            self.logical_device.wait_for_fences(&[self.in_flight_fences[self.current_frame]], true, u64::MAX);
+
+            self.created_buffers[self.current_frame].iter().for_each(|b| b.destroy_buffer(&self.logical_device));
+            self.created_buffers[self.current_frame].clear();
 
             let changed = match result {
                 VkResult::Ok(true) => true,
@@ -378,12 +380,14 @@ impl VulkanRenderer {
 
             let mut image_available_semaphores = Vec::new();
             let mut render_finished_semaphores = Vec::new();
-            let mut in_flight_fences = Vec::new();
+            let mut in_flight_fences = Vec::with_capacity(MAX_FRAMES_IN_FLIGHT);
+            let mut created_buffers = Vec::with_capacity(MAX_FRAMES_IN_FLIGHT);
 
             for _ in 0..MAX_FRAMES_IN_FLIGHT {
                 image_available_semaphores.push(logical_device.create_semaphore(&semaphore_info, None)?);
                 render_finished_semaphores.push(logical_device.create_semaphore(&semaphore_info, None)?);
                 in_flight_fences.push(logical_device.create_fence(&fence_info, None)?);
+                created_buffers.push(Vec::new());
             }
 
             let images_in_flight = images.iter().map(|_| vk::Fence::null()).collect();
@@ -426,7 +430,7 @@ impl VulkanRenderer {
                 resized: false,
                 active_command_buffer: None,
                 current_image_index: None,
-                created_buffers: [None, None]
+                created_buffers
             };
 
             Ok(renderer)
