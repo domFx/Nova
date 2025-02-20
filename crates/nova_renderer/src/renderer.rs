@@ -131,7 +131,7 @@ impl Renderer {
     }
 
     /// Draws a rectangle centered at the position
-    pub fn draw_rect(&mut self, position: Vector2<f32>, height: f32, width: f32, color: Color) {
+    pub fn draw_filled_rect(&mut self, position: Vector2<f32>, height: f32, width: f32, color: Color) {
         let vertices: [Vertex; 4] = [
             Vertex::new(
                 Vector2::new(position.x - width / 2.0, position.y - height / 2.0),
@@ -159,14 +159,27 @@ impl Renderer {
 
         self.triangle_buffer.add_to_buffer(&vertices, &indices);
     }
+
+    pub fn draw_rect(&mut self, position: Vector2<f32>, height: f32, width: f32, line_color: Color) {
+        let vertices = [
+            Vertex::new(Vector2::new(position.x - width / 2.0, position.y + height / 2.0), line_color.to_vector4(), Vector2::zero()),
+            Vertex::new(Vector2::new(position.x + width / 2.0, position.y + height / 2.0), line_color.to_vector4(), Vector2::zero()),
+            Vertex::new(Vector2::new(position.x + width / 2.0, position.y - height / 2.0), line_color.to_vector4(), Vector2::zero()),
+            Vertex::new(Vector2::new(position.x - width / 2.0, position.y - height / 2.0), line_color.to_vector4(), Vector2::zero()),
+        ];
+
+        let indices = [0, 1, 1, 2, 2, 3, 3, 0];
+        
+        self.line_buffer.add_to_buffer(&vertices, &indices);
+    }
     
-    pub fn draw_line_2d(&mut self, start_position: Vector2<f32>, end_position: Vector2<f32>, color: Color) {
+    pub fn draw_line(&mut self, start_position: Vector2<f32>, end_position: Vector2<f32>, color: Color) {
         let vertices = [
             Vertex::new(end_position, color.to_vector4(), Vector2::zero()),
             Vertex::new(start_position, color.to_vector4(), Vector2::zero()),
         ];
 
-        let indices = [0, 1, 1];
+        let indices = [0, 1];
         
         self.line_buffer.add_to_buffer(&vertices, &indices);
     }
