@@ -1,11 +1,12 @@
-use crate::vulkan::constants::{API_VERSION, APPLICATION_VERSION, ENGINE_NAME, ENGINE_VERSION, PORTABILITY_MACOS_VERSION, VALIDATION_ENABLED, VALIDATION_LAYERS, WINDOW_TITLE};
+use crate::vulkan::constants::{MIN_API_VERSION, APPLICATION_VERSION, ENGINE_NAME, ENGINE_VERSION, PORTABILITY_MACOS_VERSION, VALIDATION_ENABLED, VALIDATION_LAYERS, WINDOW_TITLE};
+use crate::vulkan::errors::VulkanSuitabilityFormmatedError;
 use crate::vulkan::platform::required_extension_names;
 
 use std::collections::HashSet;
 use std::ffi::{CStr, CString};
 use anyhow::{anyhow, Result};
 use ash::vk;
-use log::info;
+use log::{debug, info};
 
 pub(crate) fn create_instance(
     entry: &ash::Entry,
@@ -14,11 +15,34 @@ pub(crate) fn create_instance(
     let window_title = CString::new(WINDOW_TITLE)?;
     let engine_name = CString::new(ENGINE_NAME)?;
 
+    let api_version: u32 = match unsafe { entry.try_enumerate_instance_version() }? {
+        // Vulkan 1.1+
+        Some(version) => {
+            let major = vk::api_version_major(version);
+            let minor = vk::api_version_minor(version);
+            let patch = vk::api_version_patch(version);
+
+            ash::vk::make_api_version(0, major, minor, patch)
+        },
+        // Vulkan 1.0
+        None => {
+            MIN_API_VERSION
+        }
+    };
+
+    debug!("Vulkan API Version: {} {} {}", vk::api_version_major(api_version), vk::api_version_minor(api_version), vk::api_version_patch(api_version));
+
+    if (api_version < MIN_API_VERSION) {
+        let error_string = format!("Vulkan version invalid: {} {} {}", vk::api_version_major(api_version), vk::api_version_minor(api_version), vk::api_version_patch(api_version));
+        return Err(anyhow!(VulkanSuitabilityFormmatedError(error_string)));
+    }
+
+
     let app_info = vk::ApplicationInfo::default()
         .application_name(&window_title)
         .application_version(APPLICATION_VERSION)
         .engine_name(&engine_name)
-        .api_version(API_VERSION)
+        .api_version(api_version)
         .engine_version(ENGINE_VERSION);
 
     let mut extensions = required_extension_names();
@@ -62,6 +86,7 @@ pub(crate) fn create_instance(
 
         extensions.push(vk::KHR_GET_PHYSICAL_DEVICE_PROPERTIES2_NAME.as_ptr());
         extensions.push(vk::KHR_PORTABILITY_ENUMERATION_NAME.as_ptr());
+        
         // Required by Vulkan SDK on macOS since 1.3.216.
         let flags = vk::InstanceCreateFlags::ENUMERATE_PORTABILITY_KHR;
 

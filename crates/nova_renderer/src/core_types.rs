@@ -1,4 +1,8 @@
-pub(crate) enum TopologyType { 
+pub(crate) enum PrimitiveTopologyType { 
+    PointList,
     LineList,
-    TriangleList
+    LineStrip,
+    TriangleList,
+    TriangleStrip,
+    TriangleFan
 }

@@ -1,4 +1,4 @@
-use crate::core_types::TopologyType;
+use crate::core_types::PrimitiveTopologyType;
 use crate::vertex;
 use crate::vertex::Vertex;
 use crate::vulkan::command_buffers::*;
@@ -25,6 +25,7 @@ use crate::renderer_backend::RendererBackend;
 
 use anyhow::Ok;
 use ash::ext::index_type_uint8;
+use ash::vk::PrimitiveTopology;
 use nova_core::color::Color;
 use nova_math::vector::vector2::Vector2;
 
@@ -181,11 +182,11 @@ impl RendererBackend for VulkanRenderer {
         Ok(())
     }
 
-    fn draw(&mut self, vertices: Vec<Vertex>, indices: Vec<u32>, topology_type: TopologyType) -> Result<()> {
+    fn draw(&mut self, vertices: Vec<Vertex>, indices: Vec<u32>, topology_type: PrimitiveTopologyType) -> Result<()> {
         // TODO: Improve pipeline selection
         let pipeline = match topology_type {
-            TopologyType::LineList => &self.line_pipeline,
-            TopologyType::TriangleList => &self.triangle_pipeline,
+            PrimitiveTopologyType::LineList => &self.line_pipeline,
+            PrimitiveTopologyType::TriangleList => &self.triangle_pipeline,
             _ => &self.triangle_pipeline
         };
 
@@ -239,10 +240,8 @@ impl RendererBackend for VulkanRenderer {
 
             self.logical_device.cmd_draw_indexed(self.active_command_buffer.unwrap(), indices.len() as u32, 1, 0, 0, 0);
        
-            // self.logical_device.destroy_buffer(vertex_buffer.buffer, None);
-            // self.logical_device.free_memory(vertex_buffer.buffer_memory, None);
-            // self.logical_device.destroy_buffer(index_buffer.buffer, None);
-            // self.logical_device.free_memory(index_buffer.buffer_memory, None);
+            // vertex_buffer.destroy_buffer(&self.logical_device);
+            // index_buffer.destroy_buffer(&self.logical_device);
         }
 
         Ok(())
@@ -466,7 +465,6 @@ impl VulkanRenderer {
             self.images = self.swapchain.loader.get_swapchain_images(self.swapchain.swapchain)?;
             self.image_views = create_swapchain_image_views(&self.logical_device, &self.images, self.swapchain.format)?;
             self.render_pass = create_render_pass(&self.instance, &self.logical_device, self.swapchain.format)?;
-            
             
             self.triangle_pipeline = VulkanPipeline::new(&self.logical_device, self.render_pass, self.descriptor_set_layout, VulkanTopology::TriangleList)?;
             self.line_pipeline = VulkanPipeline::new(&self.logical_device, self.render_pass, self.descriptor_set_layout, VulkanTopology::LineList)?;

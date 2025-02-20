@@ -1,4 +1,4 @@
-use crate::core_types::TopologyType;
+use crate::core_types::PrimitiveTopologyType;
 use crate::vulkan::vulkan_renderer::{VulkanRenderer, VulkanTopology};
 use crate::renderer_backend::RendererBackend;
 use crate::vertex::Vertex;
@@ -27,8 +27,8 @@ enum RendererState {
 
 // TODO: Macro? - Pull this out for shared use
 impl std::fmt::Display for RendererState {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        write!(f, "{:?}", self)
+    fn fmt(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
+        write!(formatter, "{:?}", self)
     }
 }
 
@@ -94,7 +94,7 @@ impl Renderer {
             RendererBackendType::Vulkan => Box::from(
                 VulkanRenderer::new(raw_window_handle, raw_display_handle, window_dimensions)
                     .expect("Failed to create Vulkan Renderer")
-                )
+            )
         };
         
         let renderer_state = RendererState::Ready;
@@ -119,10 +119,10 @@ impl Renderer {
         if let Some(renderer_backend) = &mut self.renderer_backend {
             
             // Triangles
-            renderer_backend.draw(self.triangle_buffer.vertex_buffer.clone(),  self.triangle_buffer.index_buffer.clone(), TopologyType::TriangleList);
+            renderer_backend.draw(self.triangle_buffer.vertex_buffer.clone(),  self.triangle_buffer.index_buffer.clone(), PrimitiveTopologyType::TriangleList);
             
             // Lines
-            renderer_backend.draw(self.line_buffer.vertex_buffer.clone(),  self.line_buffer.index_buffer.clone(), TopologyType::LineList);
+            renderer_backend.draw(self.line_buffer.vertex_buffer.clone(),  self.line_buffer.index_buffer.clone(), PrimitiveTopologyType::LineList);
             
             renderer_backend.end_render_pass();
             renderer_backend.end_commands();
