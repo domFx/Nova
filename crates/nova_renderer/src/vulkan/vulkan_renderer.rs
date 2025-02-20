@@ -333,7 +333,7 @@ impl RendererBackend for VulkanRenderer {
                 .for_each(|cb| { 
                     cb.iter().for_each(|b| b.destroy_buffer(&self.logical_device));
                 });
-                
+
             self.logical_device.destroy_command_pool(self.command_pool, None);
             self.logical_device.destroy_device(None);
             self.surface_loader.destroy_surface(self.surface, None);
