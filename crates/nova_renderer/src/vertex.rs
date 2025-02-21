@@ -1,5 +1,4 @@
-use nova_math::vector2::Vector2;
-use nova_math::vector4::Vector4;
+use nova_math::vector::{Vector2, Vector4};
 
 #[repr(C)]
 #[derive(Copy, Clone, Debug)]

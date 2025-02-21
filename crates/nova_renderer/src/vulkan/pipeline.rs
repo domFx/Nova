@@ -98,7 +98,7 @@ impl VulkanPipeline {
                 .render_pass(render_pass)
                 .subpass(0)
                 .dynamic_state(&dynamic_state_info);
-
+            
             let pipeline = device
                 .create_graphics_pipelines(vk::PipelineCache::null(), &[pipeline_info], None)
                 .expect("Unable to create graphics pipeline")

@@ -1,8 +1,3 @@
-// use ash::extensions::khr::Surface;
-//
-// #[cfg(target_os = "windows")]
-// use ash::extensions::khr::Win32Surface;
-
 use ash::vk;
 
 #[cfg(target_os = "macos")]
@@ -21,9 +16,7 @@ pub(crate) fn required_extension_names() -> Vec<*const i8> {
     #[cfg(target_os = "macos")]
     return vec![
         mvk::macos_surface::NAME.as_ptr(),
-        vk::KHR_SURFACE_NAME.as_ptr(),
-        // Surface::name().as_ptr(),
-        // MacOSSurface::name().as_ptr(),
+        vk::KHR_SURFACE_NAME.as_ptr()
     ];
 
     #[cfg(all(unix, not(target_os = "macos"), not(target_os="android")))]

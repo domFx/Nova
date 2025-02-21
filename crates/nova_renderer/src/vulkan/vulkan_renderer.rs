@@ -1,5 +1,5 @@
-use crate::core_types::TopologyType;
-use crate::vertex;
+use crate::core_types::PrimitiveTopologyType;
+use crate::renderer_backend::RendererBackend;
 use crate::vertex::Vertex;
 use crate::vulkan::command_buffers::*;
 use crate::vulkan::command_pool::*;
@@ -14,30 +14,25 @@ use crate::vulkan::render_pass::*;
 use crate::vulkan::swapchain::*;
 use crate::vulkan::surface::*;
 use crate::vulkan::texture_image::*;
-
-use crate::vulkan::vulkan_buffer::{ VulkanAppBuffer, VulkanBufferType };
+use crate::vulkan::vulkan_buffer::{VulkanBuffer, VulkanBufferType};
 use crate::vulkan::constants::{MAX_FRAMES_IN_FLIGHT, VALIDATION_ENABLED};
 use crate::vulkan::debug::{create_debug_info, VulkanAppDebug};
 use crate::vulkan::descriptor_pool::create_descriptor_pool;
 use crate::vulkan::descriptor_sets::create_descriptor_sets;
 use crate::vulkan::uniform_buffers::{create_uniform_buffers, update_uniform_buffer};
-use crate::vulkan::vulkan_render_command::VulkanRenderCommand;
-use crate::renderer_backend::RendererBackend;
 
-use anyhow::Ok;
-use ash::ext::index_type_uint8;
 use nova_core::color::Color;
-use nova_math::vector::vector2::Vector2;
+use nova_math::vector::Vector2;
 
 use anyhow::{anyhow, Result};
-use ash::vk;
-use ash::khr;
-use ash::prelude::VkResult;
+use ash::{vk, khr, prelude::VkResult};
+use ash::ext::index_type_uint8;
+use ash::vk::PrimitiveTopology;
 use png::chunk::acTL;
+use raw_window_handle::{DisplayHandle, WindowHandle};
 use std::time::Instant;
-use raw_window_handle::{RawDisplayHandle, RawWindowHandle};
-
-use super::pipeline;
+use std::u64;
+use std::usize::MAX;
 
 pub(crate) enum VulkanTopology {
     PointList,
@@ -93,14 +88,16 @@ pub struct VulkanRenderer {
     indices: QueueFamilyIndices,
     images: Vec<vk::Image>,
     image_views: Vec<vk::ImageView>,
-    uniform_buffers: Vec<VulkanAppBuffer>,
+    uniform_buffers: Vec<VulkanBuffer>,
     start: Instant,
     window_dimensions: Vector2<u32>,
     texture_image: VulkanImage,
     sampler: vk::Sampler,
     pub resized: bool,
     active_command_buffer: Option<vk::CommandBuffer>,
-    current_image_index: Option<usize>
+    current_image_index: Option<usize>,
+
+    created_buffers: Vec<Vec<VulkanBuffer>>
 }
 
 impl RendererBackend for VulkanRenderer {
@@ -157,7 +154,7 @@ impl RendererBackend for VulkanRenderer {
         }
     }
 
-    fn begin_render_pass(&mut self, clear_color: Color) -> Result<()> {        
+    fn begin_render_pass(&mut self, clear_color: Color) -> Result<()> {     
         let render_area = vk::Rect2D::default()
             .offset(vk::Offset2D { x: 0, y: 0 })
             .extent(self.swapchain.extent);
@@ -182,10 +179,12 @@ impl RendererBackend for VulkanRenderer {
         Ok(())
     }
 
-    fn draw(&mut self, vertices: Vec<Vertex>, indices: Vec<u32>, topology_type: TopologyType) -> Result<()> {
+    fn draw(&mut self, vertices: Vec<Vertex>, indices: Vec<u32>, topology_type: PrimitiveTopologyType) -> Result<()> {
+        // TODO: Improve pipeline selection
         let pipeline = match topology_type {
-            TopologyType::LineList => &self.line_pipeline,
-            TopologyType::TriangleList => &self.triangle_pipeline
+            PrimitiveTopologyType::LineList => &self.line_pipeline,
+            PrimitiveTopologyType::TriangleList => &self.triangle_pipeline,
+            _ => &self.triangle_pipeline
         };
 
         unsafe {
@@ -205,7 +204,7 @@ impl RendererBackend for VulkanRenderer {
                 .extent(self.swapchain.extent);
             self.logical_device.cmd_set_scissor(self.active_command_buffer.unwrap(), 0, &[scissor]);
 
-            let vertex_buffer = VulkanAppBuffer::new_staged(
+            let vertex_buffer = VulkanBuffer::new_staged(
                 vertices.as_ptr(), 
                 vertices.len(), 
                 &self.logical_device, 
@@ -215,7 +214,7 @@ impl RendererBackend for VulkanRenderer {
                 self.command_pool,         
                 VulkanBufferType::Vertex)?;
 
-            let index_buffer = VulkanAppBuffer::new_staged(
+            let index_buffer = VulkanBuffer::new_staged(
                 indices.as_ptr(), 
                 indices.len(), 
                 &self.logical_device, 
@@ -224,6 +223,9 @@ impl RendererBackend for VulkanRenderer {
                 self.graphics_queue, 
                 self.command_pool,
                 VulkanBufferType::Index)?;
+
+            self.created_buffers[self.current_frame].push(index_buffer);
+            self.created_buffers[self.current_frame].push(vertex_buffer);
 
             self.logical_device.cmd_bind_vertex_buffers(self.active_command_buffer.unwrap(), 0, &[vertex_buffer.buffer], &[0]);
             self.logical_device.cmd_bind_index_buffer(self.active_command_buffer.unwrap(), index_buffer.buffer, 0, vk::IndexType::UINT32);
@@ -237,11 +239,6 @@ impl RendererBackend for VulkanRenderer {
                 &[]);
 
             self.logical_device.cmd_draw_indexed(self.active_command_buffer.unwrap(), indices.len() as u32, 1, 0, 0, 0);
-       
-            // self.logical_device.destroy_buffer(vertex_buffer.buffer, None);
-            // self.logical_device.free_memory(vertex_buffer.buffer_memory, None);
-            // self.logical_device.destroy_buffer(index_buffer.buffer, None);
-            // self.logical_device.free_memory(index_buffer.buffer_memory, None);
         }
 
         Ok(())
@@ -292,6 +289,11 @@ impl RendererBackend for VulkanRenderer {
         unsafe {
             let result = self.swapchain.loader.queue_present(self.present_queue, &present_info);
 
+            self.logical_device.wait_for_fences(&[self.in_flight_fences[self.current_frame]], true, u64::MAX);
+
+            self.created_buffers[self.current_frame].iter().for_each(|b| b.destroy_buffer(&self.logical_device));
+            self.created_buffers[self.current_frame].clear();
+
             let changed = match result {
                 VkResult::Ok(true) => true,
                 Err(vk::Result::ERROR_OUT_OF_DATE_KHR) => true,
@@ -305,7 +307,6 @@ impl RendererBackend for VulkanRenderer {
             } else if let Err(e) = result {
                 return Err(anyhow!(e));
             }        
-    
         }
 
         self.current_frame = (self.current_frame + 1) % MAX_FRAMES_IN_FLIGHT;
@@ -328,6 +329,11 @@ impl RendererBackend for VulkanRenderer {
             self.render_finished_semaphores.iter().for_each(|s| self.logical_device.destroy_semaphore(*s, None));
             self.image_available_semaphores.iter().for_each(|s| self.logical_device.destroy_semaphore(*s, None));
 
+            self.created_buffers.iter()
+                .for_each(|cb| { 
+                    cb.iter().for_each(|b| b.destroy_buffer(&self.logical_device));
+                });
+
             self.logical_device.destroy_command_pool(self.command_pool, None);
             self.logical_device.destroy_device(None);
             self.surface_loader.destroy_surface(self.surface, None);
@@ -342,14 +348,14 @@ impl RendererBackend for VulkanRenderer {
 }
 
 impl VulkanRenderer {
-    pub fn new(raw_window_handle: RawWindowHandle, raw_display_handle: RawDisplayHandle, window_dimensions: Vector2<u32>) -> Result<Self> {
+    pub fn new(window_handle: WindowHandle, display_handle: DisplayHandle, window_dimensions: Vector2<u32>) -> Result<Self> {
         unsafe {
             let entry = ash::Entry::load()?;
             let mut debug_info = create_debug_info();
             let instance = create_instance(&entry, &mut debug_info)?;
             let debug = VulkanAppDebug::get(&entry, &instance, debug_info)?;
             let surface_loader = khr::surface::Instance::new(&entry, &instance);
-            let surface = create_surface(raw_window_handle, raw_display_handle, &entry, &instance)?;
+            let surface = create_surface(window_handle, display_handle, &entry, &instance)?;
             let physical_device = pick_physical_device(&instance, &surface_loader, surface)?;
             let indices = QueueFamilyIndices::get(&instance, physical_device, surface, &surface_loader)?;
             let logical_device = create_logical_device(&entry, &instance, physical_device, &indices)?;
@@ -378,12 +384,14 @@ impl VulkanRenderer {
 
             let mut image_available_semaphores = Vec::new();
             let mut render_finished_semaphores = Vec::new();
-            let mut in_flight_fences = Vec::new();
+            let mut in_flight_fences = Vec::with_capacity(MAX_FRAMES_IN_FLIGHT);
+            let mut created_buffers = Vec::with_capacity(MAX_FRAMES_IN_FLIGHT);
 
             for _ in 0..MAX_FRAMES_IN_FLIGHT {
                 image_available_semaphores.push(logical_device.create_semaphore(&semaphore_info, None)?);
                 render_finished_semaphores.push(logical_device.create_semaphore(&semaphore_info, None)?);
                 in_flight_fences.push(logical_device.create_fence(&fence_info, None)?);
+                created_buffers.push(Vec::new());
             }
 
             let images_in_flight = images.iter().map(|_| vk::Fence::null()).collect();
@@ -425,7 +433,8 @@ impl VulkanRenderer {
                 sampler,
                 resized: false,
                 active_command_buffer: None,
-                current_image_index: None
+                current_image_index: None,
+                created_buffers
             };
 
             Ok(renderer)
@@ -465,7 +474,6 @@ impl VulkanRenderer {
             self.images = self.swapchain.loader.get_swapchain_images(self.swapchain.swapchain)?;
             self.image_views = create_swapchain_image_views(&self.logical_device, &self.images, self.swapchain.format)?;
             self.render_pass = create_render_pass(&self.instance, &self.logical_device, self.swapchain.format)?;
-            
             
             self.triangle_pipeline = VulkanPipeline::new(&self.logical_device, self.render_pass, self.descriptor_set_layout, VulkanTopology::TriangleList)?;
             self.line_pipeline = VulkanPipeline::new(&self.logical_device, self.render_pass, self.descriptor_set_layout, VulkanTopology::LineList)?;

@@ -1,11 +1,11 @@
-use crate::window::NovaWindow;
 use nova_core::{color::Color, input::{KeyboardKey, KeyboardKeyState, MouseButtonState, INPUT_STATE}};
-use nova_math::{vector::vector2::Vector2, vector4::Vector4};
-use nova_renderer::renderer::{Renderer, RendererBackendType};
+use nova_math::vector::{Vector2, Vector4};
+use nova_renderer::renderer::{self, Renderer};
 
-use log::{debug, error, info};
-use anyhow::Result;
-use raw_window_handle::{HasDisplayHandle, HasRawDisplayHandle, HasRawWindowHandle, HasWindowHandle, RawDisplayHandle, RawWindowHandle, WindowHandle};
+use anyhow::{anyhow, Result};
+use log::{debug, error};
+use raw_window_handle::{DisplayHandle, HasDisplayHandle, HasWindowHandle, RawDisplayHandle, RawWindowHandle, WindowHandle};
+use std::default;
 use winit::{
     event::{ElementState, MouseButton, WindowEvent},
     event_loop::{ControlFlow, EventLoop},
@@ -15,128 +15,126 @@ use winit::{
 use winit::application::ApplicationHandler;
 use winit::dpi::LogicalSize;
 use winit::event_loop::ActiveEventLoop;
+use winit::window::Window;
 use winit::window::WindowId;
 
-pub struct WinitWindow<'a> {
-    window: Option<winit::window::Window>,
-    renderer: &'a mut Option<Box<Renderer>>,
 
-    raw_display_handle: Option<RawDisplayHandle>,
-    raw_window_handle: Option<RawWindowHandle>,
-
-    minimized: bool,
-    destroying: bool,
-    redraw: bool,
-    running: bool,
-
-    window_size: Vector2<u32>,
-    window_title: String
+#[derive(Debug, PartialEq)]
+enum NovaApplicationState {
+    Initialization,
+    Running,
+    Cleanup,
+    Exiting,
+    Complete,
 }
 
-impl<'a> WinitWindow<'a> {
-    pub fn new(window_title: &str, renderer: &'a mut Option<Box<Renderer>>) -> Result<Self> {
+pub struct NovaApplication {
+    renderer: Option<Box<Renderer>>,
+    window_state: Option<WindowState>,
+    application_state: NovaApplicationState
+}
+
+impl NovaApplication {
+    pub fn new() -> Self {
+        Self {
+            renderer: None,
+            window_state: None,
+            application_state: NovaApplicationState::Initialization
+        }
+    }
+
+    pub fn use_pretty_env_logger(self) -> NovaApplication {
+        pretty_env_logger::init();
+        self
+    }
+
+    pub fn set_log_level(self, log_level: &str) -> NovaApplication {
+        std::env::set_var("RUST_LOG", log_level);
+        self
+    }
+
+    pub fn run(mut self) -> Result<NovaApplication> {
         let event_loop = EventLoop::new()?;
         event_loop.set_control_flow(ControlFlow::Poll);
-
-        let mut winit_window = Self {
-            window: None,
-            renderer,
-
-            raw_display_handle: None,
-            raw_window_handle: None,
-
-            destroying: false,
-            minimized: false,
-            redraw: false,
-            running: true,
-
-            window_size: Vector2::zero(),
-            window_title: String::from(window_title)
-        };
-
-        event_loop.run_app(&mut winit_window).unwrap();
-
-        Ok(winit_window)
-    }
-}
-
-impl NovaWindow<'_> for WinitWindow<'_> {
-    fn run(&self) {
-       return
-    }
-
-    fn destroy(&self) {
-        return
-    }
-
-    fn get_raw_display_handle(&self) -> RawDisplayHandle {
-        self.raw_display_handle.unwrap()
-    }
-
-    fn get_window_handle(&self) -> RawWindowHandle {
-        self.raw_window_handle.unwrap()
-    }
-
-    fn get_window_dimensions(&self) -> Vector2<u32> {
-        self.window_size
-    }
-
-    fn set_title(&mut self, title: &str) {
-        self.window_title = title.to_string();
-    }
-
-    fn is_running(&self) -> bool {
-        self.running
-    }
-
-    fn redraw(&self) -> bool {
-        self.redraw
-    }
-}
-
-impl ApplicationHandler for WinitWindow<'_> {
-    fn resumed(&mut self, event_loop: &ActiveEventLoop) {
-        debug!("WinitWindow Resumed");
-
-        let window_title = self.window_title.to_string();
-
-        let window_attributes = WindowAttributes::default()
-            .with_title(window_title)
-            .with_inner_size(LogicalSize::new(1024, 800));
-
-        let window = event_loop.create_window(window_attributes).unwrap();
-
-        let inner_size = window.inner_size();
-        let window_size = Vector2::new(inner_size.width, inner_size.height);
-
-        self.raw_display_handle = Some(window.raw_display_handle().unwrap());
-        self.raw_window_handle = Some(window.raw_window_handle().unwrap());
-
-        self.window_size = window_size;
-
-        // TODO: Make renderer backend configurable
-        let mut renderer: Renderer = Renderer::new_vulkan_renderer(
-            self.raw_window_handle.unwrap(), 
-            self.raw_display_handle.unwrap(), window_size);
         
-        *self.renderer = Some(Box::from(renderer));
-        self.window = Some(window);
+        event_loop.run_app(&mut self);
+        Ok(self)
     }
 
-    fn window_event(&mut self, event_loop: &ActiveEventLoop, window_id: WindowId, event: WindowEvent) {
+    fn destroy(&mut self) {
+        debug!("NovaEngine clean up.");
+        self.application_state = NovaApplicationState::Cleanup;
+
+        if let Some(mut renderer) = self.renderer.as_mut() {
+            renderer.destroy();
+        }
+
+        self.application_state = NovaApplicationState::Complete;
+    }
+}
+
+impl ApplicationHandler for NovaApplication {
+    fn resumed(&mut self, event_loop: &ActiveEventLoop) {
+        if self.application_state == NovaApplicationState::Initialization {
+            let window_title = "Nova Engine";
+
+            let window_attributes = WindowAttributes::default()
+                .with_title(window_title)
+                .with_inner_size(LogicalSize::new(1024, 800));
+    
+            let window = event_loop.create_window(window_attributes).unwrap();
+
+            let inner_size = window.inner_size();
+            let window_size = Vector2::new(inner_size.width, inner_size.height);    
+
+            // TODO: Make renderer backend configurable
+            let mut renderer: Renderer = Renderer::new_vulkan_renderer(
+                window.window_handle().unwrap(),
+                window.display_handle().unwrap(),
+                window_size,
+            );
+
+            let window_state = WindowState {
+                window,
+                window_size,
+                redraw: false,
+                destroying: false,
+                minimized: false
+            };
+
+            self.renderer = Some(Box::from(renderer));
+            self.window_state = Some(window_state);
+
+            self.application_state = NovaApplicationState::Running;
+            debug!("Application initialization complete -> Running")
+        } else {
+            debug!("Application resumed");
+        }
+    }
+
+    fn window_event(
+        &mut self,
+        event_loop: &ActiveEventLoop,
+        window_id: WindowId,
+        event: WindowEvent,
+    ) {
         match event {
             WindowEvent::ActivationTokenDone { .. } => {}
             WindowEvent::Resized(size) => {
                 let current_window_size = Vector2::new(size.width, size.height);
 
-                if !self.window_size.equals(&current_window_size) {
-                    self.window_size = current_window_size;
+                if let Some(window_state) = self.window_state.as_mut() {
+                    if !window_state.window_size.equals(&current_window_size) {
+                        window_state.window_size = current_window_size;
+                    }
                 }
             }
             WindowEvent::Moved(_) => {}
             WindowEvent::CloseRequested => {
                 debug!("WindowEvent: Close Requested");
-                self.destroying = true;
+                if let Some(window_state) = self.window_state.as_mut() {
+                    window_state.destroying = true;
+                }
                 event_loop.exit();
             }
             WindowEvent::Destroyed => {
@@ -198,9 +196,7 @@ impl ApplicationHandler for WinitWindow<'_> {
                 let mouse_button = match button {
                     MouseButton::Right => Some(nova_core::input::MouseButton::RightButton),
                     MouseButton::Left => Some(nova_core::input::MouseButton::LeftButton),
-                    MouseButton::Middle => {
-                        Some(nova_core::input::MouseButton::MiddleButton)
-                    }
+                    MouseButton::Middle => Some(nova_core::input::MouseButton::MiddleButton),
                     MouseButton::Back => None,
                     MouseButton::Forward => None,
                     MouseButton::Other(_) => None,
@@ -227,23 +223,40 @@ impl ApplicationHandler for WinitWindow<'_> {
             WindowEvent::ThemeChanged(_) => {}
             WindowEvent::Occluded(_) => {}
             WindowEvent::RedrawRequested => {
-                if let Some(renderer) = self.renderer.as_mut() {
-                    renderer.begin_rendering(self.window_size);
-
-                    // Start Drawing
-                    renderer.draw_rect(Vector2::new(0f32, 0f32), 0.2f32, 0.5f32, Color::from_vector4(Vector4::new(1.0, 0.0, 0.0, 1.0)));
-                    renderer.draw_rect(Vector2::new(0f32, 0f32), 0.5f32, 0.2f32, Color::from_vector4(Vector4::new(1.0, 1.0, 0.0, 1.0)));
-
-                    renderer.draw_line_2d(Vector2::new(0f32, 0f32), Vector2::new(0.5f32, 0.5f32), Color::WHITE);
-                    // End Drawing
-                    
-                    renderer.end_rendering();
-                }
-
-                if !self.destroying && !self.minimized && !self.window_size.equals(&Vector2::zero()) {
-                    self.redraw = true;
-                } else {
-                    self.redraw = false;
+                if let Some(window_state) = self.window_state.as_mut() {
+                    if let Some(renderer) = self.renderer.as_mut() {
+                        renderer.begin_rendering(window_state.window_size);
+    
+                        // Start Drawing
+                        renderer.draw_rect(
+                            Vector2::new(0f32, 0f32),
+                            0.2f32,
+                            0.5f32,
+                            Color::from_vector4(Vector4::new(1.0, 1.0, 0.0, 1.0)),
+                        );
+                        renderer.draw_filled_rect(
+                            Vector2::new(0f32, 0f32),
+                            0.5f32,
+                            0.2f32,
+                            Color::from_vector4(Vector4::new(1.0, 1.0, 0.0, 1.0)),
+                        );
+    
+                        renderer.draw_line(
+                            Vector2::new(0f32, 0f32),
+                            Vector2::new(0.5f32, 0.5f32),
+                            Color::WHITE,
+                        );
+                        // End Drawing
+    
+                        renderer.end_rendering();
+                    }
+    
+                    if !window_state.destroying && !window_state.minimized && !window_state.get_window_size().equals(&Vector2::zero())
+                    {
+                        window_state.redraw = true;
+                    } else {
+                        window_state.redraw = false;
+                    }
                 }
             }
             _ => {}
@@ -251,19 +264,20 @@ impl ApplicationHandler for WinitWindow<'_> {
     }
 
     fn about_to_wait(&mut self, event_loop: &ActiveEventLoop) {
-        if let Some(window) = self.window.as_ref() {
-            window.request_redraw();
+        if let Some(window_state) = self.window_state.as_ref() {
+            window_state.window.request_redraw();
         }
     }
 
     fn exiting(&mut self, event_loop: &ActiveEventLoop) {
-        debug!("WinitWindow Exiting");
+        debug!("Nova Engine Exiting");
+        self.application_state = NovaApplicationState::Exiting;
 
-        if !event_loop.exiting() {
+        if event_loop.exiting() {
             event_loop.exit();
         }
 
-        self.running = false;
+        self.destroy();
     }
 }
 
@@ -465,4 +479,20 @@ fn parse_winit_key_code(key_code: KeyCode) -> Option<KeyboardKey> {
         // KeyCode::F35 => todo!(),
         _ => None,
     }
+}
+
+pub(crate) struct WindowState {
+    window: Window,
+    window_size: Vector2<u32>,
+    redraw: bool,
+    destroying: bool,
+    minimized: bool
+}
+
+impl WindowState {
+    pub(crate) fn get_window_size(&self) -> Vector2<u32> {
+        let inner_size = self.window.inner_size();
+        
+        Vector2::new(inner_size.width, inner_size.height)
+    } 
 }

@@ -6,7 +6,7 @@ use crate::vulkan::vulkan_renderer::VulkanTopology;
 pub(crate) const VALIDATION_ENABLED: bool = cfg!(debug_assertions);
 pub(crate) const ENGINE_NAME: &'static str = "Nova Engine";
 pub(crate) const WINDOW_TITLE: &'static str = "Dom's Game";
-pub(crate) const API_VERSION: u32 = ash::vk::make_api_version(0, 1, 0, 0);
+pub(crate) const MIN_API_VERSION: u32 = ash::vk::make_api_version(0, 1, 1, 0);
 pub(crate) const ENGINE_VERSION: u32 = ash::vk::make_api_version(0, 1, 0, 0);
 pub(crate) const APPLICATION_VERSION: u32 = ash::vk::make_api_version(0, 1, 0, 0);
 pub(crate) const PORTABILITY_MACOS_VERSION: u32 = ash::vk::make_api_version(0, 1, 3, 216);

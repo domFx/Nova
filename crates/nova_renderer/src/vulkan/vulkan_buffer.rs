@@ -10,12 +10,12 @@ pub(crate) enum VulkanBufferType {
 }
 
 #[derive(Copy, Clone)]
-pub(crate) struct VulkanAppBuffer {
+pub(crate) struct VulkanBuffer {
     pub(crate) buffer: vk::Buffer,
     pub(crate) buffer_memory: vk::DeviceMemory
 }
 
-impl VulkanAppBuffer {
+impl VulkanBuffer {
     pub(crate) fn new_staged<T>(
         input_buffer: *const T,
         input_length: usize,
@@ -25,7 +25,7 @@ impl VulkanAppBuffer {
         graphics_queue: vk::Queue,
         command_pool: vk::CommandPool,
         buffer_type: VulkanBufferType
-    ) -> Result<VulkanAppBuffer> {
+    ) -> Result<VulkanBuffer> {
         let size = (size_of::<T>() * input_length) as u64;
 
         let staging_buffer = Self::new_internal(
@@ -67,7 +67,7 @@ impl VulkanAppBuffer {
         // Copy
         Self::copy_to_destination(logical_device, staging_buffer, destination_buffer, size, graphics_queue, command_pool)?;
 
-        staging_buffer.destroy_buffer(logical_device)?;
+        staging_buffer.destroy_buffer(logical_device);
 
         Ok(destination_buffer)
     }
@@ -79,7 +79,7 @@ impl VulkanAppBuffer {
         size: vk::DeviceSize,
         usage: vk::BufferUsageFlags,
         properties: vk::MemoryPropertyFlags
-    ) -> Result<VulkanAppBuffer> {
+    ) -> Result<VulkanBuffer> {
         Self::new_internal(
             instance,
             logical_device,
@@ -97,7 +97,7 @@ impl VulkanAppBuffer {
         size: vk::DeviceSize,
         usage: vk::BufferUsageFlags,
         properties: vk::MemoryPropertyFlags
-    ) -> Result<VulkanAppBuffer> {
+    ) -> Result<VulkanBuffer> {
         let buffer_info = vk::BufferCreateInfo::default()
             .size(size)
             .usage(usage)
@@ -128,13 +128,11 @@ impl VulkanAppBuffer {
         }
     }
 
-    pub(crate) fn destroy_buffer(&self, logical_device: &ash::Device) -> Result<()> {
+    pub(crate) fn destroy_buffer(&self, logical_device: &ash::Device) {
         unsafe {
             logical_device.destroy_buffer(self.buffer, None);
             logical_device.free_memory(self.buffer_memory, None);
         }
-
-        Ok(())
     }
 
     fn copy_to_destination(

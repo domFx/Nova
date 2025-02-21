@@ -1,5 +1,5 @@
 [package]
-name = "nova_window"
+name = "nova_runtime"
 version = "0.1.0"
 edition = "2021"
 
@@ -10,5 +10,8 @@ nova_renderer.workspace = true
 
 anyhow.workspace = true
 log.workspace = true
+pretty_env_logger.workspace = true
+
+# Winit - Windowing dependencies
 raw-window-handle.workspace = true
 winit.workspace = true

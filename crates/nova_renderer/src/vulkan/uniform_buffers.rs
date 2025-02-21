@@ -1,4 +1,4 @@
-use crate::vulkan::vulkan_buffer::VulkanAppBuffer;
+use crate::vulkan::vulkan_buffer::VulkanBuffer;
 use crate::vulkan::constants::MAX_FRAMES_IN_FLIGHT;
 
 use anyhow::Result;
@@ -18,11 +18,11 @@ pub fn create_uniform_buffers(
     instance: &ash::Instance,
     logical_device: &ash::Device,
     physical_device: vk::PhysicalDevice,
-) -> Result<Vec<VulkanAppBuffer>> {
+) -> Result<Vec<VulkanBuffer>> {
     let mut uniform_buffers = Vec::new();
 
     for _ in 0..MAX_FRAMES_IN_FLIGHT {
-        let vulkan_app_buffer = VulkanAppBuffer::new(
+        let vulkan_app_buffer = VulkanBuffer::new(
             instance,
             logical_device,
             physical_device,
@@ -39,7 +39,7 @@ pub fn create_uniform_buffers(
 
 pub fn update_uniform_buffer(
     image_index: usize,
-    uniform_buffers: &Vec<VulkanAppBuffer>,
+    uniform_buffers: &Vec<VulkanBuffer>,
     _extent: vk::Extent2D,
     logical_device: &ash::Device,
     _start: &std::time::Instant,

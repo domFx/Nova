@@ -1,4 +1,4 @@
-use nova_math::vector3::Vector3;
+use nova_math::vector::Vector3;
 
 #[derive(Clone, Copy)]
 pub struct Transform {
