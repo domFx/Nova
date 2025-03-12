@@ -5,4 +5,7 @@ edition = "2021"
 
 [dependencies]
 nova_math.workspace = true
+
+anyhow.workspace = true
+log.workspace = true
 once_cell.workspace = true
