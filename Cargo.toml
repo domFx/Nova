@@ -7,15 +7,17 @@ build = "build.rs"
 [workspace]
 members = [
     "crates/nova_core",
+    "crates/nova_macros",
     "crates/nova_math",
     "crates/nova_renderer",
-    "crates/nova_system",
-    "crates/nova_runtime"
+    "crates/nova_runtime",
+    "crates/nova_system"
 ]
 
 [workspace.dependencies]
 # Crates
 nova_core = {  path = "crates/nova_core", version = "0.1.0" }
+nova_macros = { path = "crates/nova_macros", version = "0.1.0" }
 nova_math = {  path = "crates/nova_math", version = "0.1.0" }
 nova_renderer = {  path = "crates/nova_renderer", version = "0.1.0" }
 nova_runtime = {  path = "crates/nova_runtime", version = "0.1.0" }

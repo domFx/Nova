@@ -1,28 +1,12 @@
 use crate::world::entity::Entity;
 
+use nova_macros::Component;
+
 use std::collections::HashMap;
 use std::any::{Any, TypeId};
 
 use anyhow::{Result, anyhow};
 use log::debug;
-
-pub trait AnyImpl : Any {
-    fn as_any(&self) -> &dyn Any;
-
-    fn as_any_mut(&mut self) -> &mut dyn Any;
-}
-
-pub trait Component : AnyImpl { }
-
-impl<T: Component> AnyImpl for T {
-    fn as_any(&self) -> &dyn Any {
-        self
-    }
-
-    fn as_any_mut(&mut self) -> &mut dyn Any {
-        self
-    }
-}
 
 /// Represents the entire game space
 /// Responsible for global game systems
@@ -120,11 +104,9 @@ impl World {
 
 mod tests {
     use crate::world;
+    use crate::world::health::Health;
 
     use super::*;
-
-    struct Health(u32);
-    impl Component for Health { }
 
     #[test]
     fn add_component_success() {
@@ -134,18 +116,18 @@ mod tests {
         let e2 = Entity::new(2);
         let e3= Entity::new(3);
 
-        manager.add_component::<Health>(&e1, Health(2));
-        manager.add_component::<Health>(&e2, Health(5));
+        manager.add_component::<Health>(&e1, Health::new(2));
+        manager.add_component::<Health>(&e2, Health::new(5));
 
         let component = manager.get_component::<Health>(&e1);
         
         assert!(component.is_some());
-        assert_eq!(component.unwrap().0, 2);
+        assert_eq!(component.unwrap().value, 2);
 
         let component = manager.get_component::<Health>(&e2);
         
         assert!(component.is_some());
-        assert_eq!(component.unwrap().0, 5);
+        assert_eq!(component.unwrap().value, 5);
 
         let component = manager.get_component::<Health>(&e3);
         

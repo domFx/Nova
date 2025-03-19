@@ -1,6 +1,14 @@
-use crate::world::world::Component;
+use nova_macros::Component;
 
-struct Health(u32);
+#[derive(Component, Default)]
+pub struct Health {
+    pub value: usize
+}
 
-impl Component for Health { }
-
+impl Health {
+    pub fn new(value: usize) -> Self {
+        Self {
+            value
+        }
+    }
+}

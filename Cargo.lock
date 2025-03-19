@@ -1075,9 +1075,32 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "log",
+ "nova_macros",
  "nova_math",
  "once_cell",
 ]
+
+[[package]]
+name = "nova_macros"
+version = "0.1.0"
+dependencies = [
+ "nova_macros_derives",
+ "nova_macros_traits",
+]
+
+[[package]]
+name = "nova_macros_derives"
+version = "0.1.0"
+dependencies = [
+ "nova_macros_traits",
+ "proc-macro2",
+ "quote",
+ "syn",
+]
+
+[[package]]
+name = "nova_macros_traits"
+version = "0.1.0"
 
 [[package]]
 name = "nova_math"
