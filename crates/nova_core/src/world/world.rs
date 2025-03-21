@@ -109,7 +109,7 @@ impl World {
 
 mod tests {
     use crate::world;
-    use crate::world::health::Health;
+    use crate::components::Health;
 
     use super::*;
 
