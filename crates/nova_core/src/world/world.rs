@@ -9,11 +9,16 @@ use anyhow::{Result, anyhow};
 use log::debug;
 
 /// Represents the entire game space
-/// Responsible for global game systems
+/// 
+/// Owns global game systems
 struct World {
+    /// HashMap of lists of components by component type
     components: HashMap<TypeId, Vec<Option<Box<dyn Component>>>>,
+    /// List of entities
     entities: Vec<Option<Entity>>,
+    /// Maximum number of entities
     max_entity_count: usize,
+    /// Number of entities currently active
     current_entity_count: usize
 }
 
