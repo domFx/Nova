@@ -376,7 +376,7 @@ impl VulkanRenderer {
             let sampler = create_texture_sampler(&logical_device)?;
             let uniform_buffers = create_uniform_buffers(&instance, &logical_device, physical_device)?;
             let descriptor_pool = create_descriptor_pool(&logical_device, &images)?;
-            let descriptor_sets = create_descriptor_sets(&logical_device, descriptor_pool, descriptor_set_layout, &images, &uniform_buffers, texture_image.texture_image_view, sampler)?;
+            let descriptor_sets = create_descriptor_sets(&logical_device, descriptor_pool, descriptor_set_layout, &images, &uniform_buffers, vec![texture_image.texture_image_view], vec![sampler])?;
             let command_buffers = create_command_buffers(&logical_device, command_pool, &framebuffers)?;
 
             let semaphore_info = vk::SemaphoreCreateInfo::default();
@@ -482,7 +482,7 @@ impl VulkanRenderer {
             self.framebuffers = create_framebuffers(&self.logical_device, &self.image_views, self.render_pass, &self.swapchain.extent)?;
             self.uniform_buffers = create_uniform_buffers(&self.instance, &self.logical_device, self.physical_device)?;
             self.descriptor_pool = create_descriptor_pool(&self.logical_device, &self.images)?;
-            self.descriptor_sets = create_descriptor_sets(&self.logical_device, self.descriptor_pool, self.descriptor_set_layout, &self.images, &self.uniform_buffers, self.texture_image.texture_image_view, self.sampler)?;
+            self.descriptor_sets = create_descriptor_sets(&self.logical_device, self.descriptor_pool, self.descriptor_set_layout, &self.images, &self.uniform_buffers, vec![self.texture_image.texture_image_view], vec![self.sampler])?;
             self.command_buffers = create_command_buffers(&self.logical_device, self.command_pool, &self.framebuffers)?;
             self.images_in_flight.resize(self.images.len(), vk::Fence::null());
         }
