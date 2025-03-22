@@ -18,7 +18,6 @@ use winit::event_loop::ActiveEventLoop;
 use winit::window::Window;
 use winit::window::WindowId;
 
-
 #[derive(Debug, PartialEq)]
 enum NovaApplicationState {
     Initialization,

@@ -184,6 +184,10 @@ impl Renderer {
         self.line_buffer.add_to_buffer(&vertices, &indices);
     }
 
+    pub fn draw_image(&mut self) {
+        
+    }
+
     pub fn destroy(&mut self) {
         if let Some(ref mut renderer_backend) = self.renderer_backend {
             renderer_backend.destroy();

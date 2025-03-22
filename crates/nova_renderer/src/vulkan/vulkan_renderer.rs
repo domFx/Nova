@@ -28,7 +28,6 @@ use anyhow::{anyhow, Result};
 use ash::{vk, khr, prelude::VkResult};
 use ash::ext::index_type_uint8;
 use ash::vk::PrimitiveTopology;
-use png::chunk::acTL;
 use raw_window_handle::{DisplayHandle, WindowHandle};
 use std::time::Instant;
 use std::u64;
@@ -371,7 +370,9 @@ impl VulkanRenderer {
             
             let framebuffers = create_framebuffers(&logical_device, &image_views, render_pass, &swapchain.extent)?;
             let command_pool = create_command_pool(&logical_device, &indices)?;
-            let texture_image = create_texture_image(&instance, &logical_device, physical_device, command_pool, graphics_queue)?;
+
+            let image = nova_core::image::Image::load("./src/images/texture.png")?;
+            let texture_image = create_texture_image(image, &instance, &logical_device, physical_device, command_pool, graphics_queue)?;
             let sampler = create_texture_sampler(&logical_device)?;
             let uniform_buffers = create_uniform_buffers(&instance, &logical_device, physical_device)?;
             let descriptor_pool = create_descriptor_pool(&logical_device, &images)?;

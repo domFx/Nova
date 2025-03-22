@@ -22,23 +22,13 @@ impl VulkanImage {
 }
 
 pub(crate) fn create_texture_image(
+    image: nova_core::image::Image,
     instance: &ash::Instance,
     logical_device: &ash::Device,
     physical_device: vk::PhysicalDevice,
     command_pool: vk::CommandPool,
     graphics_queue: vk::Queue,
 ) -> Result<VulkanImage> {
-    let image = std::fs::File::open("./src/images/texture.png")?;
-
-    let decoder = png::Decoder::new(image);
-    let mut reader = decoder.read_info()?;
-
-    let mut pixels = vec![0; reader.info().raw_bytes()];
-    reader.next_frame(&mut pixels)?;
-
-    let size = reader.info().raw_bytes() as u64;
-    let (width, height) = reader.info().size();
-
     // let image = image::ImageReader::open("./src/images/texture.png")?.decode()?;
     //
     // let width = image.width().clone();
@@ -51,7 +41,7 @@ pub(crate) fn create_texture_image(
         instance,
         logical_device,
         physical_device,
-        size,
+        image.size(),
         vk::BufferUsageFlags::TRANSFER_SRC,
         vk::MemoryPropertyFlags::HOST_COHERENT | vk::MemoryPropertyFlags::HOST_VISIBLE
     )?;
@@ -60,18 +50,18 @@ pub(crate) fn create_texture_image(
         let memory = logical_device.map_memory(
             buffer.buffer_memory,
             0,
-            size,
+            image.size(),
             vk::MemoryMapFlags::empty()
         )?;
 
-        std::ptr::copy_nonoverlapping(pixels.as_ptr(), memory.cast(), pixels.len());
+        std::ptr::copy_nonoverlapping(image.pixels().as_ptr(), memory.cast(), image.pixels().len());
 
         logical_device.unmap_memory(buffer.buffer_memory);
     }
 
     let image_create_info = vk::ImageCreateInfo::default()
         .image_type(vk::ImageType::TYPE_2D)
-        .extent(vk::Extent3D { width, height, depth: 1 })
+        .extent(vk::Extent3D { width: image.width(), height: image.height(), depth: 1 })
         .array_layers(1)
         .mip_levels(1)
         .format(vk::Format::R8G8B8A8_SRGB)
@@ -115,8 +105,8 @@ pub(crate) fn create_texture_image(
             graphics_queue,
             buffer.buffer,
             texture_image,
-            width,
-            height);
+            image.width(),
+            image.height());
 
         let _ = transition_image_layout(
             &logical_device,
