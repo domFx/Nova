@@ -12,7 +12,7 @@ pub(crate) fn create_descriptor_set_layout(
     let sampler_set_layout_binding = vk::DescriptorSetLayoutBinding::default()
         .binding(1)
         .descriptor_type(vk::DescriptorType::COMBINED_IMAGE_SAMPLER)
-        .descriptor_count(1)
+        .descriptor_count(8)
         .stage_flags(vk::ShaderStageFlags::FRAGMENT);
 
     let bindings = &[uniform_buffer_set_layout_binding, sampler_set_layout_binding];

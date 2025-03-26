@@ -1,5 +1,5 @@
 use anyhow::Result;
-use ash::vk;
+use ash::vk::{self, DescriptorPoolCreateFlags};
 
 pub(crate) fn create_descriptor_pool(
     logical_device: &ash::Device,
@@ -11,10 +11,11 @@ pub(crate) fn create_descriptor_pool(
 
     let sampler_size = vk::DescriptorPoolSize::default()
         .ty(vk::DescriptorType::COMBINED_IMAGE_SAMPLER)
-        .descriptor_count(swapchain_images.len() as u32);
+        .descriptor_count(swapchain_images.len() as u32 * 8);
 
     let pool_sizes = &[uniform_buffer_size, sampler_size];
     let descriptor_pool_info = vk::DescriptorPoolCreateInfo::default()
+        .flags(DescriptorPoolCreateFlags::FREE_DESCRIPTOR_SET)
         .pool_sizes(pool_sizes)
         .max_sets(swapchain_images.len() as u32);
 

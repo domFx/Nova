@@ -1,4 +1,6 @@
 use anyhow::Result;
+
+use nova_core::image::Image;
 use nova_core::color::Color;
 use nova_math::vector::vector2::Vector2;
 
@@ -26,6 +28,8 @@ pub trait RendererBackend {
     fn submit(&mut self) -> Result<()>;
 
     fn present(&mut self) -> Result<()>;
+
+    fn load_images(&mut self, images: &Vec<Image>) -> Result<()>;
 
     fn destroy(&self);
 }

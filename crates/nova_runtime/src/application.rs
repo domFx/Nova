@@ -7,10 +7,7 @@ use log::{debug, error};
 use raw_window_handle::{DisplayHandle, HasDisplayHandle, HasWindowHandle, RawDisplayHandle, RawWindowHandle, WindowHandle};
 use std::default;
 use winit::{
-    event::{ElementState, MouseButton, WindowEvent},
-    event_loop::{ControlFlow, EventLoop},
-    keyboard::{KeyCode, PhysicalKey},
-    window::WindowAttributes,
+    dpi::Position, event::{ElementState, MouseButton, WindowEvent}, event_loop::{ControlFlow, EventLoop}, keyboard::{KeyCode, PhysicalKey}, window::WindowAttributes
 };
 use winit::application::ApplicationHandler;
 use winit::dpi::LogicalSize;
@@ -227,16 +224,10 @@ impl ApplicationHandler for NovaApplication {
                         renderer.begin_rendering(window_state.window_size);
     
                         // Start Drawing
-                        renderer.draw_rect(
-                            Vector2::new(0f32, 0f32),
-                            0.2f32,
-                            0.5f32,
-                            Color::from_vector4(Vector4::new(1.0, 1.0, 0.0, 1.0)),
-                        );
                         renderer.draw_filled_rect(
                             Vector2::new(0f32, 0f32),
-                            0.5f32,
-                            0.2f32,
+                            0.7f32,
+                            0.7f32,
                             Color::from_vector4(Vector4::new(1.0, 1.0, 0.0, 1.0)),
                         );
     
@@ -245,8 +236,10 @@ impl ApplicationHandler for NovaApplication {
                             Vector2::new(0.5f32, 0.5f32),
                             Color::WHITE,
                         );
+                        
+                        renderer.draw_image(Vector2::zero(), nova_core::image::Image::load("./src/images/texture.png").unwrap());
+                        
                         // End Drawing
-    
                         renderer.end_rendering();
                     }
     

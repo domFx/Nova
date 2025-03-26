@@ -58,6 +58,7 @@ extern "system" fn vulkan_debug_callback(
 
     if severity >= vk::DebugUtilsMessageSeverityFlagsEXT::ERROR {
         error!("({:?}) {}", type_, message);
+        panic!("({:?}) {}", type_, message);
     } else if severity >= vk::DebugUtilsMessageSeverityFlagsEXT::WARNING {
         warn!("({:?}) {}", type_, message);
     } else if severity >= vk::DebugUtilsMessageSeverityFlagsEXT::INFO {

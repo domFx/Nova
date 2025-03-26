@@ -5,15 +5,23 @@ use crate::vulkan::vulkan_buffer::VulkanBuffer;
 use ash::vk;
 use anyhow::{anyhow, Result};
 
-pub(crate) struct VulkanImage {
-    pub(crate) texture_image: vk::Image,
-    pub(crate) texture_image_memory: vk::DeviceMemory,
-    pub(crate) texture_image_view: vk::ImageView
+enum TextureSamplerType {
+    Dummy,
+    Normal
 }
 
-impl VulkanImage {
+#[derive(Copy, Clone)]
+pub(crate) struct VulkanTextureImage {
+    pub(crate) texture_image: vk::Image,
+    pub(crate) texture_image_memory: vk::DeviceMemory,
+    pub(crate) texture_image_view: vk::ImageView,
+    pub(crate) texture_sampler: vk::Sampler
+}
+
+impl VulkanTextureImage {
     pub(crate) fn destroy_vulkan_image(&self, logical_device: &ash::Device) {
         unsafe {
+            logical_device.destroy_sampler(self.texture_sampler, None);
             logical_device.destroy_image_view(self.texture_image_view, None);
             logical_device.free_memory(self.texture_image_memory, None);
             logical_device.destroy_image(self.texture_image, None);
@@ -21,27 +29,50 @@ impl VulkanImage {
     }
 }
 
+pub(crate) fn create_dummy_texture_image(
+    instance: &ash::Instance,
+    logical_device: &ash::Device,
+    physical_device: vk::PhysicalDevice,
+    command_pool: vk::CommandPool,
+    graphics_queue: vk::Queue
+) -> Result<VulkanTextureImage> {
+    let width: u32 = 1;
+    let height: u32 = 1;
+
+    let pixels: Vec<u8> = vec![255, 255, 255, 255];
+    let size = pixels.len() as u64;
+
+    create_texture_image_internal(width, height, size, &pixels, instance, logical_device, physical_device, command_pool, graphics_queue, TextureSamplerType::Dummy)
+}
+
 pub(crate) fn create_texture_image(
-    image: nova_core::image::Image,
+    image: &nova_core::image::Image,
     instance: &ash::Instance,
     logical_device: &ash::Device,
     physical_device: vk::PhysicalDevice,
     command_pool: vk::CommandPool,
     graphics_queue: vk::Queue,
-) -> Result<VulkanImage> {
-    // let image = image::ImageReader::open("./src/images/texture.png")?.decode()?;
-    //
-    // let width = image.width().clone();
-    // let height = image.height().clone();
-    // let size = image.clone().into_bytes().len() as u64;
+) -> Result<VulkanTextureImage> {
+    create_texture_image_internal(image.width(), image.height(), image.size(), &image.pixels(), instance, logical_device, physical_device, command_pool, graphics_queue, TextureSamplerType::Normal)
+}
 
-    // let device_size: DeviceSize = (width * height * 4) as DeviceSize;
-
+fn create_texture_image_internal(
+    width: u32,
+    height: u32,
+    size: u64,
+    pixels: &Vec<u8>,
+    instance: &ash::Instance,
+    logical_device: &ash::Device,
+    physical_device: vk::PhysicalDevice,
+    command_pool: vk::CommandPool,
+    graphics_queue: vk::Queue,
+    sampler_type: TextureSamplerType
+) -> Result<VulkanTextureImage> {
     let buffer = VulkanBuffer::new(
         instance,
         logical_device,
         physical_device,
-        image.size(),
+        size,
         vk::BufferUsageFlags::TRANSFER_SRC,
         vk::MemoryPropertyFlags::HOST_COHERENT | vk::MemoryPropertyFlags::HOST_VISIBLE
     )?;
@@ -50,19 +81,19 @@ pub(crate) fn create_texture_image(
         let memory = logical_device.map_memory(
             buffer.buffer_memory,
             0,
-            image.size(),
+            size,
             vk::MemoryMapFlags::empty()
         )?;
 
-        std::ptr::copy_nonoverlapping(image.pixels().as_ptr(), memory.cast(), image.pixels().len());
+        std::ptr::copy_nonoverlapping(pixels.as_ptr(), memory.cast(), pixels.len());
 
         logical_device.unmap_memory(buffer.buffer_memory);
     }
 
     let image_create_info = vk::ImageCreateInfo::default()
         .image_type(vk::ImageType::TYPE_2D)
-        .extent(vk::Extent3D { width: image.width(), height: image.height(), depth: 1 })
         .array_layers(1)
+        .extent(vk::Extent3D { width, height, depth: 1 })
         .mip_levels(1)
         .format(vk::Format::R8G8B8A8_SRGB)
         .tiling(vk::ImageTiling::OPTIMAL)
@@ -105,8 +136,8 @@ pub(crate) fn create_texture_image(
             graphics_queue,
             buffer.buffer,
             texture_image,
-            image.width(),
-            image.height());
+            width,
+            height);
 
         let _ = transition_image_layout(
             &logical_device,
@@ -122,10 +153,11 @@ pub(crate) fn create_texture_image(
 
         let texture_image_view = create_image_view(logical_device, texture_image, vk::Format::R8G8B8A8_SRGB)?;
 
-        Ok(VulkanImage {
+        Ok(VulkanTextureImage {
             texture_image,
             texture_image_memory,
-            texture_image_view
+            texture_image_view,
+            texture_sampler: create_texture_sampler(logical_device, sampler_type)?
         })
     }
 }
@@ -155,23 +187,45 @@ pub(crate) fn create_image_view(
     }
 }
 
-pub(crate) fn create_texture_sampler(device: &ash::Device) -> Result<vk::Sampler> {
-    let sampler_info = vk::SamplerCreateInfo::default()
-        .mag_filter(vk::Filter::LINEAR)
-        .min_filter(vk::Filter::LINEAR)
-        .address_mode_u(vk::SamplerAddressMode::REPEAT)
-        .address_mode_v(vk::SamplerAddressMode::REPEAT)
-        .address_mode_w(vk::SamplerAddressMode::REPEAT)
-        .anisotropy_enable(true)
-        .max_anisotropy(16.0)
-        .border_color(vk::BorderColor::INT_OPAQUE_BLACK)
-        .unnormalized_coordinates(false)
-        .compare_enable(false)
-        .compare_op(vk::CompareOp::ALWAYS)
-        .mipmap_mode(vk::SamplerMipmapMode::LINEAR)
-        .mip_lod_bias(0.0)
-        .min_lod(0.0)
-        .max_lod(0.0);
+fn create_texture_sampler(device: &ash::Device, sampler_type: TextureSamplerType) -> Result<vk::Sampler> {
+    let sampler_info = match sampler_type {
+        TextureSamplerType::Dummy => {
+            vk::SamplerCreateInfo::default()
+                .mag_filter(vk::Filter::LINEAR)
+                .min_filter(vk::Filter::LINEAR)
+                .address_mode_u(vk::SamplerAddressMode::REPEAT)
+                .address_mode_v(vk::SamplerAddressMode::REPEAT)
+                .address_mode_w(vk::SamplerAddressMode::REPEAT)
+                .anisotropy_enable(false)
+                .max_anisotropy(1.0)
+                .border_color(vk::BorderColor::INT_OPAQUE_WHITE)
+                .unnormalized_coordinates(false)
+                .compare_enable(false)
+                .compare_op(vk::CompareOp::ALWAYS)
+                .mipmap_mode(vk::SamplerMipmapMode::LINEAR)
+                .mip_lod_bias(0.0)
+                .min_lod(0.0)
+                .max_lod(0.0)
+        },
+        TextureSamplerType::Normal => {
+            vk::SamplerCreateInfo::default()
+                .mag_filter(vk::Filter::LINEAR)
+                .min_filter(vk::Filter::LINEAR)
+                .address_mode_u(vk::SamplerAddressMode::REPEAT)
+                .address_mode_v(vk::SamplerAddressMode::REPEAT)
+                .address_mode_w(vk::SamplerAddressMode::REPEAT)
+                .anisotropy_enable(true)
+                .max_anisotropy(16.0)
+                .border_color(vk::BorderColor::INT_OPAQUE_BLACK)
+                .unnormalized_coordinates(false)
+                .compare_enable(false)
+                .compare_op(vk::CompareOp::ALWAYS)
+                .mipmap_mode(vk::SamplerMipmapMode::LINEAR)
+                .mip_lod_bias(0.0)
+                .min_lod(0.0)
+                .max_lod(0.0)
+        }  
+    };
 
     unsafe {
         let sampler = device.create_sampler(&sampler_info, None)?;

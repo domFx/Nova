@@ -3,6 +3,7 @@ use crate::vulkan::vulkan_renderer::{VulkanRenderer, VulkanTopology};
 use crate::renderer_backend::RendererBackend;
 use crate::vertex::Vertex;
 
+use nova_core::image::Image;
 use nova_core::color::Color;
 use nova_math::vector::{Vector2, Vector4};
 
@@ -64,13 +65,19 @@ impl RenderDrawBuffer {
         self.vertex_buffer.extend_from_slice(&vertices);
         self.index_buffer.extend_from_slice(&updated_indices);
     }
+
+    pub fn reset(&mut self) {
+        self.index_buffer.clear();
+        self.vertex_buffer.clear();
+    }
 }
 
 pub struct Renderer {
     renderer_backend: Option<Box<dyn RendererBackend>>,
     renderer_state: RendererState,
     line_buffer: RenderDrawBuffer,
-    triangle_buffer: RenderDrawBuffer
+    triangle_buffer: RenderDrawBuffer,
+    images: Vec<Image>
 }
 
 impl Renderer {
@@ -103,11 +110,16 @@ impl Renderer {
             renderer_backend: Some(renderer_backend),
             renderer_state,
             line_buffer: RenderDrawBuffer::new(),
-            triangle_buffer: RenderDrawBuffer::new()
+            triangle_buffer: RenderDrawBuffer::new(),
+            images: Vec::new()
         }
     }
 
     pub fn begin_rendering(&mut self, window_dimensions: Vector2<u32>) {
+        self.images.clear();
+        self.triangle_buffer.reset();
+        self.line_buffer.reset();
+
         if let Some(renderer_backend) = &mut self.renderer_backend {
             renderer_backend.prepare_window_surface(window_dimensions);
             renderer_backend.begin_commands();
@@ -117,11 +129,20 @@ impl Renderer {
 
     pub fn end_rendering(&mut self) {
         if let Some(renderer_backend) = &mut self.renderer_backend {
+            // Upload images to GPU 
+            if self.images.len() > 0 {
+                renderer_backend.load_images(&self.images);
+            }
+            
             // Triangles
-            renderer_backend.draw(self.triangle_buffer.vertex_buffer.clone(), self.triangle_buffer.index_buffer.clone(), PrimitiveTopologyType::TriangleList);
+            if self.triangle_buffer.vertex_buffer.len() > 0 && self.triangle_buffer.index_buffer.len() > 0 {    
+                renderer_backend.draw(self.triangle_buffer.vertex_buffer.clone(), self.triangle_buffer.index_buffer.clone(), PrimitiveTopologyType::TriangleList);
+            }   
             
             // Lines
-            renderer_backend.draw(self.line_buffer.vertex_buffer.clone(), self.line_buffer.index_buffer.clone(), PrimitiveTopologyType::LineList);
+            if self.line_buffer.vertex_buffer.len() > 0 && self.line_buffer.index_buffer.len() > 0 {
+                renderer_backend.draw(self.line_buffer.vertex_buffer.clone(), self.line_buffer.index_buffer.clone(), PrimitiveTopologyType::LineList);
+            }
             
             renderer_backend.end_render_pass();
             renderer_backend.end_commands();
@@ -172,7 +193,7 @@ impl Renderer {
         
         self.line_buffer.add_to_buffer(&vertices, &indices);
     }
-    
+
     pub fn draw_line(&mut self, start_position: Vector2<f32>, end_position: Vector2<f32>, color: Color) {
         let vertices = [
             Vertex::new(end_position, color.to_vector4(), Vector2::zero()),
@@ -184,8 +205,26 @@ impl Renderer {
         self.line_buffer.add_to_buffer(&vertices, &indices);
     }
 
-    pub fn draw_image(&mut self) {
+    pub fn draw_image(&mut self, position: Vector2<f32>, image: Image) {
+        let width = 0.5f32; // image.width() as f32;
+        let height = 0.5f32; // image.height() as f32;
+
+        let line_color = Color::WHITE;
+
+        self.images.push(image);
+
+        let image_index = self.images.len() as i32 - 1;
+
+        let vertices = [
+            Vertex::new_with_texture(Vector2::new(position.x - width / 2.0, position.y + height / 2.0), line_color.to_vector4(), Vector2::new(0f32, 0f32), image_index),
+            Vertex::new_with_texture(Vector2::new(position.x + width / 2.0, position.y + height / 2.0), line_color.to_vector4(), Vector2::new(1f32, 0f32), image_index),
+            Vertex::new_with_texture(Vector2::new(position.x + width / 2.0, position.y - height / 2.0), line_color.to_vector4(), Vector2::new(1f32, 1f32), image_index),
+            Vertex::new_with_texture(Vector2::new(position.x - width / 2.0, position.y - height / 2.0), line_color.to_vector4(), Vector2::new(0f32, 1f32), image_index),
+        ];
+
+        let indices: [u32; 6] = [0, 1, 2, 2, 3, 0];
         
+        self.triangle_buffer.add_to_buffer(&vertices, &indices);
     }
 
     pub fn destroy(&mut self) {
