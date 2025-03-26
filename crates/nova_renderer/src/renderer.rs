@@ -77,7 +77,9 @@ pub struct Renderer {
     renderer_state: RendererState,
     line_buffer: RenderDrawBuffer,
     triangle_buffer: RenderDrawBuffer,
-    images: Vec<Image>
+    images: Vec<Image>,
+    window_dimensions: Vector2<u32>,
+    window_scale_factor: f32
 }
 
 impl Renderer {
@@ -85,15 +87,17 @@ impl Renderer {
     pub fn new_vulkan_renderer(
         window_handle: WindowHandle, 
         display_handle: DisplayHandle,
-        window_dimensions: Vector2<u32>
+        window_dimensions: Vector2<u32>,
+        window_scale_factor: f32
     ) -> Self {
-        Self::new(window_handle, display_handle, window_dimensions, RendererBackendType::Vulkan)
+        Self::new(window_handle, display_handle, window_dimensions, window_scale_factor, RendererBackendType::Vulkan)
     }
 
     pub fn new(
         window_handle: WindowHandle, 
         display_handle: DisplayHandle,
         window_dimensions: Vector2<u32>,
+        window_scale_factor: f32,
         renderer_type: RendererBackendType
     ) -> Self {
         // Only one backend for now...
@@ -111,7 +115,9 @@ impl Renderer {
             renderer_state,
             line_buffer: RenderDrawBuffer::new(),
             triangle_buffer: RenderDrawBuffer::new(),
-            images: Vec::new()
+            images: Vec::new(),
+            window_dimensions,
+            window_scale_factor
         }
     }
 
@@ -119,6 +125,7 @@ impl Renderer {
         self.images.clear();
         self.triangle_buffer.reset();
         self.line_buffer.reset();
+        self.window_dimensions = window_dimensions;
 
         if let Some(renderer_backend) = &mut self.renderer_backend {
             renderer_backend.prepare_window_surface(window_dimensions);
@@ -206,8 +213,8 @@ impl Renderer {
     }
 
     pub fn draw_image(&mut self, position: Vector2<f32>, image: Image) {
-        let width = 0.5f32; // image.width() as f32;
-        let height = 0.5f32; // image.height() as f32;
+        let width = get_ndc_width(image.width() as f32 * self.window_scale_factor, self.window_dimensions.x as f32);
+        let height = get_ndc_height(image.height() as f32 * self.window_scale_factor, self.window_dimensions.y as f32);
 
         let line_color = Color::WHITE;
 
@@ -234,4 +241,28 @@ impl Renderer {
 
         self.renderer_backend = None;
     }
+}
+
+/// Convert from screen space to NDC coordinates
+fn to_ndc_position(position: Vector2<f32>, window_dimensions: Vector2<u32>) -> Vector2<f32> {
+    let x = (position.x / window_dimensions.x as f32) * 2.0 - 1.0;
+    let y = (position.y / window_dimensions.y as f32) * 2.0 - 1.0;
+
+    Vector2::new(x, y)
+}
+
+/// Convert from screen dimensions to NDC dimensions
+fn to_ndc_dimensions(dimensions: Vector2<f32>, window_dimensions: Vector2<u32>) -> Vector2<f32> {
+    let x = (dimensions.x / window_dimensions.x as f32) * 2.0;
+    let y = (dimensions.y / window_dimensions.y as f32) * 2.0;
+
+    Vector2::new(x, y)
+}
+
+fn get_ndc_width(width: f32, screen_width: f32) -> f32 {
+    (2.0f32 / screen_width as f32) * width
+}
+
+fn get_ndc_height(height: f32, screen_height: f32) -> f32 {
+    (2.0f32 / screen_height as f32) * height
 }

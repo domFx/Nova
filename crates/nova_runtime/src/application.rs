@@ -3,11 +3,15 @@ use nova_math::vector::{Vector2, Vector4};
 use nova_renderer::renderer::{self, Renderer};
 
 use anyhow::{anyhow, Result};
-use log::{debug, error};
+use log::{debug, error, Log};
 use raw_window_handle::{DisplayHandle, HasDisplayHandle, HasWindowHandle, RawDisplayHandle, RawWindowHandle, WindowHandle};
 use std::default;
 use winit::{
-    dpi::Position, event::{ElementState, MouseButton, WindowEvent}, event_loop::{ControlFlow, EventLoop}, keyboard::{KeyCode, PhysicalKey}, window::WindowAttributes
+    dpi::{PhysicalSize, Position}, 
+    event::{ElementState, MouseButton, WindowEvent}, 
+    event_loop::{ControlFlow, EventLoop}, 
+    keyboard::{KeyCode, PhysicalKey}, 
+    window::WindowAttributes
 };
 use winit::application::ApplicationHandler;
 use winit::dpi::LogicalSize;
@@ -76,7 +80,7 @@ impl ApplicationHandler for NovaApplication {
 
             let window_attributes = WindowAttributes::default()
                 .with_title(window_title)
-                .with_inner_size(LogicalSize::new(1024, 800));
+                .with_inner_size(LogicalSize::new(1280, 720));
     
             let window = event_loop.create_window(window_attributes).unwrap();
 
@@ -88,6 +92,7 @@ impl ApplicationHandler for NovaApplication {
                 window.window_handle().unwrap(),
                 window.display_handle().unwrap(),
                 window_size,
+                window.scale_factor() as f32 // Loss of precision but likely fine
             );
 
             let window_state = WindowState {
