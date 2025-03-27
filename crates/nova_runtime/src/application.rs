@@ -3,21 +3,21 @@ use nova_math::vector::{Vector2, Vector4};
 use nova_renderer::renderer::{self, Renderer};
 
 use anyhow::{anyhow, Result};
-use log::{debug, error};
+use log::{debug, error, Log};
 use raw_window_handle::{DisplayHandle, HasDisplayHandle, HasWindowHandle, RawDisplayHandle, RawWindowHandle, WindowHandle};
 use std::default;
 use winit::{
-    event::{ElementState, MouseButton, WindowEvent},
-    event_loop::{ControlFlow, EventLoop},
-    keyboard::{KeyCode, PhysicalKey},
-    window::WindowAttributes,
+    dpi::{PhysicalSize, Position}, 
+    event::{ElementState, MouseButton, WindowEvent}, 
+    event_loop::{ControlFlow, EventLoop}, 
+    keyboard::{KeyCode, PhysicalKey}, 
+    window::WindowAttributes
 };
 use winit::application::ApplicationHandler;
 use winit::dpi::LogicalSize;
 use winit::event_loop::ActiveEventLoop;
 use winit::window::Window;
 use winit::window::WindowId;
-
 
 #[derive(Debug, PartialEq)]
 enum NovaApplicationState {
@@ -80,7 +80,7 @@ impl ApplicationHandler for NovaApplication {
 
             let window_attributes = WindowAttributes::default()
                 .with_title(window_title)
-                .with_inner_size(LogicalSize::new(1024, 800));
+                .with_inner_size(LogicalSize::new(1280, 720));
     
             let window = event_loop.create_window(window_attributes).unwrap();
 
@@ -92,6 +92,7 @@ impl ApplicationHandler for NovaApplication {
                 window.window_handle().unwrap(),
                 window.display_handle().unwrap(),
                 window_size,
+                window.scale_factor() as f32 // Loss of precision but likely fine
             );
 
             let window_state = WindowState {
@@ -228,16 +229,10 @@ impl ApplicationHandler for NovaApplication {
                         renderer.begin_rendering(window_state.window_size);
     
                         // Start Drawing
-                        renderer.draw_rect(
-                            Vector2::new(0f32, 0f32),
-                            0.2f32,
-                            0.5f32,
-                            Color::from_vector4(Vector4::new(1.0, 1.0, 0.0, 1.0)),
-                        );
                         renderer.draw_filled_rect(
                             Vector2::new(0f32, 0f32),
-                            0.5f32,
-                            0.2f32,
+                            0.7f32,
+                            0.7f32,
                             Color::from_vector4(Vector4::new(1.0, 1.0, 0.0, 1.0)),
                         );
     
@@ -246,8 +241,10 @@ impl ApplicationHandler for NovaApplication {
                             Vector2::new(0.5f32, 0.5f32),
                             Color::WHITE,
                         );
+                        
+                        renderer.draw_image(Vector2::zero(), nova_core::image::Image::load("./src/images/texture.png").unwrap());
+                        
                         // End Drawing
-    
                         renderer.end_rendering();
                     }
     

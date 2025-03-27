@@ -21,6 +21,7 @@ use crate::vulkan::descriptor_pool::create_descriptor_pool;
 use crate::vulkan::descriptor_sets::create_descriptor_sets;
 use crate::vulkan::uniform_buffers::{create_uniform_buffers, update_uniform_buffer};
 
+use nova_core::image::Image;
 use nova_core::color::Color;
 use nova_math::vector::Vector2;
 
@@ -28,11 +29,11 @@ use anyhow::{anyhow, Result};
 use ash::{vk, khr, prelude::VkResult};
 use ash::ext::index_type_uint8;
 use ash::vk::PrimitiveTopology;
-use png::chunk::acTL;
 use raw_window_handle::{DisplayHandle, WindowHandle};
 use std::time::Instant;
 use std::u64;
 use std::usize::MAX;
+use std::vec;
 
 pub(crate) enum VulkanTopology {
     PointList,
@@ -75,7 +76,6 @@ pub struct VulkanRenderer {
 
     descriptor_set_layout: vk::DescriptorSetLayout,
     descriptor_pool: vk::DescriptorPool,
-    descriptor_sets: Vec<vk::DescriptorSet>,
     render_pass: vk::RenderPass,
     framebuffers: Vec<vk::Framebuffer>,
     command_pool: vk::CommandPool,    
@@ -86,18 +86,26 @@ pub struct VulkanRenderer {
     in_flight_fences: Vec<vk::Fence>,
     images_in_flight: Vec<vk::Fence>,
     indices: QueueFamilyIndices,
-    images: Vec<vk::Image>,
-    image_views: Vec<vk::ImageView>,
+    swapchain_images: Vec<vk::Image>,
+    swapchain_image_views: Vec<vk::ImageView>,
     uniform_buffers: Vec<VulkanBuffer>,
     start: Instant,
     window_dimensions: Vector2<u32>,
-    texture_image: VulkanImage,
-    sampler: vk::Sampler,
     pub resized: bool,
+
+    physical_device_constriants: PhysicalDeviceConstraints,
+    
     active_command_buffer: Option<vk::CommandBuffer>,
     current_image_index: Option<usize>,
+    
+    created_buffers: Vec<Vec<VulkanBuffer>>,
 
-    created_buffers: Vec<Vec<VulkanBuffer>>
+    uploaded_texture_images: Vec<VulkanTextureImage>,
+    descriptor_sets: Vec<vk::DescriptorSet>,
+}
+
+struct PhysicalDeviceConstraints {
+    max_per_stage_descriptor_samplers: u32,
 }
 
 impl RendererBackend for VulkanRenderer {
@@ -291,9 +299,11 @@ impl RendererBackend for VulkanRenderer {
 
             self.logical_device.wait_for_fences(&[self.in_flight_fences[self.current_frame]], true, u64::MAX);
 
+            // Clean up frame resources
             self.created_buffers[self.current_frame].iter().for_each(|b| b.destroy_buffer(&self.logical_device));
             self.created_buffers[self.current_frame].clear();
 
+            // Check if the window was resized or if the swapchain needs to be recreated
             let changed = match result {
                 VkResult::Ok(true) => true,
                 Err(vk::Result::ERROR_OUT_OF_DATE_KHR) => true,
@@ -301,7 +311,6 @@ impl RendererBackend for VulkanRenderer {
             };
     
             if self.resized || changed {
-                // debug!("Window resized resized: {:?} changed {:?}", self.resized, changed);
                 self.resized = false;
                 self.recreate_swapchain(self.window_dimensions)?;
             } else if let Err(e) = result {
@@ -314,14 +323,64 @@ impl RendererBackend for VulkanRenderer {
         Ok(())
     }
 
+    fn load_images(&mut self, images: &Vec<Image>) -> Result<()> {
+        log::debug!("Loading images {:?}", images.len());
+        // Check if we need to reload descriptor sets if we have images where we didnt before
+        let reload_descriptor_sets = self.uploaded_texture_images.len() == 0;
+
+        // Temp, reload all images on each render pass (obviously this is inefficient, we will need a step to load new images) 
+        self.uploaded_texture_images.iter().for_each(|texture_image| {
+            texture_image.destroy_vulkan_image(&self.logical_device);
+        });
+
+        unsafe {
+            self.logical_device.free_descriptor_sets(self.descriptor_pool, &self.descriptor_sets)?;
+        }
+    
+        let texture_images = images.iter().map(|image| {
+            // TODO: Fix use of expect 
+            create_texture_image(
+                image, 
+                &self.instance, 
+                &self.logical_device, 
+                self.physical_device, 
+                self.command_pool, 
+                self.graphics_queue).expect("Error creating texture_image")
+            }).collect::<Vec<_>>();
+
+        // TODO: texture_images will be the "global" list of textures uploaded to the GPU.  
+        if texture_images.len() == 0 {
+            self.descriptor_sets = create_descriptor_sets(
+                &self.logical_device, 
+                self.descriptor_pool,
+                self.descriptor_set_layout,
+                &self.swapchain_images,
+                &self.uniform_buffers, 
+                None)?;
+        } else {
+            self.descriptor_sets = create_descriptor_sets(
+                &self.logical_device, 
+                self.descriptor_pool,
+                self.descriptor_set_layout,
+                &self.swapchain_images,
+                &self.uniform_buffers, 
+                Some(&texture_images))?;
+        }
+        
+        self.uploaded_texture_images = texture_images;
+
+        Ok(())
+    }
+
     fn destroy(&self) {
         unsafe {
             self.logical_device.device_wait_idle().unwrap();
 
             self.destroy_swapchain();
 
-            self.logical_device.destroy_sampler(self.sampler, None);
-            self.texture_image.destroy_vulkan_image(&self.logical_device);
+            self.uploaded_texture_images.iter().for_each(|texture_image| {
+                texture_image.destroy_vulkan_image(&self.logical_device);
+            });
 
             self.logical_device.destroy_descriptor_set_layout(self.descriptor_set_layout, None);
 
@@ -362,21 +421,27 @@ impl VulkanRenderer {
             let graphics_queue = logical_device.get_device_queue(indices.graphics, 0);
             let present_queue = logical_device.get_device_queue(indices.present, 0);
             let swapchain = VulkanAppSwapchain::get(window_dimensions, &instance, &logical_device, physical_device, &surface_loader, surface, &indices)?;
-            let images = swapchain.loader.get_swapchain_images(swapchain.swapchain)?;
-            let image_views =  create_swapchain_image_views(&logical_device, &images, swapchain.format)?;
+            let swapchain_images = swapchain.loader.get_swapchain_images(swapchain.swapchain)?;
+            let swapchain_image_views =  create_swapchain_image_views(&logical_device, &swapchain_images, swapchain.format)?;
             let render_pass = create_render_pass(&instance, &logical_device, swapchain.format)?;
             let descriptor_set_layout = create_descriptor_set_layout(&logical_device)?;
             let triangle_pipeline = VulkanPipeline::new(&logical_device, render_pass, descriptor_set_layout, VulkanTopology::TriangleList)?;
             let line_pipeline = VulkanPipeline::new(&logical_device, render_pass, descriptor_set_layout, VulkanTopology::LineList)?;
             
-            let framebuffers = create_framebuffers(&logical_device, &image_views, render_pass, &swapchain.extent)?;
+            let framebuffers = create_framebuffers(&logical_device, &swapchain_image_views, render_pass, &swapchain.extent)?;
             let command_pool = create_command_pool(&logical_device, &indices)?;
-            let texture_image = create_texture_image(&instance, &logical_device, physical_device, command_pool, graphics_queue)?;
-            let sampler = create_texture_sampler(&logical_device)?;
+
             let uniform_buffers = create_uniform_buffers(&instance, &logical_device, physical_device)?;
-            let descriptor_pool = create_descriptor_pool(&logical_device, &images)?;
-            let descriptor_sets = create_descriptor_sets(&logical_device, descriptor_pool, descriptor_set_layout, &images, &uniform_buffers, texture_image.texture_image_view, sampler)?;
+            let descriptor_pool = create_descriptor_pool(&logical_device, &swapchain_images)?;
+            let mut descriptor_sets = create_descriptor_sets(&logical_device, descriptor_pool, descriptor_set_layout, &swapchain_images, &uniform_buffers, None)?;
             let command_buffers = create_command_buffers(&logical_device, command_pool, &framebuffers)?;
+
+            let props = instance.get_physical_device_properties(physical_device);
+            let max_per_stage_descriptor_samplers = props.limits.max_per_stage_descriptor_samplers;
+
+            let physical_device_constriants = PhysicalDeviceConstraints {
+                max_per_stage_descriptor_samplers
+            };
 
             let semaphore_info = vk::SemaphoreCreateInfo::default();
             let fence_info = vk::FenceCreateInfo::default()
@@ -394,7 +459,7 @@ impl VulkanRenderer {
                 created_buffers.push(Vec::new());
             }
 
-            let images_in_flight = images.iter().map(|_| vk::Fence::null()).collect();
+            let images_in_flight = swapchain_images.iter().map(|_| vk::Fence::null()).collect();
 
             let start = Instant::now();
 
@@ -413,7 +478,6 @@ impl VulkanRenderer {
                 line_pipeline,
                 descriptor_set_layout,
                 descriptor_pool,
-                descriptor_sets,
                 render_pass,
                 framebuffers,
                 command_pool,
@@ -424,17 +488,18 @@ impl VulkanRenderer {
                 in_flight_fences,
                 images_in_flight,
                 indices,
-                images,
-                image_views,
+                swapchain_images,
+                swapchain_image_views,
                 uniform_buffers,
                 start,
                 window_dimensions,
-                texture_image,
-                sampler,
                 resized: false,
+                physical_device_constriants,
                 active_command_buffer: None,
                 current_image_index: None,
-                created_buffers
+                created_buffers,
+                uploaded_texture_images: vec![],
+                descriptor_sets,
             };
 
             Ok(renderer)
@@ -443,6 +508,7 @@ impl VulkanRenderer {
 
     fn destroy_swapchain(&self) {
         unsafe {
+            self.logical_device.free_descriptor_sets(self.descriptor_pool, &self.descriptor_sets);
             self.logical_device.destroy_descriptor_pool(self.descriptor_pool, None);
             self.uniform_buffers
                 .iter()
@@ -457,7 +523,7 @@ impl VulkanRenderer {
             self.triangle_pipeline.destroy(&self.logical_device);
             self.line_pipeline.destroy(&self.logical_device);
             self.logical_device.destroy_render_pass(self.render_pass, None);
-            self.image_views
+            self.swapchain_image_views
                 .iter()
                 .for_each(|v| self.logical_device.destroy_image_view(*v, None));
             self.swapchain.loader.destroy_swapchain(self.swapchain.swapchain, None);
@@ -471,19 +537,25 @@ impl VulkanRenderer {
             self.destroy_swapchain();
 
             self.swapchain = VulkanAppSwapchain::get(window_dimensions, &self.instance, &self.logical_device, self.physical_device, &self.surface_loader, self.surface, &self.indices)?;
-            self.images = self.swapchain.loader.get_swapchain_images(self.swapchain.swapchain)?;
-            self.image_views = create_swapchain_image_views(&self.logical_device, &self.images, self.swapchain.format)?;
+            self.swapchain_images = self.swapchain.loader.get_swapchain_images(self.swapchain.swapchain)?;
+            self.swapchain_image_views = create_swapchain_image_views(&self.logical_device, &self.swapchain_images, self.swapchain.format)?;
             self.render_pass = create_render_pass(&self.instance, &self.logical_device, self.swapchain.format)?;
             
             self.triangle_pipeline = VulkanPipeline::new(&self.logical_device, self.render_pass, self.descriptor_set_layout, VulkanTopology::TriangleList)?;
             self.line_pipeline = VulkanPipeline::new(&self.logical_device, self.render_pass, self.descriptor_set_layout, VulkanTopology::LineList)?;
             
-            self.framebuffers = create_framebuffers(&self.logical_device, &self.image_views, self.render_pass, &self.swapchain.extent)?;
+            self.framebuffers = create_framebuffers(&self.logical_device, &self.swapchain_image_views, self.render_pass, &self.swapchain.extent)?;
             self.uniform_buffers = create_uniform_buffers(&self.instance, &self.logical_device, self.physical_device)?;
-            self.descriptor_pool = create_descriptor_pool(&self.logical_device, &self.images)?;
-            self.descriptor_sets = create_descriptor_sets(&self.logical_device, self.descriptor_pool, self.descriptor_set_layout, &self.images, &self.uniform_buffers, self.texture_image.texture_image_view, self.sampler)?;
+            self.descriptor_pool = create_descriptor_pool(&self.logical_device, &self.swapchain_images)?;
+
+            if self.uploaded_texture_images.len() > 0 {
+                self.descriptor_sets = create_descriptor_sets(&self.logical_device, self.descriptor_pool, self.descriptor_set_layout, &self.swapchain_images, &self.uniform_buffers, Some(&self.uploaded_texture_images))?;
+            } else {
+                self.descriptor_sets = create_descriptor_sets(&self.logical_device, self.descriptor_pool, self.descriptor_set_layout, &self.swapchain_images, &self.uniform_buffers, None)?;
+            }
+
             self.command_buffers = create_command_buffers(&self.logical_device, self.command_pool, &self.framebuffers)?;
-            self.images_in_flight.resize(self.images.len(), vk::Fence::null());
+            self.images_in_flight.resize(self.swapchain_images.len(), vk::Fence::null());
         }
         Ok(())
     }

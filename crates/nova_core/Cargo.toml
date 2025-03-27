@@ -4,5 +4,11 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+png = "0.17.13"
+
+nova_macros.workspace = true
 nova_math.workspace = true
+
+anyhow.workspace = true
+log.workspace = true
 once_cell.workspace = true

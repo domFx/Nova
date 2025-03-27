@@ -1,0 +1,8 @@
+[package]
+name = "nova_macros"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+nova_macros_derives = { path = "src/derives" }
+nova_macros_traits = { path = "src/traits" }

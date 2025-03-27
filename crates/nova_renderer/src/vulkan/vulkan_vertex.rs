@@ -17,7 +17,7 @@ impl Vertex {
             .input_rate(vk::VertexInputRate::VERTEX)
     }
 
-    pub(crate) fn attribute_descriptions() -> [vk::VertexInputAttributeDescription; 3] {
+    pub(crate) fn attribute_descriptions() -> [vk::VertexInputAttributeDescription; 4] {
         let pos = vk::VertexInputAttributeDescription::default()
             .binding(0)
             .location(0)
@@ -27,15 +27,21 @@ impl Vertex {
         let color = vk::VertexInputAttributeDescription::default()
             .binding(0)
             .location(1)
-            .format(vk::Format::R32G32B32_SFLOAT)
+            .format(vk::Format::R32G32B32A32_SFLOAT)
             .offset(size_of::<Vector2<f32>>() as u32);
 
         let text_coord = vk::VertexInputAttributeDescription::default()
             .binding(0)
             .location(2)
             .format(vk::Format::R32G32_SFLOAT)
-            .offset(size_of::<Vector2<f32>>() as u32 + size_of::<Vector3<f32>>() as u32);
+            .offset(size_of::<Vector2<f32>>() as u32 + size_of::<Vector4<f32>>() as u32);
 
-        [pos, color, text_coord]
+        let text_idx = vk::VertexInputAttributeDescription::default()
+            .binding(0)
+            .location(3)
+            .format(vk::Format::R32_SINT)
+            .offset((2 * size_of::<Vector2<f32>>() as u32) + (size_of::<Vector4<f32>>() as u32));
+
+        [pos, color, text_coord, text_idx]
     }
 }

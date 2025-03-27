@@ -7,26 +7,28 @@ build = "build.rs"
 [workspace]
 members = [
     "crates/nova_core",
+    "crates/nova_macros",
     "crates/nova_math",
     "crates/nova_renderer",
-    "crates/nova_system",
-    "crates/nova_runtime"
+    "crates/nova_runtime",
+    "crates/nova_system"
 ]
 
 [workspace.dependencies]
 # Crates
 nova_core = {  path = "crates/nova_core", version = "0.1.0" }
+nova_macros = { path = "crates/nova_macros", version = "0.1.0" }
 nova_math = {  path = "crates/nova_math", version = "0.1.0" }
 nova_renderer = {  path = "crates/nova_renderer", version = "0.1.0" }
 nova_runtime = {  path = "crates/nova_runtime", version = "0.1.0" }
 
 # Other shared
-anyhow = "1.0.96"
-log = "0.4.25"
-once_cell = "1.20.3"
+anyhow = "1.0.97"
+log = "0.4.27"
+once_cell = "1.21.1"
 pretty_env_logger = "0.5.0"
 raw-window-handle = "0.6.2"
-thiserror = "2.0.11"
+thiserror = "2.0.12"
 winit = "0.30.9"
 
 [dependencies]

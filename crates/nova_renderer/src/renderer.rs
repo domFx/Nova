@@ -3,6 +3,7 @@ use crate::vulkan::vulkan_renderer::{VulkanRenderer, VulkanTopology};
 use crate::renderer_backend::RendererBackend;
 use crate::vertex::Vertex;
 
+use nova_core::image::Image;
 use nova_core::color::Color;
 use nova_math::vector::{Vector2, Vector4};
 
@@ -64,13 +65,21 @@ impl RenderDrawBuffer {
         self.vertex_buffer.extend_from_slice(&vertices);
         self.index_buffer.extend_from_slice(&updated_indices);
     }
+
+    pub fn reset(&mut self) {
+        self.index_buffer.clear();
+        self.vertex_buffer.clear();
+    }
 }
 
 pub struct Renderer {
     renderer_backend: Option<Box<dyn RendererBackend>>,
     renderer_state: RendererState,
     line_buffer: RenderDrawBuffer,
-    triangle_buffer: RenderDrawBuffer
+    triangle_buffer: RenderDrawBuffer,
+    images: Vec<Image>,
+    window_dimensions: Vector2<u32>,
+    window_scale_factor: f32
 }
 
 impl Renderer {
@@ -78,15 +87,17 @@ impl Renderer {
     pub fn new_vulkan_renderer(
         window_handle: WindowHandle, 
         display_handle: DisplayHandle,
-        window_dimensions: Vector2<u32>
+        window_dimensions: Vector2<u32>,
+        window_scale_factor: f32
     ) -> Self {
-        Self::new(window_handle, display_handle, window_dimensions, RendererBackendType::Vulkan)
+        Self::new(window_handle, display_handle, window_dimensions, window_scale_factor, RendererBackendType::Vulkan)
     }
 
     pub fn new(
         window_handle: WindowHandle, 
         display_handle: DisplayHandle,
         window_dimensions: Vector2<u32>,
+        window_scale_factor: f32,
         renderer_type: RendererBackendType
     ) -> Self {
         // Only one backend for now...
@@ -103,11 +114,19 @@ impl Renderer {
             renderer_backend: Some(renderer_backend),
             renderer_state,
             line_buffer: RenderDrawBuffer::new(),
-            triangle_buffer: RenderDrawBuffer::new()
+            triangle_buffer: RenderDrawBuffer::new(),
+            images: Vec::new(),
+            window_dimensions,
+            window_scale_factor
         }
     }
 
     pub fn begin_rendering(&mut self, window_dimensions: Vector2<u32>) {
+        self.images.clear();
+        self.triangle_buffer.reset();
+        self.line_buffer.reset();
+        self.window_dimensions = window_dimensions;
+
         if let Some(renderer_backend) = &mut self.renderer_backend {
             renderer_backend.prepare_window_surface(window_dimensions);
             renderer_backend.begin_commands();
@@ -117,11 +136,20 @@ impl Renderer {
 
     pub fn end_rendering(&mut self) {
         if let Some(renderer_backend) = &mut self.renderer_backend {
+            // Upload images to GPU 
+            if self.images.len() > 0 {
+                renderer_backend.load_images(&self.images);
+            }
+            
             // Triangles
-            renderer_backend.draw(self.triangle_buffer.vertex_buffer.clone(), self.triangle_buffer.index_buffer.clone(), PrimitiveTopologyType::TriangleList);
+            if self.triangle_buffer.vertex_buffer.len() > 0 && self.triangle_buffer.index_buffer.len() > 0 {    
+                renderer_backend.draw(self.triangle_buffer.vertex_buffer.clone(), self.triangle_buffer.index_buffer.clone(), PrimitiveTopologyType::TriangleList);
+            }   
             
             // Lines
-            renderer_backend.draw(self.line_buffer.vertex_buffer.clone(), self.line_buffer.index_buffer.clone(), PrimitiveTopologyType::LineList);
+            if self.line_buffer.vertex_buffer.len() > 0 && self.line_buffer.index_buffer.len() > 0 {
+                renderer_backend.draw(self.line_buffer.vertex_buffer.clone(), self.line_buffer.index_buffer.clone(), PrimitiveTopologyType::LineList);
+            }
             
             renderer_backend.end_render_pass();
             renderer_backend.end_commands();
@@ -172,7 +200,7 @@ impl Renderer {
         
         self.line_buffer.add_to_buffer(&vertices, &indices);
     }
-    
+
     pub fn draw_line(&mut self, start_position: Vector2<f32>, end_position: Vector2<f32>, color: Color) {
         let vertices = [
             Vertex::new(end_position, color.to_vector4(), Vector2::zero()),
@@ -184,6 +212,28 @@ impl Renderer {
         self.line_buffer.add_to_buffer(&vertices, &indices);
     }
 
+    pub fn draw_image(&mut self, position: Vector2<f32>, image: Image) {
+        let width = get_ndc_width(image.width() as f32 * self.window_scale_factor, self.window_dimensions.x as f32);
+        let height = get_ndc_height(image.height() as f32 * self.window_scale_factor, self.window_dimensions.y as f32);
+
+        let line_color = Color::WHITE;
+
+        self.images.push(image);
+
+        let image_index = self.images.len() as i32 - 1;
+
+        let vertices = [
+            Vertex::new_with_texture(Vector2::new(position.x - width / 2.0, position.y + height / 2.0), line_color.to_vector4(), Vector2::new(0f32, 0f32), image_index),
+            Vertex::new_with_texture(Vector2::new(position.x + width / 2.0, position.y + height / 2.0), line_color.to_vector4(), Vector2::new(1f32, 0f32), image_index),
+            Vertex::new_with_texture(Vector2::new(position.x + width / 2.0, position.y - height / 2.0), line_color.to_vector4(), Vector2::new(1f32, 1f32), image_index),
+            Vertex::new_with_texture(Vector2::new(position.x - width / 2.0, position.y - height / 2.0), line_color.to_vector4(), Vector2::new(0f32, 1f32), image_index),
+        ];
+
+        let indices: [u32; 6] = [0, 1, 2, 2, 3, 0];
+        
+        self.triangle_buffer.add_to_buffer(&vertices, &indices);
+    }
+
     pub fn destroy(&mut self) {
         if let Some(ref mut renderer_backend) = self.renderer_backend {
             renderer_backend.destroy();
@@ -191,4 +241,28 @@ impl Renderer {
 
         self.renderer_backend = None;
     }
+}
+
+/// Convert from screen space to NDC coordinates
+fn to_ndc_position(position: Vector2<f32>, window_dimensions: Vector2<u32>) -> Vector2<f32> {
+    let x = (position.x / window_dimensions.x as f32) * 2.0 - 1.0;
+    let y = (position.y / window_dimensions.y as f32) * 2.0 - 1.0;
+
+    Vector2::new(x, y)
+}
+
+/// Convert from screen dimensions to NDC dimensions
+fn to_ndc_dimensions(dimensions: Vector2<f32>, window_dimensions: Vector2<u32>) -> Vector2<f32> {
+    let x = (dimensions.x / window_dimensions.x as f32) * 2.0;
+    let y = (dimensions.y / window_dimensions.y as f32) * 2.0;
+
+    Vector2::new(x, y)
+}
+
+fn get_ndc_width(width: f32, screen_width: f32) -> f32 {
+    (2.0f32 / screen_width as f32) * width
+}
+
+fn get_ndc_height(height: f32, screen_height: f32) -> f32 {
+    (2.0f32 / screen_height as f32) * height
 }

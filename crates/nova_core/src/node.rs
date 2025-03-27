@@ -1,8 +1,8 @@
-use nova_math::vector::Vector3;
-
 use crate::color::Color;
-use crate::entity_id::EntityId;
 use crate::transform::Transform;
+use crate::world::entity::Entity;
+
+use nova_math::vector::Vector3;
 
 /// Indicates how many indices to use and how they are laid out in the renderer
 #[derive(Default, Copy, Clone)]
@@ -14,7 +14,7 @@ pub enum NodeType {
 
 #[derive(Default, Copy, Clone)]
 pub struct NodeBase {
-    id: EntityId,
+    entity: Entity,
 
     // Transform data
     transform: Transform,
@@ -43,8 +43,8 @@ impl NodeBase {
         &self.transform
     }
 
-    pub fn get_id(&self) -> &EntityId {
-        &self.id
+    pub fn get_entity(&self) -> &Entity {
+        &self.entity
     }
 
     pub fn hide(&mut self) {
