@@ -93,6 +93,7 @@ pub struct VulkanRenderer {
     window_dimensions: Vector2<u32>,
     pub resized: bool,
 
+    physical_device_constriants: PhysicalDeviceConstraints,
     
     active_command_buffer: Option<vk::CommandBuffer>,
     current_image_index: Option<usize>,
@@ -100,7 +101,11 @@ pub struct VulkanRenderer {
     created_buffers: Vec<Vec<VulkanBuffer>>,
 
     uploaded_texture_images: Vec<VulkanTextureImage>,
-    descriptor_sets: Vec<vk::DescriptorSet>
+    descriptor_sets: Vec<vk::DescriptorSet>,
+}
+
+struct PhysicalDeviceConstraints {
+    max_per_stage_descriptor_samplers: u32,
 }
 
 impl RendererBackend for VulkanRenderer {
@@ -431,6 +436,13 @@ impl VulkanRenderer {
             let mut descriptor_sets = create_descriptor_sets(&logical_device, descriptor_pool, descriptor_set_layout, &swapchain_images, &uniform_buffers, None)?;
             let command_buffers = create_command_buffers(&logical_device, command_pool, &framebuffers)?;
 
+            let props = instance.get_physical_device_properties(physical_device);
+            let max_per_stage_descriptor_samplers = props.limits.max_per_stage_descriptor_samplers;
+
+            let physical_device_constriants = PhysicalDeviceConstraints {
+                max_per_stage_descriptor_samplers
+            };
+
             let semaphore_info = vk::SemaphoreCreateInfo::default();
             let fence_info = vk::FenceCreateInfo::default()
                 .flags(vk::FenceCreateFlags::SIGNALED);
@@ -482,11 +494,12 @@ impl VulkanRenderer {
                 start,
                 window_dimensions,
                 resized: false,
+                physical_device_constriants,
                 active_command_buffer: None,
                 current_image_index: None,
                 created_buffers,
                 uploaded_texture_images: vec![],
-                descriptor_sets
+                descriptor_sets,
             };
 
             Ok(renderer)
