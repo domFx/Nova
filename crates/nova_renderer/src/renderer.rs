@@ -1,9 +1,11 @@
 use crate::core_types::PrimitiveTopologyType;
+use crate::texture;
 use crate::vulkan::vulkan_renderer::{VulkanRenderer, VulkanTopology};
 use crate::renderer_backend::RendererBackend;
 use crate::vertex::Vertex;
 
 use nova_core::image::Image;
+use nova_core::font::Font;
 use nova_core::color::Color;
 use nova_math::vector::{Vector2, Vector4};
 
@@ -232,6 +234,24 @@ impl Renderer {
         let indices: [u32; 6] = [0, 1, 2, 2, 3, 0];
         
         self.triangle_buffer.add_to_buffer(&vertices, &indices);
+    }
+
+    pub fn draw_text(&mut self, text: &str, font: Font, position: Vector2<f32>, font_size: f32, color: Color) {
+        // let line_color = Color::WHITE;
+
+        // self.images.push(texture);
+        // let image_index = self.images.len() as i32 - 1;
+
+        let texture = font.get_texture_atlas(text, font_size);
+
+        self.draw_image(Vector2::zero(), texture);
+
+        // for c in text.chars() {
+        //     self.draw_image(Vector2::zero(), );
+        // }
+
+        
+
     }
 
     pub fn destroy(&mut self) {

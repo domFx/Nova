@@ -8,6 +8,15 @@ pub struct Image {
 }
 
 impl Image {
+    pub(crate) fn new(pixels: Vec<u8>, size: u64, width: u32, height: u32) -> Self {
+        Self {
+            pixels,
+            size,
+            width,
+            height
+        }
+    }
+
     pub fn load(path: &str) -> Result<Self> {
         let image = std::fs::File::open(path)?;
 

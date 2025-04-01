@@ -68,6 +68,8 @@ fn create_texture_image_internal(
     graphics_queue: vk::Queue,
     sampler_type: TextureSamplerType
 ) -> Result<VulkanTextureImage> {
+    let format = vk::Format::R8_UNORM;
+
     let buffer = VulkanBuffer::new(
         instance,
         logical_device,
@@ -95,7 +97,7 @@ fn create_texture_image_internal(
         .array_layers(1)
         .extent(vk::Extent3D { width, height, depth: 1 })
         .mip_levels(1)
-        .format(vk::Format::R8G8B8A8_SRGB)
+        .format(format)
         .tiling(vk::ImageTiling::OPTIMAL)
         .initial_layout(vk::ImageLayout::UNDEFINED)
         .usage(vk::ImageUsageFlags::TRANSFER_DST | vk::ImageUsageFlags::SAMPLED)
@@ -125,7 +127,7 @@ fn create_texture_image_internal(
             command_pool,
             graphics_queue,
             texture_image,
-            vk::Format::R8G8B8A8_SRGB,
+            format,
             vk::ImageLayout::UNDEFINED,
             vk::ImageLayout::TRANSFER_DST_OPTIMAL
         );
@@ -144,14 +146,14 @@ fn create_texture_image_internal(
             command_pool,
             graphics_queue,
             texture_image,
-            vk::Format::R8G8B8A8_SRGB,
+            format,
             vk::ImageLayout::TRANSFER_DST_OPTIMAL,
             vk::ImageLayout::SHADER_READ_ONLY_OPTIMAL
         );
 
         buffer.destroy_buffer(logical_device);
 
-        let texture_image_view = create_image_view(logical_device, texture_image, vk::Format::R8G8B8A8_SRGB)?;
+        let texture_image_view = create_image_view(logical_device, texture_image, format)?;
 
         Ok(VulkanTextureImage {
             texture_image,

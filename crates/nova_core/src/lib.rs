@@ -4,6 +4,7 @@ pub mod world;
 pub mod components;
 
 pub mod color;
+pub mod font;
 pub mod image;
 pub mod input;
 pub mod node;
