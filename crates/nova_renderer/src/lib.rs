@@ -1,9 +1,10 @@
 #![allow(unused)]
 
-mod vulkan;
+mod core_types;
+mod pipeline_config;
 mod renderer_backend;
 mod transform;
 mod vertex;
-mod core_types;
+mod vulkan;
 pub mod renderer;
 pub mod texture;

@@ -42,7 +42,7 @@ impl VulkanAppSwapchain {
         } else {
             vk::SharingMode::EXCLUSIVE
         };
-
+        
         let info = vk::SwapchainCreateInfoKHR::default()
             .surface(surface)
             .min_image_count(image_count)
@@ -87,7 +87,7 @@ fn get_swapchain_surface_format(formats: &[vk::SurfaceFormatKHR]) -> vk::Surface
     formats
         .iter()
         .cloned()
-        .find(|f| f.format == vk::Format::B8G8R8A8_SRGB && f.color_space == vk::ColorSpaceKHR::SRGB_NONLINEAR)
+        .find(|f| f.format == vk::Format::R8G8B8A8_SRGB && f.color_space == vk::ColorSpaceKHR::SRGB_NONLINEAR)
         .unwrap_or_else(|| formats[0])
 }
 

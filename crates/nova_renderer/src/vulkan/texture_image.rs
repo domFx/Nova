@@ -42,7 +42,7 @@ pub(crate) fn create_dummy_texture_image(
     let pixels: Vec<u8> = vec![255, 255, 255, 255];
     let size = pixels.len() as u64;
 
-    create_texture_image_internal(width, height, size, &pixels, instance, logical_device, physical_device, command_pool, graphics_queue, TextureSamplerType::Dummy)
+    create_texture_image_internal(width, height, size, &pixels, instance, logical_device, physical_device, command_pool, graphics_queue, TextureSamplerType::Dummy, vk::Format::R8G8B8A8_SRGB)
 }
 
 pub(crate) fn create_texture_image(
@@ -52,8 +52,9 @@ pub(crate) fn create_texture_image(
     physical_device: vk::PhysicalDevice,
     command_pool: vk::CommandPool,
     graphics_queue: vk::Queue,
+    format: vk::Format
 ) -> Result<VulkanTextureImage> {
-    create_texture_image_internal(image.width(), image.height(), image.size(), &image.pixels(), instance, logical_device, physical_device, command_pool, graphics_queue, TextureSamplerType::Normal)
+    create_texture_image_internal(image.width(), image.height(), image.size(), &image.pixels(), instance, logical_device, physical_device, command_pool, graphics_queue, TextureSamplerType::Normal, format)
 }
 
 fn create_texture_image_internal(
@@ -66,10 +67,9 @@ fn create_texture_image_internal(
     physical_device: vk::PhysicalDevice,
     command_pool: vk::CommandPool,
     graphics_queue: vk::Queue,
-    sampler_type: TextureSamplerType
+    sampler_type: TextureSamplerType, 
+    format: vk::Format
 ) -> Result<VulkanTextureImage> {
-    let format = vk::Format::R8_UNORM;
-
     let buffer = VulkanBuffer::new(
         instance,
         logical_device,

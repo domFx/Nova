@@ -230,23 +230,23 @@ impl ApplicationHandler for NovaApplication {
     
                         // Start Drawing
 
-                        // renderer.draw_filled_rect(
-                        //     Vector2::new(0f32, 0f32),
-                        //     0.7f32,
-                        //     0.7f32,
-                        //     Color::from_vector4(Vector4::new(1.0, 1.0, 0.0, 1.0)),
-                        // );
+                        renderer.draw_filled_rect(
+                            Vector2::new(0f32, 0f32),
+                            0.7f32,
+                            0.7f32,
+                            Color::from_vector4(Vector4::new(1.0, 1.0, 0.0, 1.0)),
+                        );
     
-                        // renderer.draw_line(
-                        //     Vector2::new(0f32, 0f32),
-                        //     Vector2::new(0.5f32, 0.5f32),
-                        //     Color::WHITE,
-                        // );
+                        renderer.draw_line(
+                            Vector2::new(0f32, 0f32),
+                            Vector2::new(0.5f32, 0.5f32),
+                            Color::WHITE,
+                        );
                         
                         // renderer.draw_image(Vector2::zero(), nova_core::image::Image::load("./src/images/texture.png").unwrap());
 
-                        let font = nova_core::font::Font::load_from_path("./src/fonts/Roboto-Medium.ttf");
-                        renderer.draw_text("Hello", font, Vector2::zero(), 100f32, Color::WHITE);
+                        // let font = nova_core::font::Font::load_from_path("./src/fonts/Roboto-Medium.ttf");
+                        // renderer.draw_text("Hello", font, Vector2::zero(), 100f32, Color::GREEN);
                         
                         // End Drawing
                         renderer.end_rendering();

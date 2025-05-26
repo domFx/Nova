@@ -16,19 +16,22 @@ fn compile_shaders() {
 #[cfg(target_os = "macos")]
 fn compile_shaders() {
     let shaders = vec![
-        "shader.vert",
-        "shader.frag"
+        "default.vert",
+        "default.frag",
+        "transparent.vert",
+        "transparent.frag",
     ];
+
+    println!("cargo:rerun-if-changed=/dev/null");
 
     shaders
         .iter()
         .for_each(|s| {
-            println!("cargo:rerun-if-changed=src/shaders/{}", *s);
-            let shader_name: &str = (*s).split(".").collect::<Vec<_>>()[1];
+            let shader_name = (*s).split(".").collect::<Vec<_>>();
             Command::new("glslc")
                 .arg(format!("src/shaders/{}", *s))
                 .arg("-o")
-                .arg(format!("src/shaders/{}.spv", shader_name))
+                .arg(format!("src/shaders/{}_{}.spv", shader_name[0], shader_name[1]))
                 .status()
                 .unwrap_or_else(|e| panic!("Error compiling shaders {}", e));
         });

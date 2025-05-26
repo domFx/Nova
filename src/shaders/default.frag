@@ -10,6 +10,9 @@ layout(set = 0, binding = 1) uniform sampler2D texSampler[8];
 
 void main() {
     if (fragTextIndex >= 0) {
+        // vec4 sampled = vec4(1.0, 1.0, 1.0, texture(texSampler[fragTextIndex], fragTextCoord).r);
+        // outColor = fragColor * sampled;
+
         outColor = texture(texSampler[fragTextIndex], fragTextCoord);
     } else {
         outColor = fragColor;
