@@ -6,7 +6,7 @@ use ash::mvk;
 #[cfg(all(unix, not(target_os = "macos"), not(target_os="android")))]
 use ash::extensions::khr::XlibSurface;
 
-pub(crate) fn required_extension_names() -> Vec<*const i8> {
+pub(crate) fn get_required_platform_extensions() -> Vec<*const i8> {
     #[cfg(target_os = "windows")]
     return vec![
         vk::KHR_SURFACE_NAME.as_ptr(),

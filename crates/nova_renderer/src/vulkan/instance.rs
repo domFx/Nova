@@ -1,12 +1,12 @@
 use crate::vulkan::constants::{MIN_API_VERSION, APPLICATION_VERSION, ENGINE_NAME, ENGINE_VERSION, PORTABILITY_MACOS_VERSION, VALIDATION_ENABLED, VALIDATION_LAYERS, WINDOW_TITLE};
 use crate::vulkan::errors::VulkanSuitabilityFormmatedError;
-use crate::vulkan::platform::required_extension_names;
+use crate::vulkan::platform::get_required_platform_extensions;
 
 use std::collections::HashSet;
 use std::ffi::{CStr, CString};
 use anyhow::{anyhow, Result};
 use ash::vk;
-use log::{debug, info};
+use log::{debug, info, error};
 
 pub(crate) fn create_instance(
     entry: &ash::Entry,
@@ -31,6 +31,7 @@ pub(crate) fn create_instance(
     debug!("Vulkan API Version: {} {} {}", vk::api_version_major(api_version), vk::api_version_minor(api_version), vk::api_version_patch(api_version));
 
     if (api_version < MIN_API_VERSION) {
+        error!("Vulkan API Version is too low: {} {} {}", vk::api_version_major(api_version), vk::api_version_minor(api_version), vk::api_version_patch(api_version));
         let error_string = format!("Vulkan version invalid: {} {} {}", vk::api_version_major(api_version), vk::api_version_minor(api_version), vk::api_version_patch(api_version));
         return Err(anyhow!(VulkanSuitabilityFormmatedError(error_string)));
     }
@@ -42,10 +43,11 @@ pub(crate) fn create_instance(
         .api_version(api_version)
         .engine_version(ENGINE_VERSION);
 
-    let mut extensions = required_extension_names();
+    let mut extensions = get_required_platform_extensions();
 
     if VALIDATION_ENABLED {
         unsafe {
+            // TODO: Possible optimization
             let available_layers = entry
                 .enumerate_instance_layer_properties()?
                 .iter()
@@ -75,20 +77,21 @@ pub(crate) fn create_instance(
             .map(|v| v.as_ptr())
             .collect::<Vec<_>>()
     } else {
-        Vec::new()
+        vec![]
     };
 
     unsafe {
         let app_version = entry.try_enumerate_instance_version()?.unwrap();
 
+        // Default required extensions
         extensions.push(vk::KHR_GET_PHYSICAL_DEVICE_PROPERTIES2_NAME.as_ptr());
         extensions.push(vk::KHR_PORTABILITY_ENUMERATION_NAME.as_ptr());
-        
+
         // Required by Vulkan SDK on macOS since 1.3.216.
         let flags = vk::InstanceCreateFlags::ENUMERATE_PORTABILITY_KHR;
 
         if cfg!(target_os = "macos") && app_version >= PORTABILITY_MACOS_VERSION {
-            info!("Enabling extensions for macOS portability.");
+            debug!("Enabling extensions for macOS portability.");
             extensions.push(vk::EXT_METAL_SURFACE_NAME.as_ptr());
             extensions.push(vk::MVK_MACOS_SURFACE_NAME.as_ptr());
         };
