@@ -229,6 +229,7 @@ impl ApplicationHandler for NovaApplication {
                         renderer.begin_rendering(window_state.window_size);
     
                         // Start Drawing
+
                         renderer.draw_filled_rect(
                             Vector2::new(0f32, 0f32),
                             0.7f32,
@@ -242,7 +243,10 @@ impl ApplicationHandler for NovaApplication {
                             Color::WHITE,
                         );
                         
-                        renderer.draw_image(Vector2::zero(), nova_core::image::Image::load("./src/images/texture.png").unwrap());
+                        // renderer.draw_image(Vector2::zero(), nova_core::image::Image::load("./src/images/texture.png").unwrap());
+
+                        // let font = nova_core::font::Font::load_from_path("./src/fonts/Roboto-Medium.ttf");
+                        // renderer.draw_text("Hello", font, Vector2::zero(), 100f32, Color::GREEN);
                         
                         // End Drawing
                         renderer.end_rendering();

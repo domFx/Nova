@@ -2,7 +2,10 @@ use ash::{Device, Instance, vk};
 use ash::vk::{Format, RenderPass};
 use anyhow::Result;
 
-pub(crate) fn create_render_pass(_instance: &Instance, device: &Device, format: Format) -> Result<RenderPass> {
+pub(crate) fn create_render_pass(
+    device: &ash::Device, 
+    format: vk::Format
+) -> Result<RenderPass> {
     let color_attachment = vk::AttachmentDescription::default()
         .format(format)
         .samples(vk::SampleCountFlags::TYPE_1)

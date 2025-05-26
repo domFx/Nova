@@ -1,8 +1,6 @@
 use std::ffi::CStr;
 use ash::vk;
 
-use crate::vulkan::vulkan_renderer::VulkanTopology;
-
 pub(crate) const VALIDATION_ENABLED: bool = cfg!(debug_assertions);
 pub(crate) const ENGINE_NAME: &'static str = "Nova Engine";
 pub(crate) const WINDOW_TITLE: &'static str = "Dom's Game";
@@ -20,9 +18,3 @@ pub(crate) const DEVICE_EXTENSIONS: &[&CStr] = &[
 ];
 
 pub(crate) const MAX_FRAMES_IN_FLIGHT: usize = 2;
-
-/// List of topologies supported by the renderer
-pub(crate) const SUPPORTED_TOPOLOGIES: [VulkanTopology; 2] = [ 
-    VulkanTopology::LineList,
-    VulkanTopology::TriangleList
-];

@@ -1,4 +1,9 @@
 use crate::core_types::PrimitiveTopologyType;
+use crate::pipeline_config::PipelineConfig;
+use crate::pipeline_config::PipelineType;
+use crate::pipeline_config::DEFAULT;
+use crate::pipeline_config::DEFAULT_LINE;
+use crate::pipeline_config::TRANSPARENT;
 use crate::renderer_backend::RendererBackend;
 use crate::vertex::Vertex;
 use crate::vulkan::command_buffers::*;
@@ -30,33 +35,19 @@ use ash::{vk, khr, prelude::VkResult};
 use ash::ext::index_type_uint8;
 use ash::vk::PrimitiveTopology;
 use raw_window_handle::{DisplayHandle, WindowHandle};
+use std::collections::HashMap;
 use std::time::Instant;
 use std::u64;
 use std::usize::MAX;
 use std::vec;
 
-pub(crate) enum VulkanTopology {
-    PointList,
-    LineList,
-    LineStrip,
-    TriangleList,
-    TriangleStrip,
-    TriangleFan
-}
+use super::pipeline;
 
-impl VulkanTopology {
-    pub(crate) fn to_vulkan_topology(&self) -> vk::PrimitiveTopology {
-        match self {
-            VulkanTopology::PointList => vk::PrimitiveTopology::POINT_LIST,
-            VulkanTopology::LineList => vk::PrimitiveTopology::LINE_LIST,
-            VulkanTopology::LineStrip => vk::PrimitiveTopology::LINE_STRIP,
-            VulkanTopology::TriangleList => vk::PrimitiveTopology::TRIANGLE_LIST,
-            VulkanTopology::TriangleStrip => vk::PrimitiveTopology::TRIANGLE_STRIP,
-            VulkanTopology::TriangleFan => vk::PrimitiveTopology::TRIANGLE_FAN,
-            _ => vk::PrimitiveTopology::TRIANGLE_LIST
-        }
-    }
-}
+static PIPELINES_TYPES: [&PipelineConfig; 3] = [ 
+    &DEFAULT,
+    &DEFAULT_LINE,
+    &TRANSPARENT
+];
 
 pub struct VulkanRenderer {
     entry: ash::Entry,
@@ -70,9 +61,7 @@ pub struct VulkanRenderer {
     surface: vk::SurfaceKHR,
     swapchain: VulkanAppSwapchain,
     
-    // TODO: Make pipeline stuff better
-    line_pipeline: VulkanPipeline,
-    triangle_pipeline: VulkanPipeline,
+    pipelines: HashMap<PipelineType, VulkanPipeline>,
 
     descriptor_set_layout: vk::DescriptorSetLayout,
     descriptor_pool: vk::DescriptorPool,
@@ -187,12 +176,17 @@ impl RendererBackend for VulkanRenderer {
         Ok(())
     }
 
-    fn draw(&mut self, vertices: Vec<Vertex>, indices: Vec<u32>, topology_type: PrimitiveTopologyType) -> Result<()> {
-        // TODO: Improve pipeline selection
-        let pipeline = match topology_type {
-            PrimitiveTopologyType::LineList => &self.line_pipeline,
-            PrimitiveTopologyType::TriangleList => &self.triangle_pipeline,
-            _ => &self.triangle_pipeline
+    fn draw(&mut self, vertices: Vec<Vertex>, indices: Vec<u32>, pipeline_type: PipelineType) -> Result<()> {
+        let pipeline = match pipeline_type {
+            PipelineType::Default => self.pipelines.get(&PipelineType::Default).unwrap(),
+            PipelineType::DefaultLine => self.pipelines.get(&PipelineType::DefaultLine).unwrap(),
+            PipelineType::Transparent => self.pipelines.get(&PipelineType::Transparent).unwrap(),
+        };
+
+        let format = if pipeline_type == PipelineType::Transparent { 
+            vk::Format::R8_UNORM
+        } else {
+            vk::Format::R8G8B8A8_SRGB
         };
 
         unsafe {
@@ -345,7 +339,8 @@ impl RendererBackend for VulkanRenderer {
                 &self.logical_device, 
                 self.physical_device, 
                 self.command_pool, 
-                self.graphics_queue).expect("Error creating texture_image")
+                self.graphics_queue,
+                vk::Format::R32G32B32A32_SFLOAT).expect("Error creating texture_image")
             }).collect::<Vec<_>>();
 
         // TODO: texture_images will be the "global" list of textures uploaded to the GPU.  
@@ -423,11 +418,22 @@ impl VulkanRenderer {
             let swapchain = VulkanAppSwapchain::get(window_dimensions, &instance, &logical_device, physical_device, &surface_loader, surface, &indices)?;
             let swapchain_images = swapchain.loader.get_swapchain_images(swapchain.swapchain)?;
             let swapchain_image_views =  create_swapchain_image_views(&logical_device, &swapchain_images, swapchain.format)?;
-            let render_pass = create_render_pass(&instance, &logical_device, swapchain.format)?;
+            let render_pass = create_render_pass(&logical_device, swapchain.format)?;
             let descriptor_set_layout = create_descriptor_set_layout(&logical_device)?;
-            let triangle_pipeline = VulkanPipeline::new(&logical_device, render_pass, descriptor_set_layout, VulkanTopology::TriangleList)?;
-            let line_pipeline = VulkanPipeline::new(&logical_device, render_pass, descriptor_set_layout, VulkanTopology::LineList)?;
-            
+
+            let mut pipelines = HashMap::new();
+            for pipeline in PIPELINES_TYPES {
+                let vulkan_pipeline = VulkanPipeline::new(
+                    &logical_device, 
+                    render_pass, 
+                    descriptor_set_layout, 
+                    pipeline)?;
+
+                if !pipelines.contains_key(&pipeline.pipeline_type) {
+                    pipelines.insert(pipeline.pipeline_type, vulkan_pipeline);
+                }
+            }
+   
             let framebuffers = create_framebuffers(&logical_device, &swapchain_image_views, render_pass, &swapchain.extent)?;
             let command_pool = create_command_pool(&logical_device, &indices)?;
 
@@ -474,8 +480,7 @@ impl VulkanRenderer {
                 present_queue,
                 surface,
                 swapchain,
-                triangle_pipeline,
-                line_pipeline,
+                pipelines,
                 descriptor_set_layout,
                 descriptor_pool,
                 render_pass,
@@ -520,8 +525,10 @@ impl VulkanRenderer {
             self.framebuffers
                 .iter()
                 .for_each(|f| self.logical_device.destroy_framebuffer(*f, None));
-            self.triangle_pipeline.destroy(&self.logical_device);
-            self.line_pipeline.destroy(&self.logical_device);
+
+            self.pipelines.values()
+                .for_each(|p| p.destroy(&self.logical_device));
+
             self.logical_device.destroy_render_pass(self.render_pass, None);
             self.swapchain_image_views
                 .iter()
@@ -539,11 +546,18 @@ impl VulkanRenderer {
             self.swapchain = VulkanAppSwapchain::get(window_dimensions, &self.instance, &self.logical_device, self.physical_device, &self.surface_loader, self.surface, &self.indices)?;
             self.swapchain_images = self.swapchain.loader.get_swapchain_images(self.swapchain.swapchain)?;
             self.swapchain_image_views = create_swapchain_image_views(&self.logical_device, &self.swapchain_images, self.swapchain.format)?;
-            self.render_pass = create_render_pass(&self.instance, &self.logical_device, self.swapchain.format)?;
+            self.render_pass = create_render_pass(&self.logical_device, self.swapchain.format)?;
             
-            self.triangle_pipeline = VulkanPipeline::new(&self.logical_device, self.render_pass, self.descriptor_set_layout, VulkanTopology::TriangleList)?;
-            self.line_pipeline = VulkanPipeline::new(&self.logical_device, self.render_pass, self.descriptor_set_layout, VulkanTopology::LineList)?;
-            
+            for pipeline in PIPELINES_TYPES {
+                let vulkan_pipeline = VulkanPipeline::new(
+                    &self.logical_device, 
+                    self.render_pass, 
+                    self.descriptor_set_layout, 
+                    pipeline)?;
+
+                    self.pipelines.insert(pipeline.pipeline_type, vulkan_pipeline);
+            }
+
             self.framebuffers = create_framebuffers(&self.logical_device, &self.swapchain_image_views, self.render_pass, &self.swapchain.extent)?;
             self.uniform_buffers = create_uniform_buffers(&self.instance, &self.logical_device, self.physical_device)?;
             self.descriptor_pool = create_descriptor_pool(&self.logical_device, &self.swapchain_images)?;

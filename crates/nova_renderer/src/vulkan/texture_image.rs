@@ -42,7 +42,7 @@ pub(crate) fn create_dummy_texture_image(
     let pixels: Vec<u8> = vec![255, 255, 255, 255];
     let size = pixels.len() as u64;
 
-    create_texture_image_internal(width, height, size, &pixels, instance, logical_device, physical_device, command_pool, graphics_queue, TextureSamplerType::Dummy)
+    create_texture_image_internal(width, height, size, &pixels, instance, logical_device, physical_device, command_pool, graphics_queue, TextureSamplerType::Dummy, vk::Format::R8G8B8A8_SRGB)
 }
 
 pub(crate) fn create_texture_image(
@@ -52,8 +52,9 @@ pub(crate) fn create_texture_image(
     physical_device: vk::PhysicalDevice,
     command_pool: vk::CommandPool,
     graphics_queue: vk::Queue,
+    format: vk::Format
 ) -> Result<VulkanTextureImage> {
-    create_texture_image_internal(image.width(), image.height(), image.size(), &image.pixels(), instance, logical_device, physical_device, command_pool, graphics_queue, TextureSamplerType::Normal)
+    create_texture_image_internal(image.width(), image.height(), image.size(), &image.pixels(), instance, logical_device, physical_device, command_pool, graphics_queue, TextureSamplerType::Normal, format)
 }
 
 fn create_texture_image_internal(
@@ -66,7 +67,8 @@ fn create_texture_image_internal(
     physical_device: vk::PhysicalDevice,
     command_pool: vk::CommandPool,
     graphics_queue: vk::Queue,
-    sampler_type: TextureSamplerType
+    sampler_type: TextureSamplerType, 
+    format: vk::Format
 ) -> Result<VulkanTextureImage> {
     let buffer = VulkanBuffer::new(
         instance,
@@ -95,7 +97,7 @@ fn create_texture_image_internal(
         .array_layers(1)
         .extent(vk::Extent3D { width, height, depth: 1 })
         .mip_levels(1)
-        .format(vk::Format::R8G8B8A8_SRGB)
+        .format(format)
         .tiling(vk::ImageTiling::OPTIMAL)
         .initial_layout(vk::ImageLayout::UNDEFINED)
         .usage(vk::ImageUsageFlags::TRANSFER_DST | vk::ImageUsageFlags::SAMPLED)
@@ -125,7 +127,7 @@ fn create_texture_image_internal(
             command_pool,
             graphics_queue,
             texture_image,
-            vk::Format::R8G8B8A8_SRGB,
+            format,
             vk::ImageLayout::UNDEFINED,
             vk::ImageLayout::TRANSFER_DST_OPTIMAL
         );
@@ -144,14 +146,14 @@ fn create_texture_image_internal(
             command_pool,
             graphics_queue,
             texture_image,
-            vk::Format::R8G8B8A8_SRGB,
+            format,
             vk::ImageLayout::TRANSFER_DST_OPTIMAL,
             vk::ImageLayout::SHADER_READ_ONLY_OPTIMAL
         );
 
         buffer.destroy_buffer(logical_device);
 
-        let texture_image_view = create_image_view(logical_device, texture_image, vk::Format::R8G8B8A8_SRGB)?;
+        let texture_image_view = create_image_view(logical_device, texture_image, format)?;
 
         Ok(VulkanTextureImage {
             texture_image,

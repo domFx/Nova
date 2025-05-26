@@ -18,8 +18,7 @@ layout(location = 2) out int fragTextIndex;
 void main() {
     // MVP Projection
     gl_Position = ubo.proj * ubo.view * ubo.model * vec4(inPosition, 0.0, 1.0);
-    //    gl_Position = vec4(inPosition, 0.0, 1.0);
-
+    
     fragColor = inColor;
     fragTextCoord = inTextCoord;
     fragTextIndex = inTextIndex;

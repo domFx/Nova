@@ -1,12 +1,11 @@
 use crate::vertex::Vertex;
 use crate::vulkan::utils::shader::create_shader_module;
+use crate::pipeline_config::*;
 
 use std::ffi::CStr;
 
 use anyhow::Result;
 use ash::vk;
-
-use super::vulkan_renderer::VulkanTopology;
 
 pub struct VulkanPipeline {
     pub pipeline_layout: vk::PipelineLayout,
@@ -18,12 +17,26 @@ impl VulkanPipeline {
         device: &ash::Device,
         render_pass: vk::RenderPass,
         descriptor_set_layout: vk::DescriptorSetLayout,
-        topology: VulkanTopology
+        pipeline_config: &PipelineConfig
     ) -> Result<VulkanPipeline> {
         let vert =
-            ash::util::read_spv(&mut std::fs::File::open("./src/shaders/vert.spv")?)?;
+            ash::util::read_spv(&mut std::fs::File::open(pipeline_config.vertex_shader_path)?)?;
         let frag =
-            ash::util::read_spv(&mut std::fs::File::open("./src/shaders/frag.spv")?)?;
+            ash::util::read_spv(&mut std::fs::File::open(pipeline_config.fragment_shader_path)?)?;
+
+        // Map pipeline config to Vulkan pipeline flags
+        let blend_enabled = pipeline_config.blend_enabled;
+        let cull_mode = match pipeline_config.face_cull_mode {
+            crate::pipeline_config::FaceCullMode::None => vk::CullModeFlags::NONE,
+            crate::pipeline_config::FaceCullMode::Front => vk::CullModeFlags::FRONT,
+            crate::pipeline_config::FaceCullMode::Back => vk::CullModeFlags::BACK,
+            crate::pipeline_config::FaceCullMode::FrontAndBack => vk::CullModeFlags::FRONT_AND_BACK,
+        };
+        let topology_type = match pipeline_config.topology_type {
+            crate::core_types::PrimitiveTopologyType::LineList => vk::PrimitiveTopology::LINE_LIST,
+            crate::core_types::PrimitiveTopologyType::TriangleList => vk::PrimitiveTopology::TRIANGLE_LIST,
+            _ => vk::PrimitiveTopology::TRIANGLE_LIST,
+        };
 
         unsafe {
             let vertex_shader_module = create_shader_module(device, &vert[..])?;
@@ -46,7 +59,7 @@ impl VulkanPipeline {
                 .vertex_attribute_descriptions(&attribute_descriptions);
 
             let input_assembly_state: vk::PipelineInputAssemblyStateCreateInfo = vk::PipelineInputAssemblyStateCreateInfo::default()
-                .topology(topology.to_vulkan_topology())
+                .topology(topology_type)
                 .primitive_restart_enable(false);
 
             let viewport_state = vk::PipelineViewportStateCreateInfo::default()
@@ -58,17 +71,23 @@ impl VulkanPipeline {
                 .rasterizer_discard_enable(false)
                 .polygon_mode(vk::PolygonMode::FILL)
                 .line_width(1.0)
-                .cull_mode(vk::CullModeFlags::BACK)
+                .cull_mode(cull_mode)
                 .front_face(vk::FrontFace::CLOCKWISE)
                 .depth_bias_enable(false);
 
             let multisample_state = vk::PipelineMultisampleStateCreateInfo::default()
                 .sample_shading_enable(false)
                 .rasterization_samples(vk::SampleCountFlags::TYPE_1);
-
+            
             let attachment = vk::PipelineColorBlendAttachmentState::default()
                 .color_write_mask(vk::ColorComponentFlags::RGBA)
-                .blend_enable(false);
+                .src_color_blend_factor(vk::BlendFactor::SRC_ALPHA)
+                .dst_alpha_blend_factor(vk::BlendFactor::ONE_MINUS_SRC_ALPHA)
+                .src_alpha_blend_factor(vk::BlendFactor::ONE)
+                .dst_alpha_blend_factor(vk::BlendFactor::ZERO)
+                .alpha_blend_op(vk::BlendOp::ADD)
+                .color_write_mask(vk::ColorComponentFlags::RGBA)
+                .blend_enable(blend_enabled);
 
             let attachments = &[attachment];
             let color_blend_state = vk::PipelineColorBlendStateCreateInfo::default()
