@@ -15,10 +15,12 @@ use log::debug;
 use raw_window_handle::{DisplayHandle, WindowHandle};
 use thiserror::Error;
 
+/// Types of Renderers supported by the engine.
 pub enum RendererBackendType {
     Vulkan,
 }
 
+/// State of the renderer system during its lifecycle.
 #[derive(Default, Debug, Copy, Clone, Eq, PartialEq)]
 enum RendererState {
     #[default]
@@ -286,7 +288,7 @@ impl Renderer {
     }
 }
 
-/// Convert from screen space to NDC coordinates
+/// Convert from screen space to NDC (Normalized Device Coordinates)
 fn to_ndc_position(position: Vector2<f32>, window_dimensions: Vector2<u32>) -> Vector2<f32> {
     let x = (position.x / window_dimensions.x as f32) * 2.0 - 1.0;
     let y = (position.y / window_dimensions.y as f32) * 2.0 - 1.0;
@@ -294,7 +296,7 @@ fn to_ndc_position(position: Vector2<f32>, window_dimensions: Vector2<u32>) -> V
     Vector2::new(x, y)
 }
 
-/// Convert from screen dimensions to NDC dimensions
+/// Convert from screen dimensions to NDC (Normalized Device Coordinates)
 fn to_ndc_dimensions(dimensions: Vector2<f32>, window_dimensions: Vector2<u32>) -> Vector2<f32> {
     let x = (dimensions.x / window_dimensions.x as f32) * 2.0;
     let y = (dimensions.y / window_dimensions.y as f32) * 2.0;
@@ -302,10 +304,12 @@ fn to_ndc_dimensions(dimensions: Vector2<f32>, window_dimensions: Vector2<u32>) 
     Vector2::new(x, y)
 }
 
+/// Convert from screen space to NDC (Normalized Device Coordinates)
 fn get_ndc_width(width: f32, screen_width: f32) -> f32 {
     (2.0f32 / screen_width as f32) * width
 }
 
+/// Convert from screen space to NDC (Normalized Device Coordinates)
 fn get_ndc_height(height: f32, screen_height: f32) -> f32 {
     (2.0f32 / screen_height as f32) * height
 }
