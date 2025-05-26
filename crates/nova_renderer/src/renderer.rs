@@ -1,7 +1,7 @@
 use crate::core_types::PrimitiveTopologyType;
 use crate::pipeline_config::PipelineType;
 use crate::texture;
-use crate::vulkan::vulkan_renderer::VulkanRenderer;
+use crate::vulkan::vulkan_renderer_backend::VulkanRendererBackend;
 use crate::renderer_backend::RendererBackend;
 use crate::vertex::Vertex;
 
@@ -107,7 +107,7 @@ impl Renderer {
         // Only one backend for now...
         let renderer_backend: Box<dyn RendererBackend> = match renderer_type {
             RendererBackendType::Vulkan => Box::from(
-                VulkanRenderer::new(window_handle, display_handle, window_dimensions)
+                VulkanRendererBackend::new(window_handle, display_handle, window_dimensions)
                     .expect("Failed to create Vulkan Renderer")
             )
         };

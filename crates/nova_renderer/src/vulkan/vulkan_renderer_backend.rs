@@ -49,7 +49,7 @@ static PIPELINES_TYPES: [&PipelineConfig; 3] = [
     &TRANSPARENT
 ];
 
-pub struct VulkanRenderer {
+pub struct VulkanRendererBackend {
     entry: ash::Entry,
     instance: ash::Instance,
     surface_loader: khr::surface::Instance,
@@ -97,7 +97,7 @@ struct PhysicalDeviceConstraints {
     max_per_stage_descriptor_samplers: u32,
 }
 
-impl RendererBackend for VulkanRenderer {
+impl RendererBackend for VulkanRendererBackend {
     fn prepare_window_surface(&mut self, window_dimensions: Vector2<u32>) -> Result<()> {
         unsafe {
             self.logical_device.wait_for_fences(&[self.in_flight_fences[self.current_frame]], true, u64::MAX)?;
@@ -401,7 +401,7 @@ impl RendererBackend for VulkanRenderer {
     }
 }
 
-impl VulkanRenderer {
+impl VulkanRendererBackend {
     pub fn new(window_handle: WindowHandle, display_handle: DisplayHandle, window_dimensions: Vector2<u32>) -> Result<Self> {
         unsafe {
             let entry = ash::Entry::load()?;

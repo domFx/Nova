@@ -23,4 +23,4 @@ mod descriptor_sets;
 mod texture_image;
 mod push_constant;
 mod utils;
-pub(crate) mod vulkan_renderer;
+pub(crate) mod vulkan_renderer_backend;
