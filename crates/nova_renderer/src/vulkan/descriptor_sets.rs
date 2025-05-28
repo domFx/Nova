@@ -1,15 +1,15 @@
 use crate::texture;
-use crate::vulkan::vulkan_buffer::VulkanBuffer;
-use crate::vulkan::uniform_buffers::UniformBufferObject;
 use crate::vulkan::constants::MAX_FRAMES_IN_FLIGHT;
+use crate::vulkan::texture_image::VulkanTextureImage;
+use crate::vulkan::uniform_buffers::UniformBufferObject;
+use crate::vulkan::vulkan_buffer::VulkanBuffer;
+use crate::vulkan::{logical_device, texture_image};
 
 use anyhow::Result;
 use ash::vk;
 use std::mem::size_of;
 use std::vec;
 
-use super::{logical_device, texture_image};
-use super::texture_image::VulkanTextureImage;
 
 pub(crate) fn create_descriptor_sets(
     logical_device: &ash::Device,

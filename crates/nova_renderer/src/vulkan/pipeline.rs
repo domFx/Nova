@@ -97,10 +97,21 @@ impl VulkanPipeline {
             let dynamic_state_info = vk::PipelineDynamicStateCreateInfo::default()
                 .dynamic_states(&dynamic_states);
 
+            let vertex_push_constant_range = vk::PushConstantRange::default()
+                .stage_flags(vk::ShaderStageFlags::VERTEX)
+                .offset(0)
+                .size(64); // 16 * 4 bytes for a 4x4 matrix
+
+            let fragment_push_constant_range = vk::PushConstantRange::default()
+                .stage_flags(vk::ShaderStageFlags::FRAGMENT)
+                .offset(64)
+                .size(4); // 4 bytes for float
+
             let layouts = &[descriptor_set_layout];
+            let push_constant_ranges = &[vertex_push_constant_range, fragment_push_constant_range];
             let layout_info = vk::PipelineLayoutCreateInfo::default()
                 .set_layouts(layouts)
-                .push_constant_ranges(&[]);
+                .push_constant_ranges(push_constant_ranges);
 
             let pipeline_layout = device.create_pipeline_layout(&layout_info, None)?;
 
