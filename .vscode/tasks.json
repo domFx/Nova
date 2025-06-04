@@ -1,19 +1,25 @@
 {
 	"version": "2.0.0",
 	"tasks": [
-		{
-            "label": "rust: cargo build",
+        {
+            "label": "cargo build",
             "type": "shell",
-            "command": "bash",
-            "args": [
-                "-c",
-                "cargo build"
-            ],
             "group": {
                 "kind": "build",
                 "isDefault": true
             },
-            "problemMatcher": ["$rustc"]
+            "problemMatcher": ["$rustc"],
+            "windows": {
+                "command": "cargo",
+                "args": ["build"]
+            },
+            "osx": {
+                "command": "bash",
+                "args": [
+                    "-c",
+                    "cargo build"
+                ],
+            }
         }
 	]
 }

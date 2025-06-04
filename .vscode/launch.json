@@ -5,33 +5,18 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "type": "lldb",
+            "name": "Launch Application",
             "request": "launch",
-            "name": "MacOS - Cargo launch",
-            "preLaunchTask": "rust: cargo build",
-            "cargo": {
-                "args": [
-                    "build"
-                ]
-            },
+            "type": "lldb",
+            "preLaunchTask": "cargo build",
             "cwd": "${workspaceFolder}",
             "console": "integratedTerminal",
-            "args": [],
-            "env": {
-                "DYLD_LIBRARY_PATH": "/usr/local/lib",
+            "program": "${workspaceFolder}/target/debug/${workspaceFolderBasename}",
+            "osx": {
+                "env": {
+                    "DYLD_LIBRARY_PATH": "/usr/local/lib",
+                }
             }
-        },
-        {
-            "name": "(Windows) Launch",
-            "type": "cppvsdbg",
-            "request": "launch",
-            "program": "${workspaceFolder}/target/debug/${workspaceFolderBasename}.exe",
-            "preLaunchTask": "rust: cargo build",
-            "args": [],
-            "stopAtEntry": false,
-            "cwd": "${workspaceFolder}",
-            "environment": [],
-            "console": "integratedTerminal"
         },
     ]
 }
