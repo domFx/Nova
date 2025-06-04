@@ -26,6 +26,8 @@ use crate::vulkan::descriptor_pool::create_descriptor_pool;
 use crate::vulkan::descriptor_sets::create_descriptor_sets;
 use crate::vulkan::uniform_buffers::{create_uniform_buffers, update_uniform_buffer};
 
+use cgmath::Matrix4;
+use cgmath::SquareMatrix;
 use nova_core::image::Image;
 use nova_core::color::Color;
 use nova_math::vector::Vector2;
@@ -36,6 +38,7 @@ use ash::ext::index_type_uint8;
 use ash::vk::PrimitiveTopology;
 use raw_window_handle::{DisplayHandle, WindowHandle};
 use std::collections::HashMap;
+use std::convert::identity;
 use std::time::Instant;
 use std::u64;
 use std::usize::MAX;
@@ -49,7 +52,7 @@ static PIPELINES_TYPES: [&PipelineConfig; 3] = [
     &TRANSPARENT
 ];
 
-pub struct VulkanRenderer {
+pub struct VulkanRendererBackend {
     entry: ash::Entry,
     instance: ash::Instance,
     surface_loader: khr::surface::Instance,
@@ -97,7 +100,7 @@ struct PhysicalDeviceConstraints {
     max_per_stage_descriptor_samplers: u32,
 }
 
-impl RendererBackend for VulkanRenderer {
+impl RendererBackend for VulkanRendererBackend {
     fn prepare_window_surface(&mut self, window_dimensions: Vector2<u32>) -> Result<()> {
         unsafe {
             self.logical_device.wait_for_fences(&[self.in_flight_fences[self.current_frame]], true, u64::MAX)?;
@@ -240,6 +243,25 @@ impl RendererBackend for VulkanRenderer {
                 &[self.descriptor_sets[self.current_frame]],
                 &[]);
 
+            let model: Matrix4<f32> = Matrix4::identity();
+            let model_bytes = std::slice::from_raw_parts(
+                &model as *const Matrix4<f32> as *const u8,
+                size_of::<Matrix4<f32>>()
+            );
+            
+            self.logical_device.cmd_push_constants(
+                self.active_command_buffer.unwrap(), 
+                pipeline.pipeline_layout, 
+                vk::ShaderStageFlags::VERTEX, 
+                0, 
+                &model_bytes);
+            self.logical_device.cmd_push_constants(
+                self.active_command_buffer.unwrap(), 
+                pipeline.pipeline_layout, 
+                vk::ShaderStageFlags::FRAGMENT,
+                64, 
+                &1f32.to_ne_bytes()[..]);
+
             self.logical_device.cmd_draw_indexed(self.active_command_buffer.unwrap(), indices.len() as u32, 1, 0, 0, 0);
         }
 
@@ -332,6 +354,8 @@ impl RendererBackend for VulkanRenderer {
         }
     
         let texture_images = images.iter().map(|image| {
+            // image format: R8G8B8A8_SRGB
+
             // TODO: Fix use of expect 
             create_texture_image(
                 image, 
@@ -340,7 +364,7 @@ impl RendererBackend for VulkanRenderer {
                 self.physical_device, 
                 self.command_pool, 
                 self.graphics_queue,
-                vk::Format::R32G32B32A32_SFLOAT).expect("Error creating texture_image")
+                vk::Format::R8G8B8A8_SRGB).expect("Error creating texture_image")
             }).collect::<Vec<_>>();
 
         // TODO: texture_images will be the "global" list of textures uploaded to the GPU.  
@@ -401,7 +425,7 @@ impl RendererBackend for VulkanRenderer {
     }
 }
 
-impl VulkanRenderer {
+impl VulkanRendererBackend {
     pub fn new(window_handle: WindowHandle, display_handle: DisplayHandle, window_dimensions: Vector2<u32>) -> Result<Self> {
         unsafe {
             let entry = ash::Entry::load()?;

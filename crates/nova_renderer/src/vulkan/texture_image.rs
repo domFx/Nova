@@ -80,6 +80,7 @@ fn create_texture_image_internal(
     )?;
 
     unsafe {
+        log::debug!("mapping memory for texture image buffer size {:?} pixels {:?}", size, pixels.len());
         let memory = logical_device.map_memory(
             buffer.buffer_memory,
             0,
@@ -132,16 +133,16 @@ fn create_texture_image_internal(
             vk::ImageLayout::TRANSFER_DST_OPTIMAL
         );
 
-        let _ = copy_buffer_to_image(
+        copy_buffer_to_image(
             &logical_device,
             command_pool,
             graphics_queue,
             buffer.buffer,
             texture_image,
             width,
-            height);
+            height)?;
 
-        let _ = transition_image_layout(
+        transition_image_layout(
             &logical_device,
             command_pool,
             graphics_queue,
@@ -149,17 +150,18 @@ fn create_texture_image_internal(
             format,
             vk::ImageLayout::TRANSFER_DST_OPTIMAL,
             vk::ImageLayout::SHADER_READ_ONLY_OPTIMAL
-        );
+        )?;
 
         buffer.destroy_buffer(logical_device);
 
         let texture_image_view = create_image_view(logical_device, texture_image, format)?;
+        let texture_sampler = create_texture_sampler(logical_device, sampler_type)?;
 
         Ok(VulkanTextureImage {
             texture_image,
             texture_image_memory,
             texture_image_view,
-            texture_sampler: create_texture_sampler(logical_device, sampler_type)?
+            texture_sampler
         })
     }
 }

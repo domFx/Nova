@@ -43,7 +43,7 @@ fn check_physical_device(
 ) -> Result<()> {
     unsafe {
         QueueFamilyIndices::get(instance, physical_device, surface, &surface_loader)?;
-        check_physical_device_extensions(instance, physical_device)?;
+        verify_physical_device_extensions(instance, physical_device)?;
 
         let support = SwapchainSupport::get(surface_loader, physical_device, surface)?;
 
@@ -60,18 +60,21 @@ fn check_physical_device(
     }
 }
 
-fn check_physical_device_extensions(
+/// Verify that physical device supports all required extensions
+fn verify_physical_device_extensions(
     instance: &ash::Instance,
     physical_device: vk::PhysicalDevice
 ) -> Result<()> {
     unsafe {
-        let extensions = instance
+        // Get the list of supported device extensions
+        let supported_extensions = instance
             .enumerate_device_extension_properties(physical_device)?
             .iter()
             .map(|e| CStr::from_ptr(e.extension_name.as_ptr()) )
             .collect::<HashSet<_>>();
 
-        if DEVICE_EXTENSIONS.iter().all(|e| extensions.contains(e)) {
+        // Verify that all required device extensions are supported
+        if DEVICE_EXTENSIONS.iter().all(|e| supported_extensions.contains(e)) {
             Ok(())
         } else {
             Err(anyhow!(VulkanSuitabilityError("Missing required device extensions")))

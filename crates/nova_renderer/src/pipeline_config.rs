@@ -31,7 +31,7 @@ pub(crate) static DEFAULT: PipelineConfig = PipelineConfig {
     vertex_shader_path: "./src/shaders/default_vert.spv",
     fragment_shader_path: "./src/shaders/default_frag.spv",
     face_cull_mode: FaceCullMode::Back,
-    blend_enabled: false
+    blend_enabled: true
 };
 
 pub(crate) static DEFAULT_LINE: PipelineConfig = PipelineConfig {
@@ -40,7 +40,7 @@ pub(crate) static DEFAULT_LINE: PipelineConfig = PipelineConfig {
     vertex_shader_path: "./src/shaders/default_vert.spv",
     fragment_shader_path: "./src/shaders/default_frag.spv",
     face_cull_mode: FaceCullMode::Back,
-    blend_enabled: false
+    blend_enabled: true
 };
 
 
